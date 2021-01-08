@@ -4283,8 +4283,8 @@ cases <- case %>%
   filter(cong_yn == "No") %>% 
   select(eventid, city)
 TOI <- unique(town_pop18$city) 
-dir.create("town_case_eventids")
-dir.create(paste0("town_case_eventids/", Sys.Date()))
+# dir.create("town_case_eventids")
+dir.create(paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", Sys.Date()))
 mastercase <- cases %>% 
   left_join(townlhd, by = c("city" = "Town")) %>% 
   select(eventid, city, `Health Department Name`) %>% 
@@ -4295,7 +4295,7 @@ for(i in TOI){
   casesi <- cases %>%  
     filter(city == i) %>% 
     select(eventid)
-dir.create(paste0("town_case_eventids/", Sys.Date(), "/",townlhd$`Health Department Name`[townlhd$Town == i]))  
+dir.create(paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", Sys.Date(), "/",townlhd$`Health Department Name`[townlhd$Town == i]))  
 #write_csv(casesi, path = paste0("town_case_eventids/",Sys.Date(),"/",townlhd$`Health Department Name`[townlhd$Town == i] ,"/",i,"last2week.csv"))  
 }
 ```
