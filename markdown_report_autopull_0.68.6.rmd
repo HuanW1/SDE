@@ -10,7 +10,6 @@ params:
     input: text
 ---
 
-Time hack `r Sys.time()`
 
 ```{r setup, include=FALSE}
 ###  CT DPH
@@ -330,7 +329,6 @@ if(file.exists(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 
 
 ```
 
-Chuck is here
 
 ```{r shapefiles, include = FALSE}
 #### towns shapes ####
@@ -789,8 +787,6 @@ df$death_date[df$eventid %in% 102901517]<- "2020-12-21"
 ```
 
 
-Chuck is here
-
 ```{r case_creation1}
 ######case pt 1############
 case <- df %>% 
@@ -834,7 +830,6 @@ case <- case %>%
   ungroup() 
 
 
-### chuck is here
 # case$spec_date[!case$test %in% pcrtests] <- NA
 # case$spec_col_date[!case$test %in% pcrtests] <- NA
 
@@ -1148,9 +1143,6 @@ neg_tests_thursday <- neg_tests_thursday$n
 ```
 
 
-Chuck is here
-
-
 ```{r geos}
 cha_c <- cha %>%
   filter(Type == "Admit") %>% 
@@ -1216,8 +1208,6 @@ subdat3 <- subdat3 %>%
 ```
 
 
-Chuck is here
-
 ```{r intro_text}
 today_text <- format(graphdate, "%B %d, %Y")
 cases_text <- nrow(case)  #for now
@@ -1239,8 +1229,7 @@ rmarkdown::render("gary_text.Rmd", output_file = paste0(saveto,"/", Sys.Date(), 
 
 ```
 
-Chuck is here
-  
+
 ```{r overall_summary_table, echo=FALSE, message=FALSE, warning=FALSE}
 if(exists('fake_yesterday')){
 hospitalized_totals <-  cha_c %>%  filter(State== "TOTAL") %>% select(today)
@@ -1513,8 +1502,6 @@ n14cperc <- paste0("(",round(com/nrow(cases_14)*100), "%)")
 
 ```
 
-Chuck is here
-
 `r if(thursday){"### COVID-19 Cases and Deaths Over Time ###  "}`
 
 
@@ -1581,7 +1568,6 @@ ggplot(casebyweek)+
   )
 ```
 
-Chuck is here
 
 `r if(thursday){"__Community Transmission of COVID-19 __"}` 
 
@@ -1612,8 +1598,6 @@ ggplot(subdat14nc)+
     fill = guide_legend(nrow =2 )
   )
 ```
-
-Chuck is here
 
 `r if(thursday){"*Map does not include* "}` `r if(thursday){thursday_pending_address$n}` `r if(thursday){"*cases pending address validation*"}`
 
@@ -1659,7 +1643,6 @@ ggplot(subdat14nc)+
 
 `r if(thursday){"*Map does not include* "}` `r if(thursday){thursday_pending_address$n}` `r if(thursday){"*cases pending address validation*  "}`
 
-Chuck is here
 
 ```{r newcasetable, eval = wedthurs}
 #monthday <- "OCT_15"
@@ -1795,7 +1778,6 @@ newcasetable <- c14nc_count %>%
 #write_csv(newcasetable, paste0("csv/",Sys.Date(), "/", Sys.Date(), "newcases+tests.csv"))
 ```
 
-Chuck is here -- glitchy
 
 ```{r thursdaytable, eval = thursday}
 newcase_tbl_town <- newcasetable %>% 
@@ -1865,8 +1847,6 @@ ggplot(subdat14tnc)+
 
 ```
 `r if(thursday){"*Map does not include tests pending address validation*  "}`
-
-Chuck is here
 
 `r if(thursday){"__Age Distribution of COVID-19 Cases with Specimen Collection or Onset During"}` `r if(thursday){thursday_range}` `r if(thursday){", 2020__  "}`
 
@@ -2005,8 +1985,6 @@ ggplot(agegrp, aes(mmwrweekdate, rate_100k,col = age_group, group = age_group))+
 
 ```
 
-Chuck is here
-
 `r if(thursday){"**Average Daily Incidence by County**"}`
 
 `r if(thursday){"The chart below shows the average number of new COVID-19 cases per day per 100,000 population in the state of Connecticut and for each Connecticut county. The rates in this chart are calculated by averaging the number of new cases diagnosed each day during the previous two weeks, dividing by the annual estimated population, and then multiplying by 100,000.  "}`
@@ -2100,8 +2078,6 @@ ggplot(weekincidence, aes(mmwrweekdate, rate, col = County, group = County))+
 ```
 
 
-Chuck is here
-
 `r if(thursday){"__Cumulative Number of COVID-19 Cases and COVID-19-Associated Death by Date__  "}`
 
 `r if(thursday){"_Test results may be reported several days after the result. Data are incomplete for most recent dates shaded in grey. Data from previous dates are routinely updated._  "}`
@@ -2166,7 +2142,6 @@ epicurve %>%
 
 ```
 
-Chuck is here
 
 ```{r not_sure8, message=FALSE, warning=FALSE, fig.align= "center" , eval = thursday}
 dfs_daily_dead <- case %>%
@@ -2216,8 +2191,6 @@ ggplot(dfs_daily_dead_proto)+
     fill = "")
 
 ``` 
-
-Chuck is here
 
 
 ```{r syndromic_plot_example, eval=FALSE}
@@ -2449,7 +2422,6 @@ theme(
 
 `r if(thursday){"*Test results may be reported several days after specimen collection. Data are incomplete for most recent dates shaded in grey. Data for previous dates are routinely updated.*"}`
 
-Chuck is here Time hack `r Sys.time()`
 
 ```{r not_sure12,  message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300}
 elr_linelist_elronly %>% 
@@ -2584,7 +2556,6 @@ epicurve %>%
 
 ```
 
-Chuck is here
 
 ```{r not_sure15, message=FALSE, warning=FALSE, fig.align= "center" , eval = not_thursday}
 dfs_daily_dead <- case %>%
@@ -2691,7 +2662,6 @@ ggplot(dfs_age_d)+
 
 ```
 
-Chuck is here
 
 `r if(thursday){"*Counts may not add up to total case count because demographic data may be missing.*"}`
 
@@ -2734,7 +2704,6 @@ ggplot(
        x="")
 ```
 
-Chuck is here
 
 ```{r not_sure20,  message=FALSE, warning=FALSE, fig.align= "center", eval = thursday}
 ggplot(
@@ -2897,7 +2866,6 @@ ggplot(state_wide_rates%>% filter(type =="Death Rate") , aes(geo, rate, fill = c
        fill = "")
 ```
 
-Chuck is here
 
 ```{r message=FALSE, warning=FALSE, fig.align= "center", eval=thursday}
 dfs_per_capita <- case %>%
@@ -3031,7 +2999,6 @@ ggplot(
 
 ```
 
-Chuck is here
 
 ```{r fig.align="center", message=FALSE, warning=FALSE}
 maxlimit3 <- (round(max(race_eth_comb$deaths)/500)*500)+500
@@ -3363,8 +3330,7 @@ ggplot(adj_tbl_long_dec, aes(fill = rate_type, y = n, x = hisp_race))+
 
 ```
   
-  Chuck is here Time hack `r Sys.time()`
-  
+
 ```{r message=FALSE, warning=FALSE, fig.align= "center", dpi = 600, eval= FALSE}
 re_grp <- race_eth_comb %>%
   select(hisp_race, tot, deaths) %>%
@@ -3620,7 +3586,6 @@ GenderSummary <- tibble(
   DateUpdated = format(graphdate, "%m/%d/%Y")
 ) 
 
-## Chuck is here
 
 chg_yst2 <- read_csv(paste0("L:/daily_reporting_figures_rdp/yesterday/",Sys.Date()-1,"/",yesterday_file)) %>%
   rename(yesterday = `Total**`) 
@@ -3932,7 +3897,6 @@ countycountDate <- case %>%
 ##write_csv(agg_test_cdc,paste0("csv/",Sys.Date(),"/", Sys.Date(), "test.csv"))
 ```
 
-Chuck is here
 
 ```{r avg_incidence_gary, eval=wedthurs, message=FALSE, warning=FALSE, include=FALSE}
 
@@ -3977,7 +3941,6 @@ dir.create(paste0("yesterday/",Sys.Date(),"/avg_di"))
 
 ```
 
-Chuck is here
 
 ```{r avg_incidence_gary2, eval=wedthurs, message=FALSE, warning=FALSE, include=FALSE}
 lvls <- c("<5 cases per 100,000 or <5 reported cases", "5-9 cases per 100,000", "10-14 cases per 100,000", "15 or more cases per 100,000")
@@ -4236,7 +4199,6 @@ sdedata <- testgeo2 %>%
 
 ```
 
-Chuck is here 
 
 ```{r county_data_request, message=FALSE, warning=FALSE, include=FALSE}
 case_county_cum <-  case %>% 
