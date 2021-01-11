@@ -4165,7 +4165,7 @@ modelingdata <- bind_cols(spec_dates, admissions, deathsdata, labdata) %>%
   select(-c(admit_date, dod, spec_col_date))
 #dir.create(paste0(path1,"/modeling/"))
 ##write_csv(modelingdata, paste0(path1,"/modeling/", Sys.Date(), ".csv"))
-#write_csv(modelingdata, paste0(path2, "/CT_daily_counts_totals.csv"))
+write_csv(modelingdata, paste0("L:/daily_reporting_figures_rdp/gary_csv/CT_daily_counts_totals.csv"))
 
 forrestdata <- testgeo2 %>%
   filter(cong_test!="Yes") %>%
@@ -4177,7 +4177,7 @@ forrestdata <- testgeo2 %>%
          agtotal = sum(ag_detected, `ag_not detected`, na.rm=TRUE))
 
 #create dataset for Forrest
-#write_csv(forrestdata, paste0("csv/", Sys.Date(), "/", Sys.Date(), "dailytest_communityonly.csv"))
+#write_csv(forrestdata, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "dailytest_communityonly.csv"))
 
 #create dataset for sde indicator for county test counts
 sdedata <- testgeo2 %>%
@@ -4189,7 +4189,7 @@ sdedata <- testgeo2 %>%
   tally() %>% 
   spread(result2, n) %>% 
   replace_na(replace=list(Positive=0, Negative=0, Indeterminate=0)) 
-#write_csv(sdedata, paste0("csv/", Sys.Date(), "/", Sys.Date(), "communitytest_county.csv"))
+write_csv(sdedata, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "communitytest_county.csv"))
 
 ```
 
@@ -4223,7 +4223,7 @@ county7 <- tibble(
 )  
 }
 
-#write_csv(county7,paste0(path1,"/county7days.csv"))
+write_csv(county7, paste0("L:/daily_reporting_figures_rdp/csv/county7days.csv"))
 ```
 
 ```{r town_case_eids,  message=FALSE, warning=FALSE, include=FALSE}
@@ -4246,13 +4246,13 @@ mastercase <- cases %>%
   select(eventid, city, `Health Department Name`) %>% 
   filter(!is.na(city) & !is.na(`Health Department Name`) & city != "Not Available") %>% 
   arrange(`Health Department Name`, city)
-#write_csv(mastercase, path = paste0("town_case_eventids/",Sys.Date(),"/","mastereventidlist.csv"))  
+write_csv(mastercase, path = paste0("town_case_eventids/",Sys.Date(),"/","mastereventidlist.csv"))  
 for(i in TOI){
   casesi <- cases %>%  
     filter(city == i) %>% 
     select(eventid)
 dir.create(paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", Sys.Date(), "/",townlhd$`Health Department Name`[townlhd$Town == i]))  
-#write_csv(casesi, path = paste0("town_case_eventids/",Sys.Date(),"/",townlhd$`Health Department Name`[townlhd$Town == i] ,"/",i,"last2week.csv"))  
+write_csv(casesi, path = paste0("town_case_eventids/",Sys.Date(),"/",townlhd$`Health Department Name`[townlhd$Town == i] ,"/",i,"last2week.csv"))  
 }
 ```
 
