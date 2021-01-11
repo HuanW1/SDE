@@ -268,7 +268,7 @@ if(!is_empty(adhocfiles)){
 files <- list.files("L:/daily_reporting_figures_rdp/ctedss_data_here_2", pattern = ".csv")
 df <-
    files %>%
-   map(~ read_csv(.,
+   map(~ read_csv(file.path("L:/daily_reporting_figures_rdp/ctedss_data_here_2", .),
                   col_types = cols( .default = col_character(),
                                     `Case ID` = col_double(),
                                     `Vital Records Death number` = col_double()),
