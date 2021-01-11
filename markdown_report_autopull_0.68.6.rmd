@@ -266,34 +266,15 @@ if(!is_empty(adhocfiles)){
 
 #### data read in from ctedss_data_here_2 ####
 files <- list.files("L:/daily_reporting_figures_rdp/ctedss_data_here_2", pattern = ".csv")
-df <-   files %>%
-  map(~read_csv(file.path("L:/daily_reporting_figures_rdp/ctedss_data_here_2", .), col_types = cols(`Chills:` = col_character(),
-                                                                   `Event Age Years` = col_character(),
-                                                               `Cough:` = col_character(),
-                                                               `Date Hospitalized` = col_character(),
-                                                               `Date Discharged` = col_character(),
-                                                               `Date of Death` = col_character(),
-                                                               `Difficulty breathing/Shortness of breath:` = col_character(),
-                                                               `Fatigue:` = col_character(),
-                                                               `Fever:` = col_character(),
-                                                               `Headache:` = col_character(),
-                                                               `Hospital Name` = col_character(),
-                                                               `Muscle aches/pains (myalgia):` = col_character(),
-                                                               `New olfactory or taste disorders` = col_character(),
-                                                               `Rigors / Shivers:` = col_character(),
-                                                               `Specimen Date` = col_character(),
-                                                               `Died With COVID-19` = col_character(),
-                                                               `Lab Facility Name` = col_character(),
-                                                               `Lab Facility Facility` = col_character(),
-                                                               `Result` = col_character(),
-                                                               `Test` = col_character(),
-                                                               `Type of Congregate Setting` = col_character(),
-                                                               `Name of facility` = col_character(),
-                                                               `Did Patient Reside or Spend Time in a Congregate Setting` = col_character(),
-                                                               `Pregnant` = col_character(),
-                                                               `What Was Their Exposure to the Congregate Setting` = col_character()))) %>%
-  reduce(bind_rows) %>% 
-  select_if(!str_detect(names(.), "X[0-9]"))
+df <-
+   files %>%
+   map(~ read_csv(.,
+                  col_types = cols( .default = col_character(),
+                                    `Case ID` = col_double(),
+                                    `Vital Records Death number` = col_double()),
+                  progress = FALSE)) %>%
+   reduce(bind_rows) %>%
+   select_if(!str_detect(names(.), "X[0-9]"))
 
 
 if(!is_empty(adhocfiles)){
