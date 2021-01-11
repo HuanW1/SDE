@@ -3880,14 +3880,15 @@ countycountDate <- case %>%
   ungroup() %>% 
   filter(!is.na(County) & !is.na(Date))
 
-write_csv(countycountDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/CountySummarybyDate.csv"))
-write_csv(death_by_deathdate, paste0("L:/daily_reporting_figures_rdp/gary_csv/DodSummary.csv"))
-write_csv(GenderSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/GenderSummary.csv"))
-write_csv(StateSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/StateSummary.csv"))
-write_csv(AgeGroupSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/AgeGroupSummary.csv"))
-write_csv(CountySummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/CountySummary.csv"))
-write_csv(REStateSummary , paste0("L:/daily_reporting_figures_rdp/gary_csv/REStateSummary.csv"), na = "")
-write_csv(agg_test_gary, paste0("L:/daily_reporting_figures_rdp/gary_csv/TestCounty.csv"))
+paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/TestCounty.csv")
+write_csv(countycountDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/CountySummarybyDate.csv"))
+write_csv(death_by_deathdate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/DodSummary.csv"))
+write_csv(GenderSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/GenderSummary.csv"))
+write_csv(StateSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/StateSummary.csv"))
+write_csv(AgeGroupSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/AgeGroupSummary.csv"))
+write_csv(CountySummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/CountySummary.csv"))
+write_csv(REStateSummary , paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/REStateSummary.csv"), na = "")
+write_csv(agg_test_gary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/TestCounty.csv"))
 ## write_csv(agg_test_cdc,paste0("csv/",Sys.Date(),"/", Sys.Date(), "test.csv"))
 ```
 
@@ -4246,13 +4247,13 @@ mastercase <- cases %>%
   select(eventid, city, `Health Department Name`) %>% 
   filter(!is.na(city) & !is.na(`Health Department Name`) & city != "Not Available") %>% 
   arrange(`Health Department Name`, city)
-write_csv(mastercase, path = paste0("town_case_eventids/",Sys.Date(),"/","mastereventidlist.csv"))  
+write_csv(mastercase, path = paste0("L:/daily_reporting_figures_rdp/town_case_eventids/town_case_eventids/", Sys.Date(), "/", "mastereventidlist.csv"))  
 for(i in TOI){
   casesi <- cases %>%  
     filter(city == i) %>% 
     select(eventid)
 dir.create(paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", Sys.Date(), "/",townlhd$`Health Department Name`[townlhd$Town == i]))  
-write_csv(casesi, path = paste0("town_case_eventids/",Sys.Date(),"/",townlhd$`Health Department Name`[townlhd$Town == i] ,"/",i,"last2week.csv"))  
+write_csv(casesi, path = paste0("L:/daily_reporting_figures_rdp/town_case_eventids/",Sys.Date(),"/",townlhd$`Health Department Name`[townlhd$Town == i] ,"/",i,"last2week.csv"))  
 }
 ```
 
