@@ -316,8 +316,8 @@ if(file.exists(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 
 if(file.exists("L:/daily_reporting_figures_rdp/shape_files/cb_2017_09_cousub_500k.shp")){
   filename <- list.files('L:/daily_reporting_figures_rdp/shape_files', pattern=".shp", full.names=FALSE)
   filename <- gsub(".shp", "", filename)
-  subdat <- st_read('L:/daily_reporting_figures_rdp/shape_files', "cb_2017_09_cousub_500k")
-  subdat <- st_transform(subdat,"+init=epsg:4326")
+  subdat <- sf::st_read('L:/daily_reporting_figures_rdp/shape_files', "cb_2017_09_cousub_500k")
+  subdat <- sf::st_transform(subdat,"+init=epsg:4326")
 } else { # we still need this?
   url <- "https://www2.census.gov/geo/tiger/GENZ2017/shp/cb_2017_09_cousub_500k.zip"
   destname <- "tiger_county.zip"
@@ -1254,7 +1254,7 @@ tableforgary <- ovlsum
 dir.create(paste0('yesterday/', Sys.Date()))
 #write_csv(ovlsum,paste0("yesterday/",Sys.Date(),"/", Sys.Date(), ".csv"))
 ovlsum <- regulartable(ovlsum) %>%
-  autofit()
+  flextable::autofit()
 ovlsum <- align_nottext_col(ovlsum,align = "center")
 ovlsum
 
@@ -1318,7 +1318,7 @@ cha_stats <-  bind_cols(tbl_summary, tbl_total) %>%
 dir.create(paste0('yesterday/', Sys.Date()))
 #write_csv(ovlsum,paste0("yesterday/",Sys.Date(),"/", Sys.Date(), ".csv"))
 ovlsum <- regulartable(ovlsum) %>%
-  autofit()
+  flextable::autofit()
 ovlsum <- align_nottext_col(ovlsum,align = "center")
 ovlsum
 }
@@ -1328,7 +1328,7 @@ ovlsum
 **COVID-19 Cases and Associated Deaths by County of Residence**  
 *As of `r paste0(format(graphdate, "%m/%d/%y"), " ", params$desiredtime)`.*
 ```{r county_lab_cases_deaths_table, message=FALSE, warning=FALSE}
-tbl_county <- tibble(County = as_factor(c("Fairfield County", "Hartford County", "Litchfield County", "Middlesex County", "New Haven County", "New London County", "Tolland County", "Windham County", "Pending address validation")))
+tbl_county <- tibble::tibble(County = forcats::as_factor(c("Fairfield County", "Hartford County", "Litchfield County", "Middlesex County", "New Haven County", "New London County", "Tolland County", "Windham County", "Pending address validation")))
 tbl_confirmed_cases <- case %>%
   filter(disease_status == "Confirmed") %>% 
   group_by(county) %>% 
@@ -1395,7 +1395,7 @@ tbl <-  tbl %>%
                         ))
 
 tbl <- theme_booktabs(tbl)
-tbl <- autofit(tbl)
+tbl <- flextable::autofit(tbl)
 tbl <- fix_border_issues(tbl)
 tbl <- height_all(tbl, height = .2)
 tbl <- align_nottext_col(tbl,align = "center")
