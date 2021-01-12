@@ -1326,7 +1326,7 @@ tableforgary <- ovlsum
 cha_stats <-  bind_cols(tbl_summary, tbl_total) %>%
   rename(summary = `Overall Summary`, total = `Total**`)
 
-dir.create(paste0('yesterday/', Sys.Date()))
+dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
 write_csv(ovlsum, paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date(), "/", Sys.Date(), ".csv"))
 
 ovlsum <- regulartable(ovlsum) %>%
