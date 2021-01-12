@@ -3882,7 +3882,11 @@ countycountDate <- case %>%
   ungroup() %>% 
   filter(!is.na(County) & !is.na(Date))
 
+<<<<<<< HEAD
 
+=======
+paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/TestCounty.csv")
+>>>>>>> 01ae457af6f8a02038fffe17c701314c615b8ca9
 write_csv(countycountDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/CountySummarybyDate.csv"))
 write_csv(death_by_deathdate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/DodSummary.csv"))
 write_csv(GenderSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/GenderSummary.csv"))
@@ -4250,7 +4254,11 @@ mastercase <- cases %>%
   select(eventid, city, `Health Department Name`) %>% 
   filter(!is.na(city) & !is.na(`Health Department Name`) & city != "Not Available") %>% 
   arrange(`Health Department Name`, city)
+<<<<<<< HEAD
 write_csv(mastercase, path = paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", Sys.Date(), "/", "mastereventidlist.csv"))  
+=======
+write_csv(mastercase, path = paste0("L:/daily_reporting_figures_rdp/town_case_eventids/town_case_eventids/", Sys.Date(), "/", "mastereventidlist.csv"))  
+>>>>>>> 01ae457af6f8a02038fffe17c701314c615b8ca9
 for(i in TOI){
   casesi <- cases %>%  
     filter(city == i) %>% 
