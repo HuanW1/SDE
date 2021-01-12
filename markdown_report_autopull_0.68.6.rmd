@@ -822,6 +822,7 @@ case2 <- case %>%
   select(-phone) %>% 
   select(eventid,disease_status, age, gender, city, county, state, hisp_race, race, hisp,hospitalized, admit_date, discharge_date, icu, preg, symptoms, symp_onset_date, spec_col_date, fever, fatigue, sob, headache, cough, myalgia, new_olf_taste, rigors, pneumonia, ards, outcome, death_date, healthcare_worker, cong_setting, cong_exposure_type, cong_facility, cong_yn, create_date, event_date, mmwrweek)
 
+dir.create(paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date()))
 write_csv(case2, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "cases.csv"))
 rm(case2)
 
