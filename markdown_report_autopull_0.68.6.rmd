@@ -1326,7 +1326,7 @@ tableforgary <- ovlsum
 cha_stats <-  bind_cols(tbl_summary, tbl_total) %>%
   rename(summary = `Overall Summary`, total = `Total**`)
 
-dir.create(paste0('yesterday/', Sys.Date()))
+dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
 write_csv(ovlsum, paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date(), "/", Sys.Date(), ".csv"))
 
 ovlsum <- regulartable(ovlsum) %>%
@@ -3933,7 +3933,7 @@ gary_dailyincidence<-cases_14_nc %>%
   rename(Town_No = TOWNNO) %>% 
   select(Town_No, NAME, pop, casesweek1, casesweek2, totalcases, CaseRate, RateCategory, TotalTests, PercentPositive, UpdateDate, ReportPeriodStartDate, ReportPeriodEndDate)
 write_csv(gary_dailyincidence,paste0("L:/daily_reporting_figures_rdp/gary_csv/CTTown_Alert.csv"))
-dir.create(paste0("yesterday/",Sys.Date(),"/avg_di"))
+dir.create(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date(), "/avg_di"))
 write_csv(gary_dailyincidence, paste0("L:/daily_reporting_figures_rdp/gary_csv/yesterday/", Sys.Date(),"/avg_di/avgdailyincidence.csv"))
 
 ```
