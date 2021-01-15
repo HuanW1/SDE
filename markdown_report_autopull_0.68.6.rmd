@@ -3767,14 +3767,14 @@ totaldeathsdate <- case %>%
   group_by(death_date) %>% 
   tally(name = "TotalDeathCount") %>% 
   rename(dateofDeath = death_date) %>% 
-  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), fill = list(deathCount = 0))
+  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date(), by = "day"), fill = list(TotalDeathCount = 0))
 confirmeddeathsdate <- case %>% 
   filter(outcome == "Died" & disease_status == "Confirmed") %>% 
   filter(!is.na(death_date) & death_date >="2020-01-01") %>% 
   group_by(death_date) %>% 
   tally(name = "ConfDeathCount") %>% 
   rename(dateofDeath = death_date) %>% 
-  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), fill = list(deathCount = 0))
+  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date(), by = "day"), fill = list(ConfDeathCount = 0))
 probsdeathdate <- case %>% 
   filter(outcome == "Died" & disease_status == "Probable") %>% 
   filter(!is.na(death_date) & death_date >="2020-01-01") %>% 
@@ -3936,7 +3936,8 @@ gary_dailyincidence<-cases_14_nc %>%
   select(Town_No, NAME, pop, casesweek1, casesweek2, totalcases, CaseRate, RateCategory, TotalTests, PercentPositive, UpdateDate, ReportPeriodStartDate, ReportPeriodEndDate)
 write_csv(gary_dailyincidence,paste0("L:/daily_reporting_figures_rdp/gary_csv/CTTown_Alert.csv"))
 dir.create(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date(), "/avg_di"))
-write_csv(gary_dailyincidence, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(),"/avgdailyincidence.csv"))
+# write_csv(gary_dailyincidence, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(),"/avgdailyincidence.csv"))
+write_csv(gary_dailyincidence, paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date(),"/avg_di/avgdailyincidence.csv"))
 
 ```
 
@@ -3952,7 +3953,7 @@ lvls <- c("<5 cases per 100,000 or <5 reported cases", "5-9 cases per 100,000", 
 
 #change for thanksgiving
 # change the -7 to the day you need, then make sure the very last table is in that day's folder, It likely won't be, but just go to the very alst thursday and copy it into there and you should be good.
-yestgdi <- read_csv(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 6, "/avg_di/avgdailyincidence.csv"))%>%
+yestgdi <- read_csv(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 7, "/avg_di/avgdailyincidence.csv"))%>%
   mutate(
     RateCategory =str_trim(str_sub(RateCategory, start = 3)),
      RateCategory = factor( RateCategory, labels = lvls, levels = lvls)
