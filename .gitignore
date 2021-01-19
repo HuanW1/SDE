@@ -2,5 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
+<<<<<<< HEAD
 .DS_Store
 *.Rproj
+=======
+sql_play.Rproj
+>>>>>>> 70f402a4bee5dd5f71677176da77221109a69d85
