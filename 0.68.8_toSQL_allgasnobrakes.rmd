@@ -834,9 +834,9 @@ elr <-   df %>%
     date_tested = tested_date,
     date_reported_dph = result_rpt_date,
     ) %>%
-  filter(!is.na(test_method)) %>% #filter our blank tests (captured later on in the in statements but cant hurt to have less data now)
-  filter(!is.na(result)) %>% #filter out blank results
-  #filter(!auth_facility %in% outstatecolleges) %>% 
+  filter(!is.na(test_method)) %>% # filter our blank tests (captured later on in the in statements but cant hurt to have less data now)
+  filter(!is.na(result)) %>% # filter out blank results
+ # filter(!auth_facility %in% outstatecolleges) %>% 
   select(-c( admit_date, ards, chills,  cong_exposure_type, cong_facility, cong_setting, cough, covid_death, death_date, discharge_date, fatigue, fever, headache, healthcare_worker, hisp, hospitalized, icu, myalgia, new_olfact_taste, outcome,  preg, race, sob, sorethroat, rigors)) %>% 
  filter(state == "CT" | is.na(state)) %>%  #keep ct or blank state
    filter(test_method %in% pcrtests| test_method %in% agtests) %>%  #keep only test methods we care about
@@ -958,12 +958,12 @@ subdat3 <- subdat3 %>%
 
 ```{r intro_text}
 today_text <- format(graphdate, "%B %d, %Y")
-cases_text <- nrow(case)  #for now
+cases_text <- nrow(case)  # for now
 confirmed_text <- nrow(case %>%  filter(disease_status == "Confirmed"))
 probable_text <- nrow(case %>% filter(disease_status == "Probable"))
-hosp_text <- str_to_sentence(as.english(cha_c$today[cha_c$State =='TOTAL']))  #for now
+hosp_text <- str_to_sentence(as.english(cha_c$today[cha_c$State =='TOTAL']))  # for now
 dec <- case %>% filter(outcome == 'Died') %>% nrow()
-deaths_text <- str_to_sentence(as.english(dec))  #for now
+deaths_text <- str_to_sentence(as.english(dec))  # for now
 ```
 
 As of **`r today_text`, at 8:30 PM**, the total of laboratory-confirmed and probable COVID-19 cases reported among Connecticut residents is **`r cases_text`**, including **`r confirmed_text`** laboratory-confirmed and **`r probable_text`** probable cases.  **`r hosp_text `** patients are currently hospitalized with laboratory-confirmed COVID-19. There have been **`r dec`** COVID-19-associated deaths.  
@@ -1241,7 +1241,7 @@ n14cperc <- paste0("(",round(com/nrow(cases_14)*100), "%)")
 ```{r not_sure1, eval = thursday}
 casebyweek <- case %>% 
   mutate(year = epiyear(date)) %>% 
-  #filter(week >= thisweek-12, year >=2020) %>% 
+  # filter(week >= thisweek-12, year >=2020) %>% 
   filter(date > beginofcurmmwr-84 & date<=Sys.Date()) %>% 
   group_by(year,week) %>% 
   tally() %>% 
@@ -1423,8 +1423,8 @@ testgeo2 <- elr_linelist %>%
     date = ifelse(!is.na(spec_col_date), spec_col_date, mdy(spec_rec_date)),
          date = as.Date(date, origin = ymd("1970-01-01")),
     mmwrweek = epiweek(date)
-    )# %>% 
-  #filter(test_method %in% pcrtests2)
+    ) # %>% 
+  # filter(test_method %in% pcrtests2)
 
 #limit to 14 days thursday range
 test14 <- testgeo2 %>%
@@ -1587,7 +1587,7 @@ weeks <-  case %>%
     year = epiyear(date),
     mmwrweekdate = MMWRweek2Date(MMWRyear=year, MMWRweek=mmwrweek, MMWRday=7)
   ) %>% 
-  #filter(mmwrweek >= epiweek(Sys.Date())-9) %>% 
+  # filter(mmwrweek >= epiweek(Sys.Date())-9) %>% 
   filter(date >= beginofcurmmwr-63 & date <= Sys.Date()) %>%  
   select(mmwrweekdate) %>% 
   arrange(mmwrweekdate) %>%
@@ -3692,7 +3692,8 @@ gdi <- gdi %>%
        TotalCases = totalcases
             ) %>%
      select(Town, Week1Cases, Week2Cases, TotalCases, CaseRate, RateCategory, TotalTests, PercentPositive, everything()) %>%
-    select(-PercentPop) 
+    select(-PercentPop) %>% 
+    filter(Town != "Not_available")
 
   #kable2
 #  dir.create("tables")
