@@ -836,7 +836,7 @@ elr <-   df %>%
     ) %>%
   filter(!is.na(test_method)) %>% # filter our blank tests (captured later on in the in statements but cant hurt to have less data now)
   filter(!is.na(result)) %>% # filter out blank results
- # filter(!auth_facility %in% outstatecolleges) %>% 
+  filter(!auth_facility %in% outstatecolleges) %>% 
   select(-c( admit_date, ards, chills,  cong_exposure_type, cong_facility, cong_setting, cough, covid_death, death_date, discharge_date, fatigue, fever, headache, healthcare_worker, hisp, hospitalized, icu, myalgia, new_olfact_taste, outcome,  preg, race, sob, sorethroat, rigors)) %>% 
  filter(state == "CT" | is.na(state)) %>%  #keep ct or blank state
    filter(test_method %in% pcrtests| test_method %in% agtests) %>%  #keep only test methods we care about
