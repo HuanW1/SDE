@@ -19,7 +19,7 @@ params:
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 options(scipen = 999)
 
-#### required packages should be in sys ####
+#### required packages are on L: ####
 require(rmarkdown)
 require(tidyverse)
 require(sf)
@@ -34,13 +34,11 @@ require(english)
 require(flextable)
 require(DBI)
 
-# dir <- getwd() # always run this from .rproj don't set working directory
-
 #### kable options ####
 options(kableExtra.auto_format = FALSE)
 graphdate <- Sys.Date() - 1
 
-#### list of PCR tests ####
+#### list of PCR tests #### 
 pcrtests <- c('SARS CoV 2 ORF1 resp', 
               'SARS CoV 2 RNA nasopharynx', 
               'SARS CoV 2 Rapid RdRp gene (AbbottIDNOW)',
@@ -65,58 +63,58 @@ pcrtests <- c('SARS CoV 2 ORF1 resp',
 )
 
 #### list of antigen tests ####
-agtests <- c(
-  #                  NA,
-                    'SARS CoV 2 Ag rapid IA',
-                    'SARS-COV + SARS-CoV-2 Antigen resp',
-                    'SARS CoV 2 Ag (Quidel Sofia/Lumira)',
-                    'SARS CoV 2 Ag rapid IA (BD Veritor)',
-                    'SARS CoV 2 Ag rapid IA (BD Veritor/BinaxNOW)'
-                  )
-
-# pcrtestlist <- paste0("SARS CoV 2 ORF1 resp|SARS CoV 2 RNA nasopharynx|SARS-CoV-2 PCR XXX|SARS CoV 2 RNA \\(BioFire\\)|SARS CoV 2 N resp|SARS CoV 2 PCR resp|SARS CoV 2 Rapid PCR Test RdRp gene result|SARS-CoV-2 \\(COVID19\\) RNA \\[Presence\\] in Nose by NAA with probe detection|SARS-CoV-2 \\(COVID-19\\) N gene \\[Cycle Threshold #\\] in Unspecified specimen by Nucleic acid amplification using CDC primer-probe set N1|COVID-19 RT-PCR INPATIENT\\/ED ADMIT|COVID-19 RT-PCR OUTPATIENT \\(VACT\\)")
+agtests <- c('SARS CoV 2 Ag rapid IA',
+             'SARS-COV + SARS-CoV-2 Antigen resp',
+             'SARS CoV 2 Ag (Quidel Sofia/Lumira)',
+             'SARS CoV 2 Ag rapid IA (BD Veritor)',
+             'SARS CoV 2 Ag rapid IA (BD Veritor/BinaxNOW)'
+)
 
 #### setting report dow options ####
 # change for thanksgiving
 thursday <- wday(Sys.Date()) == 5
-wedthurs <- wday(Sys.Date()) %in% c(5)
+wedthurs <- wday(Sys.Date()) %in% c(5) # makes no sense this is the same as previous line
 not_thursday <- wday(Sys.Date()) != 5
 
 thursday_range_start <- floor_date(Sys.Date() - 12, unit = "week")
 thursday_range_end <- thursday_range_start + 13
 monthsame <- month(thursday_range_start) == month(thursday_range_end)
 
-if(monthsame){
+if (monthsame) {
   thursday_range <- paste0(
     month(thursday_range_start, label = TRUE, abbr = FALSE), " ",
     format(thursday_range_start, "%d"), '-',
     format(thursday_range_end, "%d")
   )
-} else(
+} else {
   thursday_range <- paste0(
     lubridate::month(thursday_range_start, label = TRUE, abbr = FALSE), " ",
     format(thursday_range_start, "%d"), '-', lubridate::month(thursday_range_end, label= TRUE, abbr = FALSE),
     " ",
     format(thursday_range_end, "%d")
   )
-)
+}
 
 ```
 
 ```{r dependancies, include=FALSE}
 age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
+
 pop <- read_csv("L:/daily_reporting_figures_rdp/population_data/2018_dph_asrh/2018_asrh.csv") %>% 
   select(age_g, total) %>% 
-  filter(!is.na(age_g)) 
+  filter(!is.na(age_g))
+
 town_pop18 <- read_csv("L:/daily_reporting_figures_rdp/population_data/pop_towns2018.csv") %>% 
   rename(city = Town,
          pop = `Est. Pop.`)
+
 #genders <- read_csv("L:/daily_reporting_figures_rdp/population_data/2018_dph_asrh/2018_asrh.csv")
+
 cha_file <- list.files("L:/daily_reporting_figures_rdp/CHA_data_here", pattern = ".csv", full.names = TRUE)
 cha <-  read_csv(cha_file)
 newcha <- cha %>% 
   filter(Type == "Admit" & State == "TOTAL") %>% 
-  select(-c(Change, County,State)) %>% 
+  select(-c(Change, County, State)) %>% 
   pivot_longer(-Type, names_to = "admit_date", values_to = "admissions") %>% 
   select(-Type) %>% 
   mutate(admit_date = as.Date(admit_date, format = "%m/%d/%Y"))
@@ -142,26 +140,26 @@ odbc::dbDisconnect(con2)
 rm(statement)
 
 #### Check for yesterday data otherwise create fake ####
-if(file.exists(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1))){
+if(file.exists(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1))) {
   yesterday_file <- list.files(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1), 
                                pattern = ".csv")
 } else {
-#  dir.create("yesterday") # it better exist
+  #  dir.create("yesterday") # it better exist
   dir.create(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1))
   fake_yesterday <- tibble(
-   'Overall Summary' = c(
-    "COVID-19 Cases (confirmed and probable)", 
-    "COVID-19 Tests Reported (molecular and antigen)", 
-    "Daily Test Positivity*", 
-    "Patients Currently Hospitalized with COVID-19", 
-    "COVID-19-Associated Deaths"
-      ),
+    'Overall Summary' = c(
+      "COVID-19 Cases (confirmed and probable)", 
+      "COVID-19 Tests Reported (molecular and antigen)", 
+      "Daily Test Positivity*", 
+      "Patients Currently Hospitalized with COVID-19", 
+      "COVID-19-Associated Deaths"
+    ),
     'Total**' = c('0','0','','0','0'),
     'Change Since Yesterday' = c('0','0','0%','0','0')
   )
-     write_csv(fake_yesterday, path = paste0("yesterday/",Sys.Date() - 1, "/", Sys.Date() - 1,".csv" ))
+  write_csv(fake_yesterday, path = paste0("yesterday/",Sys.Date() - 1, "/", Sys.Date() - 1,".csv" ))
   ## This is circular shouldn't it be yesterday_file <- fake_yesterday
-    yesterday_file <- list.files(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1), pattern = ".csv")
+  yesterday_file <- list.files(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1), pattern = ".csv")
 }
 
 ```
@@ -1238,7 +1236,7 @@ n14cperc <- paste0("(",round(com/nrow(cases_14)*100), "%)")
 `r if(thursday){" The chart below shows the number of new COVID-19 cases reported to CT DPH by week of specimen collection or onset of illness. Case data now includes probable cases based on positive antigen test results. During the past two weeks ("}` `r if(thursday){thursday_range}` `r if(thursday){"), there were # new COVID-19 cases, including cases among people residing in the community and congregate settings, such as nursing homes, managed residential communities, and correctional facilities."}`
 
 
-```{r not_sure1, eval = thursday}
+```{r plot_thurs_cases_week, eval = thursday}
 casebyweek <- case %>% 
   mutate(year = epiyear(date)) %>% 
   # filter(week >= thisweek-12, year >=2020) %>% 
@@ -1298,7 +1296,7 @@ ggplot(casebyweek)+
 
 `r if(thursday){"During this two-week period, there were more than 100 new COVID-19 cases in # towns.  "}`
 
-```{r not_sure2, eval=thursday, dpi=300, fig.height=5, fig.width= 7}
+```{r plot_thurs_community_settings, eval=thursday, dpi=300, fig.height=5, fig.width= 7}
 #Case count map
 ggplot(subdat14nc)+
   geom_sf(aes(fill = n2))+
@@ -1330,7 +1328,7 @@ ggplot(subdat14nc)+
 `r if(thursday){"Among towns with at least 5 new cases during "}` `r if(thursday){thursday_range}` `r if(thursday){", # towns had an average rate of 15 or more cases per 100,000 population per day, shown in red in the map below."}`
 
 
-```{r not_sure3, eval=thursday, dpi=300, fig.height=5, fig.width= 7}
+```{r plot_community_settings, eval=thursday, dpi=300, fig.height=5, fig.width= 7}
 #avgpal <- c("#d3d3d3", "#ffffb2", "#fd8d3c", "#e31a1c")
 avgpal <- c("#d3d3d3", "#e31a1c")
 
@@ -1552,7 +1550,7 @@ ggplot(subdat14tnc)+
 
 `r if(thursday){"__Age Distribution of COVID-19 Cases with Specimen Collection or Onset During"}` `r if(thursday){thursday_range}` `r if(thursday){", 2020__  "}`
 
-```{r not_sure4, eval=thursday}
+```{r plot_thurs_onset, eval=thursday}
 #11. Age breakdown of new cases
 cases_14 <- cases_14 %>%
   mutate(age_group = cut(age, breaks = c(-1,9,19,29,39,49,59,69,79, Inf),labels = age_labels))
@@ -1579,7 +1577,7 @@ ggplot(dfs_age)+
 `r if(thursday){"The chart below shows the average number of new COVID-19 cases per day per 100,000 population by age group. The rates in this chart are calculated by averaging the number of new cases diagnosed each day during the previous two weeks, dividing by the annual population in each age group, and then multiplying by 100,000.  "}`
 
 
-```{r not_sure5, eval=thursday, dpi=300, fig.height=5, fig.width= 7}
+```{r plot_thurs_rate_by_age, eval=thursday, dpi=300, fig.height=5, fig.width= 7}
 weeks <-  case %>%
   select(date,mmwrweek) %>%
   mutate(
@@ -1669,7 +1667,7 @@ ggplot(agegrp, aes(mmwrweekdate, rate_100k,col = age_group, group = age_group))+
 
 `r if(thursday){"The chart below shows the average number of new COVID-19 cases per day per 100,000 population in the state of Connecticut and for each Connecticut county. The rates in this chart are calculated by averaging the number of new cases diagnosed each day during the previous two weeks, dividing by the annual estimated population, and then multiplying by 100,000.  "}`
 
-```{r not_sure6, message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300, fig.height=5, fig.width= 7}
+```{r plot_thurs_cases_county, message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300, fig.height=5, fig.width= 7}
 
 #incidence by county
 countypop <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv") %>%
@@ -1761,7 +1759,7 @@ ggplot(weekincidence, aes(mmwrweekdate, rate, col = County, group = County))+
 `r if(thursday){"_Test results may be reported several days after the result. Data are incomplete for most recent dates shaded in grey. Data from previous dates are routinely updated._  "}`
 
 
-```{r not_sure7, message=FALSE, warning=FALSE, fig.align= "center", eval = thursday, dpi = 300}
+```{r plot_thurs_cases_date, message=FALSE, warning=FALSE, fig.align= "center", eval = thursday, dpi = 300}
 case_epi <- case %>% 
   filter(disease_status  == "Confirmed") %>% 
   group_by(date) %>% 
@@ -1811,7 +1809,7 @@ epicurve %>%
 ```
 
 
-```{r not_sure8, message=FALSE, warning=FALSE, fig.align= "center" , eval = thursday}
+```{r plot_thursday_deaths, message=FALSE, warning=FALSE, fig.align= "center" , eval = thursday}
 dfs_daily_dead <- case %>%
   ungroup() %>%
   filter(outcome == "Died") %>%
@@ -1884,7 +1882,7 @@ The map below shows the number of patients currently hospitalized with laborator
 
 *Distribution by location of hospital not patient residence. Data from the Connecticut Hospital Association.*  
 
-```{r not_sure10, message=FALSE, warning=FALSE, dpi=300, fig.height=5, fig.width= 7}
+```{r plot_hospitalizations, message=FALSE, warning=FALSE, dpi=300, fig.height=5, fig.width= 7}
 ggplot(subdat2)+
   geom_sf(aes(fill = ngrp), col= "black")+
   geom_sf_label(aes(label =paste0(NAME, "\n",today, " (",sign, Change, ")") ), col = "black", size =3)+#, size = 6)+
@@ -1904,7 +1902,7 @@ More information about hospitalized cases of COVID-19 in New Haven and Middlesex
 
 
 
-```{r not_sure11, message=FALSE, warning=FALSE, include=FALSE}
+```{r hospital_census, message=FALSE, warning=FALSE, include=FALSE}
 total_hosp <- cha %>%
   filter(Type == "CumAdmit" & State == "TOTAL")
 total_hosp <-  total_hosp[ncol(total_hosp)-1]%>% 
@@ -1949,15 +1947,6 @@ theme(axis.text.x = element_text(
     caption =""#text for us to see for an example"   
   )
 
-
-#what we want, what we have
-
-
-
-#clean
-#filter
-#group tally
-#geom_bar (bar takes data as is) vs geom_col (col like line)
 
 deadweeks <- as.character(seq.Date(as.Date("2020-08-01"), Sys.Date(), by = "7 days"))
 
@@ -2020,7 +2009,7 @@ ggplot(deadbar)+
 `r if(thursday){"### Daycare Surveillance"}`
 
 `r if(thursday){"Licensed daycare providers are required to report cases of COVID-19 among attendees and staff to the Department of Public Health (DPH) and the local health department. This figure shows the number of cases among daycare attendees and staff reported to DPH since September 1, 2020. Data are preliminary and like other passive surveillance systems, under reporting occurs and the true incidence of disease is more than the number of cases reported."}`
-```{r daycare_data, message=FALSE, warning=FALSE, fig.align="center", eval=thursday}
+```{r plot_daycare_data, message=FALSE, warning=FALSE, fig.align="center", eval=thursday}
 ########### DAYCARE EDITS ###############
 ## set logic: no attendees 6+, attendees 18+ are assumed to be staff
 attendee_to_staff <- case %>% 
@@ -2036,11 +2025,6 @@ edit_daycare$daycare_staff[edit_daycare$eventid %in% c(101096038, 102729292, 102
 
 edit_daycare$daycare_attendee[edit_daycare$eventid %in% c(103382925)]<- "NO"
 
- 
-
-########### something  #####################
-
- 
 
 daycare_attendee <- edit_daycare %>% 
   filter(daycare_attendee == "YES")%>% 
@@ -2115,7 +2099,7 @@ theme(
 `r if(thursday){"*Test results may be reported several days after specimen collection. Data are incomplete for most recent dates shaded in grey. Data for previous dates are routinely updated.*"}`
 
 
-```{r not_sure12,  message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300}
+```{r plot_pcr_test_by_date,  message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300}
 elr_linelist_elronly %>% 
   filter(spec_col_date >= "2020-02-28" & result %in% c("detected", "not detected")) %>% 
   mutate(result = ifelse(result == "detected", "Positive", "Negative")) %>% 
@@ -2152,7 +2136,7 @@ ggplot()+
 `r if(thursday){"To date, DPH has received reports on a total of "}` `r if(thursday){total_ag_tests}`  `r if(thursday){" COVID-19 antigen laboratory tests. The chart below shows the number of antigen tests reported to DPH by specimen collection date and test result."}`
 
 `r if(thursday){"*Test results may be reported several days after specimen collection. Data are incomplete for most recent dates shaded in grey. Data for previous dates are routinely updated.*"}`
-```{r not_sure13,  message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300}
+```{r plot_antigen_tests_by_date,  message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300}
 elr_linelist %>% 
   filter(spec_col_date >= "2020-08-01" & test_method %in% agtests & result %in% c("detected", "not detected")) %>% 
   mutate(result = ifelse(result == "detected", "Positive", "Negative")) %>% 
@@ -2189,7 +2173,7 @@ ggplot()+
 
 ### Characteristics of COVID-19 Cases and Associated Deaths  
 
-```{r not_sure14, message=FALSE, warning=FALSE, fig.align= "center", eval = not_thursday}
+```{r plot_cases_by_date, message=FALSE, warning=FALSE, fig.align= "center", eval = not_thursday}
 case_epi <- case %>% 
   filter(disease_status  == "Confirmed") %>% 
   group_by(date) %>% 
@@ -2239,7 +2223,7 @@ epicurve %>%
 ```
 
 
-```{r not_sure15, message=FALSE, warning=FALSE, fig.align= "center" , eval = not_thursday}
+```{r plot_deaths_by_date, message=FALSE, warning=FALSE, fig.align= "center" , eval = not_thursday}
 dfs_daily_dead <- case %>%
   ungroup() %>%
   filter(outcome == "Died") %>%
@@ -2298,7 +2282,7 @@ ggplot(dfs_daily_dead_proto)+
 
   `r if(thursday){"*Counts may not add up to total case count because demographic data may be missing.*"}`
 
-```{r not_sure16, message=FALSE, warning=FALSE, fig.align= "center", eval = thursday}
+```{r plot_cases_by_age, message=FALSE, warning=FALSE, fig.align= "center", eval = thursday}
 dfs_age <- case %>%
   group_by(age_group) %>% 
   tally() %>% 
@@ -2315,7 +2299,9 @@ ggplot(dfs_age)+
        y = "Number of Cases",
        x="Age(years)")
 ```
-```{r not_sure17, message=FALSE, warning=FALSE, fig.align= "center", eval = thursday}
+
+
+```{r plot_deaths_by_age, message=FALSE, warning=FALSE, fig.align= "center", eval = thursday}
 dfs_age_d <- case %>%
   ungroup() %>% 
   filter(outcome == "Died" & !is.na(age_group)) %>% 
@@ -2352,7 +2338,7 @@ gender_race_eth <- read_csv("L:/daily_reporting_figures_rdp/population_data/coun
 ```
 
 
-```{r not_sure19,  message=FALSE, warning=FALSE, fig.align= "center" , eval = thursday}
+```{r plot_cases_by_gender,  message=FALSE, warning=FALSE, fig.align= "center" , eval = thursday}
 gender_count <- case %>% 
   count(gender)
 gender_count_byday <- case %>% 
@@ -2387,7 +2373,7 @@ ggplot(
 ```
 
 
-```{r not_sure20,  message=FALSE, warning=FALSE, fig.align= "center", eval = thursday}
+```{r plot_deaths_by_gender,  message=FALSE, warning=FALSE, fig.align= "center", eval = thursday}
 ggplot(
   gender_count_dec %>% 
     filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
@@ -2412,7 +2398,7 @@ ggplot(
 
 *Map does not include `r pendingaddress_text` cases pending address validation*  
 
-```{r town_map, message=FALSE, warning=FALSE, dpi=500, fig.height=7, fig.width= 9 }
+```{r plot_cum_cases_town, message=FALSE, warning=FALSE, dpi=500, fig.height=7, fig.width= 9 }
 ggplot(subdat)+
   geom_sf(aes(fill = n))+
   geom_sf_text(aes(label = NAME), col = "black", size = 1.5)+
@@ -2432,7 +2418,7 @@ ggplot(subdat)+
 
 **APPENDIX A. Cumulative Number of COVID-19 Cases by Town**  
 *Table does not include `r pendingaddress_text` cases pending address validation*
-```{r message=FALSE, warning=FALSE}
+```{r tables_by_town, message=FALSE, warning=FALSE}
 tbl_town_confirmed_cases <- case %>% 
   filter(disease_status == "Confirmed") %>% 
   filter(!is.na(city)& city!= "Not Available" ) %>% 
@@ -2486,7 +2472,7 @@ tbl_towns
 
 **APPENDIX B.** The following graphs show the number of cases per 100,000 Connecticut residents statewide and by county, age group, and gender. Population estimate from: [DPH Population Statistics](https://portal.ct.gov/DPH/Health-Information-Systems--Reporting/Population/Population-Statistics)  
 
-```{r message=FALSE, warning=FALSE, fig.align= "center", dpi=300, eval=thursday}
+```{r plot_state_county, message=FALSE, warning=FALSE, fig.align= "center", dpi=300, eval=thursday}
 st_case_rate <-tibble(geo = "Connecticut", rate = round((nrow(case)/3572665)*100000), type = "Case Rate") 
 st_dec_rate <- tibble(geo = "Connecticut",rate = round((
   nrow(
@@ -2549,7 +2535,7 @@ ggplot(state_wide_rates%>% filter(type =="Death Rate") , aes(geo, rate, fill = c
 ```
 
 
-```{r message=FALSE, warning=FALSE, fig.align= "center", eval=thursday}
+```{r plot_thurs_deaths_by_age, message=FALSE, warning=FALSE, fig.align= "center", eval=thursday}
 dfs_per_capita <- case %>%
   ungroup() %>% 
   group_by(age_group) %>% 
@@ -2593,7 +2579,7 @@ dfs_age_d %>%
 
 Time hack `r Sys.time()`
 
-```{r message=FALSE, warning=FALSE, fig.align= "center", eval=thursday}
+```{r plot_deaths_gender, message=FALSE, warning=FALSE, fig.align= "center", eval=thursday}
 gender_total_rate_dec <- gender_count_dec %>% 
   left_join(gender_rate_lookup) %>% 
   mutate(rate = round((n/tot)*100000))
@@ -2630,7 +2616,7 @@ gender_total_rate_dec %>%
 
 **APPENDIX C.** The following graphs show the number of cases and deaths by race and ethnicity. *Categories are mutually exclusive. The category "multiracial" includes people who answered 'yes' to more than one race category. NH=Non-Hispanic*  
 
-```{r message=FALSE, warning=FALSE, fig.align= "center"}
+```{r plot_cases_age_ethnicity, message=FALSE, warning=FALSE, fig.align= "center"}
 race_eth_SHA_lookup <- gender_race_eth %>% 
   group_by(hisp_race) %>%  
   summarize(tot=sum(n))
@@ -2682,7 +2668,7 @@ ggplot(
 ```
 
 
-```{r fig.align="center", message=FALSE, warning=FALSE, dpi = 300}
+```{r plot_deaths_age_ethnicity, fig.align="center", message=FALSE, warning=FALSE, dpi = 300}
 maxlimit3 <- (round(max(race_eth_comb$deaths)/1000)*1000)+1000
 if(maxlimit3<= max(race_eth_comb$deaths)){
   maxlimit3 <- maxlimit3+1000
@@ -2711,8 +2697,8 @@ The following graphs show the number of COVID-19 cases and COVID-19-associated d
 
 The 2018 Connecticut and 2000 US Standard Million populations were used for age adjustment; population estimates from: [DPH Population Statistics.](https://portal.ct.gov/DPH/Health-Information-Systems--Reporting/Population/Population-Statistics) *Categories are mutually exclusive. Cases missing data on race/ethnicity are excluded from calculation of rates. NH=Non-Hispanic*
 
-```{r message=FALSE, warning=FALSE, fig.align= "center", dpi = 300}
-stanpopas<-read_csv("L:/daily_reporting_figures_rdp/dependancies/stanpopas.csv")
+```{r plot_age_ethnicity, message=FALSE, warning=FALSE, fig.align= "center", dpi = 300}
+stanpopas <- read_csv("L:/daily_reporting_figures_rdp/dependancies/stanpopas.csv")
 
 aamr_lookup <- read_csv("L:/daily_reporting_figures_rdp/dependancies/2018_State-level_ASRH _lookup.csv") %>% 
   rename(age_g = "Age Group")
@@ -3007,13 +2993,10 @@ ggplot(adj_tbl_long_dec, aes(fill = rate_type, y = n, x = hisp_race))+
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
 
-
-
-
 ```
   
 
-```{r message=FALSE, warning=FALSE, fig.align= "center", dpi = 600, eval= FALSE}
+```{r plot_disproportion, message=FALSE, warning=FALSE, fig.align= "center", dpi = 600, eval= FALSE}
 re_grp <- race_eth_comb %>%
   select(hisp_race, tot, deaths) %>%
   mutate(
@@ -3363,8 +3346,8 @@ AgeGroupSummary$AgeGroups[AgeGroupSummary$AgeGroups == ">=80"] <- "80 and older"
 
 
 
-
-#agegroup summary by county  ###NEW WIP#####
+#### NEW WIP #####
+#agegroup summary by county  
 # agstotalcases <- case %>% 
 #   filter(!is.na(age_group) & !is.na(county)) %>% 
 #   group_by(county, age_group) %>% 
@@ -3812,7 +3795,7 @@ Summary
 
 
 ```{r model_data, message=FALSE, warning=FALSE, include=FALSE, eval = thursday}
-#########modeling data################
+
 spec_dates <- case %>% 
   select(spec_col_date) %>% 
   rename(spec_date = spec_col_date) %>% 
@@ -3943,5 +3926,5 @@ write_csv(casesi, path = paste0("L:/daily_reporting_figures_rdp/town_case_eventi
 }
 ```
 
-Time hack `r Sys.time()`
+
 
