@@ -132,7 +132,8 @@ county_pop <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_po
 con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
 statement <- paste0("SELECT *
                     FROM [DPH_COVID_IMPORT].[dbo].[CTEDSS_DAILY_REPORT_ALL_Cases]")
-backend<-  DBI::dbGetQuery(conn = con2 , statement = statement)
+backend <- DBI::dbGetQuery(conn = con2 , statement = statement)
+
 statement <- paste0("SELECT *
                     FROM [DPH_COVID_IMPORT].[dbo].[DAILY_Reports_ALL_COVID_TESTS]")
 backend_tests<-  DBI::dbGetQuery(conn = con2 , statement = statement)
@@ -216,7 +217,12 @@ df <- backend %>%
   left_join(backend_tests, by = c("event_id"))
 # rm(backend)
 # rm(backend_tests)
-df[df=="NA"] <- NA
+# df[df=="NA"] <- NA
+
+df <- df %>% 
+  mutate(across(.cols = case_create_date:case_eff_from_date,
+                lubridate::as_date)) %>% 
+  mutate_if(is.character, list(~na_if(., "NA")))  
 
 df <- df %>%
   #rename key variables
