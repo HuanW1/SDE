@@ -59,7 +59,8 @@ pcrtests <- c('SARS CoV 2 ORF1 resp',
               'SARS-CoV-2 (COVID-19) N gene [Cycle Threshold #] in Unspecified specimen by Nucleic acid amplification using CDC primer-probe set N1',
               'SARS-CoV-2 N gene Saliva',
               'COVID-19 PCR (CEPHEID)',
-              'SARS CoV 2 NAA resp'
+              'SARS CoV 2 NAA resp',
+              'SARS-CoV-2 specific TCRB gene in Blood by Seq'
 )
 
 #### list of antigen tests ####
