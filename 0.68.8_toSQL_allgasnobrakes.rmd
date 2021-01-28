@@ -891,8 +891,20 @@ pos_tests_thursday <- pos_tests_thursday$n
 neg_tests_thursday <- elr %>% filter(result == "not detected" & spec_col_date >= thursday_range_start & spec_col_date <= thursday_range_end) %>% group_by(result) %>%  summarize(n = sum(n)) %>% select(n)
 neg_tests_thursday <- neg_tests_thursday$n
 
-write_csv(elr_linelist, paste0("L:/daily_reporting_figures_rdp/elr_linelists/elr_linelist", Sys.Date(), ".csv"))
-# data.table::fwrite(elr_linelist, paste0("L:/daily_reporting_figures_rdp/elr_linelists/alt_elr_linelist", Sys.Date(), ".csv"), buffMB = 16, nThread = 4, verbose = FALSE, showProgress = FALSE)
+# write_csv(elr_linelist, 
+#           paste0("L:/daily_reporting_figures_rdp/elr_linelists/elr_linelist", 
+#                  Sys.Date(), 
+#                  ".csv")
+#           )
+
+data.table::fwrite(elr_linelist, 
+                   paste0("L:/daily_reporting_figures_rdp/elr_linelists/elr_linelist", 
+                          Sys.Date(), 
+                          ".csv"), 
+                   buffMB = 16, 
+                   nThread = 4, 
+                   verbose = FALSE, 
+                   showProgress = FALSE)
 ```
 
 
