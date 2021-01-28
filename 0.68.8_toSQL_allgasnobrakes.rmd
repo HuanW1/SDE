@@ -216,9 +216,9 @@ subdat3 <- subdat2
 ```{r df_manipulation1}
 df <- backend %>% 
   left_join(backend_tests, by = c("event_id"))
-# rm(backend)
-# rm(backend_tests)
-# df[df=="NA"] <- NA
+
+rm(backend)
+rm(backend_tests)
 
 df <- df %>% 
   mutate(across(.cols = case_create_date:case_eff_from_date,
