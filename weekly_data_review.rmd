@@ -1,0 +1,1628 @@
+
+---
+title: "Connecticut COVID-19 Weekly Data Review"
+output:
+  html_document: default
+  pdf_document: default
+author: 'Sydney Jones'
+date: 9/3/2020
+created on: 7/29/2020
+---
+
+```{r data prep,  echo= FALSE, include = FALSE}
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+############################################ 1. DATA PREP ###########################
+#1. package installs
+options(scipen = 999)
+mypak <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages(lib.loc = .libPaths()[1])[, "Package"])]
+  if (length(new.pkg)) 
+    install.packages(new.pkg, dependencies = TRUE, repos = "https://cran.rstudio.com/")
+  sapply(pkg, require, character.only = TRUE)
+}
+my_packages <-  c("ggspatial","data.table","sf","odbc","tm","viridis",
+                  "kableExtra","webshot", "geosphere", "pracma", "tidyverse", "tidytext", "ggplot2", "ggraph", "zoo", "roll",
+                  "igraph", "widyr", "stringr", "lubridate", "readr", "leaflet", "RColorBrewer", "ggmap", "rgdal",
+                  "tigris", "acs", "tidycensus", "DT", "rgeos", "formatR", "knitr", "MMWRweek", "sf",
+                  "RODBC", "plotly", 'rgeos', "scales", "english", 'flextable', 'slider', "transformr", "gganimate", "tibble", "dplyr")
+mypak(my_packages)
+dir <- getwd()
+
+theme_update(
+  axis.title = element_text(size = 20),
+  axis.text = element_text(size = 20)
+)
+
+#2. load map data
+if(file.exists("shape_files/cb_2017_09_cousub_500k.shp")){
+  filename<-list.files('shape_files', pattern=".shp", full.names=FALSE)
+  filename<-gsub(".shp", "", filename)
+  subdat <- st_read('shape_files', "cb_2017_09_cousub_500k")
+  subdat<-st_transform(subdat,"+init=epsg:4326")
+} else {
+  url<-"https://www2.census.gov/geo/tiger/GENZ2017/shp/cb_2017_09_cousub_500k.zip"
+  destname<-"tiger_county.zip"
+  download.file(url, destname)
+  unzip(destname, exdir='shape_files', junkpaths=TRUE)
+  filename<-list.files('shape_files', pattern=".shp", full.names=FALSE)
+  filename<-gsub(".shp", "", filename)
+  subdat <- st_read('shape_files', "cb_2017_09_cousub_500k")
+  subdat<-st_transform(subdat,"+init=epsg:4326")
+}
+cc_map <- read_csv(
+  paste0(dir,"/dependancies/City County Mapping.csv")) %>% 
+  mutate(COUNTY = paste0(COUNTY," County"))
+
+
+#3. load town and county population data
+town_pop18 <- read_csv("population_data/pop_towns2018.csv")%>%
+  rename(city=Town, 
+          pop=`Est. Pop.`)
+
+county_pop <- read_csv("population_data/county_pop.csv")
+
+
+#4. set epi week and other date info
+#this epi week
+thisweek<-epiweek(Sys.Date())
+#all dates of interest
+dates<- tibble("date"=seq.Date(as.Date("2020-02-22"), Sys.Date(), by='day'), j=1) 
+
+
+#5. Read in case data (cases w/ phi)
+casenew <- read_csv(paste0("csv/", Sys.Date(), "/", Sys.Date(), "cases_wphi.csv"),
+                    col_types = cols(spec_col_date = col_character(), 
+                                     event_date = col_character()))
+
+#create new variables for reside in congregate setting (y/n), date for case (1st positive specimen collection or eventdate),
+#and mmwr week for that case date
+casenew <- casenew %>%
+  mutate( #cong_yn = if_else((str_detect(cong_exposure_type, "Reside")) &
+ #                            (str_detect(cong_setting, "Jail / Prison") | str_detect(cong_setting, "Long term care facility") | str_detect(cong_setting, "Assisted Living Facility")),
+#                           "Yes", "No", missing = "No"),
+         date = ifelse(disease_status %in% c("Confirmed", "Probable") & !is.na(spec_col_date), spec_col_date, event_date),
+         date = ymd(date), 
+         #date = as.Date(date, "%m/%d/%Y"),
+         week = epiweek(date), 
+         year = epiyear(date)
+  ) 
+count(casenew, cong_yn)
+
+#6. create community only testing dataset 
+monthday <- format(Sys.Date()-1, "%b_%d")
+con <- DBI::dbConnect(odbc::odbc(), "epicenter")
+statement <- paste0("SELECT [r].[case_id]
+                              ,[r].[X]
+                              ,[r].[Y]
+                              ,[r].[geoid10]
+                              ,[r].[Name]
+                              ,[r].[License__]
+                              ,[r].[DBA]
+                              ,[r].[type]
+                    FROM [DPH_COVID_IMPORT].[dbo].[", monthday,"_Covid_Geo_Tract] as [r]")
+alltestgeo <-  DBI::dbGetQuery(conn = con , statement = statement)
+
+testgeo <- alltestgeo %>%
+  mutate(Name = ifelse(Name %in% c("", "NULL"), NA, Name),
+         DBA = ifelse(DBA %in% c("", "NULL"), NA, DBA),
+         facil_name = if_else(is.na(Name), DBA, Name),
+         cong_test = if_else(!is.na(facil_name), "Yes", "No"),
+         eventid = as.numeric(case_id)) %>%
+  rename(GEOID10 = geoid10) %>%
+  select(-c("case_id", "Name", "License__", "DBA")) %>%
+  group_by(eventid) %>%
+  arrange(facil_name) %>%
+  slice(1L) %>%
+  ungroup()
+
+elr_linelist <- read_csv(paste0("elr_linelists//","elr_linelist", Sys.Date(), ".csv")) %>% 
+  filter(spec_col_date <= Sys.Date()) %>% 
+  mutate(result2 = ifelse(result =="detected", "Positive", 
+                          ifelse(result =="not detected", "Negative", "Indeterminate")))
+
+testgeo2 <- elr_linelist %>%
+  left_join(testgeo, by = "eventid") %>%
+  mutate(
+    date = ifelse(!is.na(spec_col_date), spec_col_date, mdy(spec_rec_date)),
+         date = as.Date(date, origin = ymd("1970-01-01")),
+    mmwrweek = epiweek(date)
+    )
+
+communitytest <- testgeo2 %>%
+  filter(!cong_test %in% "Yes")
+
+#7. Read in town alert dataset
+town_alert <- read_csv(paste0("tables/", Sys.Date(), "/TownAlertLevelsTable.csv"))
+
+#8. CHA data
+cha_file <- list.files("CHA_data_here", pattern = ".csv")
+cha <-  read_csv(paste0(dir,"/CHA_data_here/",cha_file))
+chalong <- cha %>%
+  gather(key="date", value="value", -c("Type", "State", "County")) %>%
+  mutate(date=as.Date(date, format = "%m/%d/%Y"),
+         County=if_else(is.na(County), "Connecticut", County))
+
+#9 #set date range
+thursday_range_start <- floor_date(Sys.Date()-12, unit = "week")
+thursday_range_end <- thursday_range_start+13
+monthsame <-  month(thursday_range_start) == month(thursday_range_end)
+
+if(monthsame){
+  thursday_range <- paste0(
+  month(thursday_range_start, label = T, abbr = F), " ",
+  format(thursday_range_start, "%d"), '-',
+  format(thursday_range_end, "%d")
+  )
+} else(
+  thursday_range <- paste0(
+  month(thursday_range_start, label = T, abbr = F), " ",
+  format(thursday_range_start, "%d"), '-', month(thursday_range_end, label= T, abbr = F),
+  " ",
+  format(thursday_range_end, "%d")
+  )
+)
+```
+
+```{r slide 1, echo = FALSE}
+########################################### 2. SLIDE CREATION ######################
+##Slide 1 - town alert map and % of population by alert level
+
+#rate categories
+avgratebreaks <-  c(
+  "<5 cases per 100,000 or <5 reported cases",
+  "5-9 cases per 100,000",
+  "10-14 cases per 100,000",
+  "15 or more cases per 100,000"
+                    )
+
+#join town alert to map data
+subdat14nc <- subdat %>% 
+  left_join(
+    town_alert, by = c("NAME" = "Town")    
+  )
+subdat14nc$RateCategory <-factor(subdat14nc$RateCategory, labels = avgratebreaks, levels = avgratebreaks )
+  
+
+#avgpal <- c("#d3d3d3", "#ffffb2", "#fd8d3c", "#e31a1c")
+avgpal <- c("#d3d3d3", "#e31a1c")
+ggplot(subdat14nc)+
+  geom_sf(aes(fill = RateCategory))+
+  geom_sf_text(aes(label = NAME), col = "black", size = 1.5)+
+  #scale_fill_distiller(low="white")+
+  #scale_fill_distiller(palette = "Blues", direction = 1, na.value="white")+
+  #(palette = "Blues", direction = -1)+
+  scale_fill_manual(values = avgpal)+  #dbl check with sydney
+  theme_void()+
+  labs(
+    fill = "Average COVID-19 Cases per 100,000 Population per Day",
+    title = paste0("Average Daily Rate of COVID-19 Cases among People Living in Community Settings\nper 100,000 Population by Town\nwith Specimen Collection or Onset Date During ", thursday_range)
+  )+
+  theme(
+    plot.title = element_text(size =11),
+    legend.position = c(0.73,0.14),
+    legend.direction = "vertical",
+    legend.title = element_text(size = 8),
+    legend.text = element_text(size=8),
+    legend.key.size = unit(0.80, "line")
+  )
+
+
+#calculate % of pop in each category
+popbycat <-town_alert %>% 
+  group_by(RateCategory) %>% 
+  summarise(pop=sum(Population)) %>% 
+  mutate(PercentPopulation = round(pop/3572665*100,1)) %>% 
+  select(-pop)
+popbycat$RateCategory<-factor(popbycat$RateCategory, labels = avgratebreaks, levels = avgratebreaks )
+arrange(popbycat, desc(RateCategory))
+
+```
+
+## NEW continuous scale, 14-day average case rates by town:
+```{r, echo=FALSE, message=FALSE, fig.width=16, fig.height=4}
+case_dat <- read_csv(paste0("gary_csv/", Sys.Date(), "/", "CTTown_Alert.csv"))
+case_dat1 <- read_csv(paste0("gary_csv/", Sys.Date()-7, "/", "CTTown_Alert.csv"))
+case_dat2 <- read_csv(paste0("gary_csv/", Sys.Date()-14, "/", "CTTown_Alert.csv"))
+
+
+case_dat <- bind_rows(case_dat, case_dat1) %>% bind_rows(case_dat2)
+
+case_dat$date1 = case_dat$ReportPeriodStartDate
+case_dat$date2 = case_dat$ReportPeriodEndDate
+case_dat$range = paste(format(case_dat$date1, "%b %d"), "-", format(case_dat$date2, "%b %d"))
+
+
+
+# sensible column name
+case_dat$caserate = case_dat$CaseRate
+
+# make the data frame less unwieldy by keeping only important columns
+case_dat = select(case_dat, NAME, caserate, date1, date2, range)
+
+
+case_dat1 <- subdat %>% 
+  left_join(
+    case_dat, by = c("NAME" = "NAME")    
+  ) 
+
+
+ggplot(case_dat1)+
+  geom_sf(aes(fill = caserate), lwd=0.0, color = "gray")+
+  #facet_wrap(vars(week))+
+  facet_wrap(vars(range))+
+  #scale_fill_brewer(palette = "Blues", direction = 1, na.value="white")+
+  scale_fill_gradient(high = "#000099", low = "#ededff", limits=c(min(case_dat1$caserate),max(case_dat1$caserate)), guide = "colorbar") +
+  theme_void()+
+  theme(strip.text = element_text(size=14),
+    #plot.title = element_text(hjust = 0.5,size=14), 
+            legend.text=element_text(size=14),
+            legend.title=element_text(size=14),
+            legend.position="right", legend.box = "horizontal") +
+      guides(fill=guide_colorbar(barwidth=0.7,barheight=5, title="Cases/100k")) +
+  #ggtitle(paste("Week ending", format(case_dat1$date2, "%b %d"))) + 
+      theme(plot.title = element_text(size=14),
+            panel.grid.major = element_line(colour = "transparent"))
+  #labs(
+   # fill = "Test Count"
+  #)+
+  #theme(
+  #  legend.position = "bottom",
+  #  legend.direction = "horizontal",
+  #  legend.title = element_text(size = 11),
+  #  legend.text = element_text(size=9)
+  #)
+
+
+```
+
+##Slide 2 - overall state snapshot
+
+
+```{r slide 2, echo = FALSE}
+#a. graph of cases by day over time 
+case_ct <- casenew %>%
+  group_by(date) %>% 
+  tally() %>%
+  filter(date > mdy("03-01-2020"))
+#7-day rolling average
+caseavg <- dates %>%
+  left_join(case_ct, by=(c("date"))) %>%
+  mutate(count = replace_na(n, 0), 
+         count7 = slide_dbl(count, sum, .before=6, .after=0,  .complete=TRUE), 
+         avgcount7 = ifelse(date>Sys.Date()-4, NA, count7/7), 
+         rate7 = (avgcount7/3572665)*100000) 
+
+ggplot(caseavg)+
+  geom_col(aes(x=date, y=count), fill="lightgrey")+
+  geom_line(aes(x=date, y=avgcount7), size=2)+
+  theme_classic()+
+  xlim(mdy("03-01-2020"), Sys.Date()-7)+
+  labs(
+    y = "Number of COVID-19 Cases",
+    x="Specimen Collection/Onset Date")
+
+#counts of cases for table
+totalcases <- count(casenew)
+weeklycases <- casenew %>%
+  #### THIS NEEDS TO CHANGE for beginning of year (must incorporate correct weeks and years!!):####
+  #filter(week <= thisweek & week >= thisweek-4) %>% 
+  filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) | 
+    (week == epiweek(Sys.Date()-7) & year == epiyear(Sys.Date()-7)) | 
+    (week == epiweek(Sys.Date()-14) & year == epiyear(Sys.Date()-14)) | 
+    (week == epiweek(Sys.Date()-21) & year == epiyear(Sys.Date()-21)) | 
+    (week == epiweek(Sys.Date()-28) & year == epiyear(Sys.Date()-28)))%>%
+  group_by(year,week) %>%
+  tally() %>%
+  rename(newcases=n) #%>%
+
+#create community only case dataset 
+communitycase <- casenew %>%
+  filter(cong_yn=="No")
+
+dailyrate <- communitycase %>% 
+  group_by(year,week) %>% 
+  tally() %>%
+  ungroup()%>%
+  mutate(enddt = MMWRweek2Date(MMWRyear = year, MMWRweek = week, MMWRday = 7))%>%
+  arrange(enddt)%>%
+  select(enddt, n)%>%
+  mutate(n14 = n+lag(n),
+         ratedaily14 = round((n14/14)/3572665*100000, 1)) %>% 
+  mutate(week = epiweek(enddt), year = epiyear(enddt))%>%
+  select(week, year, n14, ratedaily14) 
+twoweekcommcases <- dailyrate %>% 
+  #### THIS NEEDS TO CHANGE: ####
+  #filter(week >= thisweek-5) %>% 
+filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) | 
+    (week == epiweek(Sys.Date()-7) & year == epiyear(Sys.Date()-7)) | 
+    (week == epiweek(Sys.Date()-14) & year == epiyear(Sys.Date()-14)) | 
+    (week == epiweek(Sys.Date()-21) & year == epiyear(Sys.Date()-21)) | 
+    (week == epiweek(Sys.Date()-28) & year == epiyear(Sys.Date()-28)) |
+    (week == epiweek(Sys.Date()-35) & year == epiyear(Sys.Date()-35)))%>%
+  #### THIS NEEDS TO CHANGE (can't use 2020 as hardcoded year anymore) ####
+  mutate(#year=2020,
+         enddt = MMWRweek2Date(MMWRyear=year, MMWRweek=week, MMWRday=7),
+         startdt = enddt - 13,
+         range=paste(format(startdt, "%b %d"), "-", format(enddt, "%b %d"))) %>% 
+  select(range, n14, ratedaily14) %>% 
+  rename(commcases=n14,
+         dates=range)
+
+kable(twoweekcommcases) %>% 
+  kable_styling()
+
+#b. graph of new hospitalizations by day over time
+#set up CHA data 
+#manually set new admits on days where data definitions changed
+chanewadmit <- chalong %>%
+  filter(County=="Connecticut" & Type=="CumAdmit" & !is.na(date) ) %>%
+  mutate(newadmit = ifelse(date==mdy("07-18-2020"), 18, ifelse(
+    date==mdy("05-29-2020"), 35, (value - lag(value)))),
+         count7 = slide_dbl(newadmit, sum, .before=3, .after=3, .complete=TRUE), 
+         avgcount7 = count7/7,
+         avgrate7 = (avgcount7/3572665)*100000) %>%
+  complete(date = dates$date, fill=(list(newadmit=NA, avgcount7=NA)))
+
+ggplot(chanewadmit)+
+  geom_col(aes(x=date, y=newadmit), fill="lightgrey")+
+  geom_line(aes(x=date, y=avgcount7), size=2)+
+  theme_classic()+
+  xlim(ymd("2020-03-01"), Sys.Date()-7)+
+  labs(
+    y = "New COVID-19 Admissions",
+    x="Date")
+
+#counts by week
+chaavgadmit <- chanewadmit %>%
+  mutate(week = epiweek(date)) %>%
+  mutate(year = epiyear(date)) %>%
+  group_by(year,week) %>% 
+  mutate(sumnew = sum(newadmit, na.rm=TRUE),
+         avgrate = mean(avgrate7, na.rm=TRUE)) %>% 
+####### THIS NEEDS TO CHANGE ####
+  #filter(week >= thisweek-2) %>%
+filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) | 
+    (week == epiweek(Sys.Date()-7) & year == epiyear(Sys.Date()-7)) | 
+    (week == epiweek(Sys.Date()-14) & year == epiyear(Sys.Date()-14)))%>%
+  select(week, year, sumnew) %>%  #, avgrate) %>%
+  slice(1L) %>%
+   rename(newadmits=sumnew)
+
+kable(chaavgadmit)  
+
+#c. graph of COVID-19 hospital census by day over time 
+chaadmit <- chalong %>%
+  filter(Type =="Admit" & County == "Connecticut") %>%
+  mutate(count = replace_na(value, 0), 
+         count7 = slide_dbl(count, sum, .before=3, .after=3, .complete=TRUE), 
+         avgcount7 = count7/7) %>%
+   complete(date = dates$date, fill=(list(count7=NA, avgcount7=NA)))
+
+ggplot(chaadmit)+
+  geom_col(aes(x=date, y=count), fill="lightgrey")+
+  geom_line(aes(x=date, y=avgcount7), size=2)+
+  xlim(mdy("03-01-2020"), Sys.Date()-7)+
+  theme_classic()+
+  labs(
+    y = "COVID-19 Hospital Census",
+    x="Date")
+
+#count census by week 
+chaavgcensus <- chaadmit %>%
+  mutate(week = epiweek(date)) %>%
+  mutate(year = epiyear(date)) %>%
+  group_by(year,week) %>% 
+  mutate(avgcensus = mean(count, na.rm=TRUE)) %>% 
+###### THIS NEEDS TO CHANGE ######  
+  #filter(week >= thisweek-2) %>%
+filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) | 
+    (week == epiweek(Sys.Date()-7) & year == epiyear(Sys.Date()-7)) | 
+    (week == epiweek(Sys.Date()-14) & year == epiyear(Sys.Date()-14)))%>%
+  select(week,year, avgcensus) %>%
+  slice(1L)
+
+kable(chaavgcensus )
+
+#d. graph of deaths by day over time 
+death_ct <- casenew %>%
+  filter(outcome=="Died") %>% 
+  group_by(death_date) %>% 
+  tally() %>%
+  rename(date=death_date)
+
+#rolling average
+deathavg <- dates %>%
+  left_join(death_ct, by="date") %>%
+  mutate(count = replace_na(n, 0), 
+         count7 = slide_dbl(count, sum, .before=3, .after=3,  .complete=TRUE), 
+         avgcount7 = count7/7)
+
+ggplot(deathavg)+
+  geom_col(aes(x=date, y=count), fill="lightgrey")+
+  geom_line(aes(x=date, y=avgcount7), size=2)+
+  theme_classic()+
+  xlim(mdy("03-01-2020"), Sys.Date()-7)+
+  labs(
+    y = "Number of COVID-19 Deaths",
+    x = "Date of Death"
+   )
+
+totaldeaths <- sum(death_ct$n)
+weeklydeaths <- casenew %>%
+  filter(outcome=="Died") %>% 
+  mutate(week = epiweek(death_date)) %>%
+  mutate(year = epiyear(death_date)) %>%
+##### THIS NEEDS TO CHANGE ####  
+  #filter (week >= thisweek-2) %>%
+filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) | 
+    (week == epiweek(Sys.Date()-7) & year == epiyear(Sys.Date()-7)) | 
+    (week == epiweek(Sys.Date()-14) & year == epiyear(Sys.Date()-14)))%>%
+  group_by(year,week) %>%
+  tally() %>%
+  rename(deaths=n)
+
+kable(weeklydeaths)
+```
+
+##Slide 3 - Recent cases in the past 12 weeks
+```{r slide 3, echo = FALSE}
+#epicurve of cases by day and week for the last 12 weeks
+caserecent <- caseavg %>% 
+###### THIS NEEDS TO CHANGE ######  
+  # filter(epiweek(date)>= thisweek-12) %>% 
+  filter((epiweek(date) == epiweek(Sys.Date()) & epiyear(date) == epiyear(Sys.Date())) | #thisweek -0
+    (epiweek(date) == epiweek(Sys.Date()-7) & epiyear(date) == epiyear(Sys.Date()-7)) |  #thisweek -1
+    (epiweek(date) == epiweek(Sys.Date()-14) & epiyear(date) == epiyear(Sys.Date()-14)) | #thisweek-2
+    (epiweek(date) == epiweek(Sys.Date()-21) & epiyear(date) == epiyear(Sys.Date()-21)) | #thisweek-3
+    (epiweek(date) == epiweek(Sys.Date()-28) & epiyear(date) == epiyear(Sys.Date()-28)) | #thisweek-4
+    (epiweek(date) == epiweek(Sys.Date()-35) & epiyear(date) == epiyear(Sys.Date()-35)) | #thisweek-5
+    (epiweek(date) == epiweek(Sys.Date()-42) & epiyear(date) == epiyear(Sys.Date()-42)) | #thisweek-6
+    (epiweek(date) == epiweek(Sys.Date()-49) & epiyear(date) == epiyear(Sys.Date()-49)) | #thisweek-7
+    (epiweek(date) == epiweek(Sys.Date()-56) & epiyear(date) == epiyear(Sys.Date()-56)) | #thisweek-8
+    (epiweek(date) == epiweek(Sys.Date()-63) & epiyear(date) == epiyear(Sys.Date()-63)) | #thisweek-9
+    (epiweek(date) == epiweek(Sys.Date()-70) & epiyear(date) == epiyear(Sys.Date()-70)) |#thisweek-10
+    (epiweek(date) == epiweek(Sys.Date()-77) & epiyear(date) == epiyear(Sys.Date()-77)) |#thisweek-11
+    (epiweek(date) == epiweek(Sys.Date()-84) & epiyear(date) == epiyear(Sys.Date()-84)) #thisweek-12
+    )%>%
+  mutate(avgcount7 = ifelse(date >= Sys.Date()-7, NA, avgcount7))
+ggplot(caserecent)+
+  geom_col(aes(x=date, y=count), fill="lightgrey")+
+  geom_line(aes(x=date, y=avgcount7), size=1.5)+
+  theme_classic()+
+  scale_x_date(date_labels = "%b-%d", date_breaks = "14 days")+
+  labs(
+    y = "Number of COVID-19 Cases",
+    x="Specimen Collection/Onset Date")
+
+#count cases by week
+case_ct_week <- casenew %>%
+  mutate(week = epiweek(date)) %>% 
+  mutate(year = epiyear(date)) %>%
+  group_by(year,week, cong_yn) %>% 
+  tally() %>%
+  ungroup() %>%
+##### THIS NEEDS TO CHANGE #####  
+  #filter(week >= thisweek - 12) %>% 
+filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) | #thisweek -0
+    (week == epiweek(Sys.Date()-7) & year == epiyear(Sys.Date()-7)) |  #thisweek -1
+    (week == epiweek(Sys.Date()-14) & year == epiyear(Sys.Date()-14)) | #thisweek-2
+    (week == epiweek(Sys.Date()-21) & year == epiyear(Sys.Date()-21)) | #thisweek-3
+    (week == epiweek(Sys.Date()-28) & year == epiyear(Sys.Date()-28)) | #thisweek-4
+    (week == epiweek(Sys.Date()-35) & year == epiyear(Sys.Date()-35)) | #thisweek-5
+    (week == epiweek(Sys.Date()-42) & year == epiyear(Sys.Date()-42)) | #thisweek-6
+    (week == epiweek(Sys.Date()-49) & year == epiyear(Sys.Date()-49)) | #thisweek-7
+    (week == epiweek(Sys.Date()-56) & year == epiyear(Sys.Date()-56)) | #thisweek-8
+    (week == epiweek(Sys.Date()-63) & year == epiyear(Sys.Date()-63)) | #thisweek-9
+    (week == epiweek(Sys.Date()-70) & year == epiyear(Sys.Date()-70)) |#thisweek-10
+    (week == epiweek(Sys.Date()-77) & year == epiyear(Sys.Date()-77)) |#thisweek-11
+    (week == epiweek(Sys.Date()-84) & year == epiyear(Sys.Date()-84)) #thisweek-12
+    )%>%  
+arrange(year,week) %>% 
+  #### THIS NEEDS TO CHANGE ###
+  mutate(#year = 2020,
+         date = MMWRweek2Date(MMWRyear=year, MMWRweek=week, MMWRday=7),
+         date = format(date, "%b-%d"),
+         date = factor(date, levels=date, labels=date))
+  
+
+ggplot(case_ct_week)+
+  geom_col(aes(x=date, y=n, fill=cong_yn))+
+  theme_classic()+
+  scale_fill_brewer(palette="Blues")+
+  geom_text(aes(x=date, y=n, label=n), vjust=-0.5)+
+  labs(
+    y = "Number of COVID-19 Cases",
+    x="Specimen Collection/Onset Date",
+    fill="Reside in Congregate Setting")+
+  theme(axis.text.x = element_text(size = 8, angle = 30, vjust = .7))
+
+```
+
+##Slide 4 - Community test volume and positivity
+```{r slide 4, echo = FALSE}
+#calculate 7 day rolling averages
+test_ct <- communitytest %>%
+  group_by(spec_col_date, result2) %>%
+  tally()%>%
+  tidyr::spread(result2, n)%>%
+  tidyr::replace_na(list(Positive=0, Negative=0, Indeterminate =0)) %>%
+  mutate(Total = sum(Positive, Negative, Indeterminate, na.rm=TRUE))
+
+testavg8 <- dates %>%
+  left_join(test_ct, by=c("date"="spec_col_date")) %>%
+  mutate(tot = tidyr::replace_na(Total, 0),
+         pos = tidyr::replace_na(Positive, 0),
+         neg = tidyr::replace_na(Negative, 0),
+         tot7 = slide_dbl(tot, sum, .before=3, .after=3, .complete=TRUE),
+         pos7 = slide_dbl(pos, sum, .before=3, .after=3, .complete=TRUE),
+         neg7 = slide_dbl(neg, sum, .before=3, .after=3, .complete=TRUE),
+         daily_pctpos = pos/(pos+neg)*100,
+         pctpos = pos7/(pos7+neg7)*100,
+         avgtot7 = ifelse(Sys.Date() - date <=6, NA, tot7/7),
+         avgpos7 = pos7/7) %>%
+##### THIS NEEDS TO CHANGE #####
+  #filter(epiweek(date)>= thisweek-12)
+filter((epiweek(date) == epiweek(Sys.Date()) & epiyear(date) == epiyear(Sys.Date())) | #thisweek -0
+    (epiweek(date) == epiweek(Sys.Date()-7) & epiyear(date) == epiyear(Sys.Date()-7)) |  #thisweek -1
+    (epiweek(date) == epiweek(Sys.Date()-14) & epiyear(date) == epiyear(Sys.Date()-14)) | #thisweek-2
+    (epiweek(date) == epiweek(Sys.Date()-21) & epiyear(date) == epiyear(Sys.Date()-21)) | #thisweek-3
+    (epiweek(date) == epiweek(Sys.Date()-28) & epiyear(date) == epiyear(Sys.Date()-28)) | #thisweek-4
+    (epiweek(date) == epiweek(Sys.Date()-35) & epiyear(date) == epiyear(Sys.Date()-35)) | #thisweek-5
+    (epiweek(date) == epiweek(Sys.Date()-42) & epiyear(date) == epiyear(Sys.Date()-42)) | #thisweek-6
+    (epiweek(date) == epiweek(Sys.Date()-49) & epiyear(date) == epiyear(Sys.Date()-49)) | #thisweek-7
+    (epiweek(date) == epiweek(Sys.Date()-56) & epiyear(date) == epiyear(Sys.Date()-56)) | #thisweek-8
+    (epiweek(date) == epiweek(Sys.Date()-63) & epiyear(date) == epiyear(Sys.Date()-63)) | #thisweek-9
+    (epiweek(date) == epiweek(Sys.Date()-70) & epiyear(date) == epiyear(Sys.Date()-70)) |#thisweek-10
+    (epiweek(date) == epiweek(Sys.Date()-77) & epiyear(date) == epiyear(Sys.Date()-77)) |#thisweek-11
+    (epiweek(date) == epiweek(Sys.Date()-84) & epiyear(date) == epiyear(Sys.Date()-84)) #thisweek-12
+    )
+
+#a. test volume plot
+ggplot(testavg8)+
+  geom_col(aes(x=date, y=tot), fill="lightgrey")+
+  geom_line(aes(x=date, y=avgtot7), size=2)+
+  theme_classic()+
+  labs(
+    y = "Number of Tests",
+    x="Specimen Collection Date"
+    )
+
+#b. test positivity plot
+ggplot(testavg8, aes(x=date, y=pctpos), color="black")+
+  geom_line(size=2)+
+  theme_classic()+
+  ylim(0, max(testavg8$pctpos))+
+  labs(
+    y = "% Positive",
+    x="Date"
+    )
+#added 1/27/2021: daily pct positivity:
+#ggplot(testavg8)+
+##  geom_col(aes(x=date, y=daily_pctpos), fill="lightgrey")+
+#  geom_line(aes(x=date, y=pctpos), color="black", size=2)+
+#  theme_classic()+
+#  ylim(0, max(testavg8$daily_pctpos))+
+#   labs(
+#    y = "% Positive",
+#    x="Specimen Collection Date",
+#    title="Community testing percentage positive by date"
+#    )
+#c. table with test counts
+weeklytest <- communitytest %>%
+#### THIS NEEDS TO CHANGE #####  
+  #filter(epiweek(spec_col_date) >= thisweek-2) %>%
+filter((epiweek(spec_col_date) == epiweek(Sys.Date()) & epiyear(spec_col_date) == epiyear(Sys.Date())) | #thisweek -0
+    (epiweek(spec_col_date) == epiweek(Sys.Date()-7) & epiyear(spec_col_date) == epiyear(Sys.Date()-7)) |  #thisweek -1
+    (epiweek(spec_col_date) == epiweek(Sys.Date()-14) & epiyear(spec_col_date) == epiyear(Sys.Date()-14)))%>%
+#############################
+  group_by(epiyear(spec_col_date),epiweek(spec_col_date)) %>%
+  tally() %>%
+  rename(week = `epiweek(spec_col_date)`,
+         year = `epiyear(spec_col_date)`,
+         tests = n)
+
+kable(weeklytest )
+```
+
+```{r slide 4 pcr only, echo = FALSE}
+#community testing for pcr only
+
+#calculate 7 day rolling averages
+test_ct_pcr <- communitytest %>%
+  filter(pcrag =="pcr" ) %>% 
+  group_by(spec_col_date, result2) %>%
+  tally()%>%
+  tidyr::spread(result2, n)%>%
+  tidyr::replace_na(list(Positive=0, Negative=0, Indeterminate =0)) %>%
+  mutate(Total = sum(Positive, Negative, Indeterminate, na.rm=TRUE))
+
+testavg8_pcr <- dates %>%
+  left_join(test_ct, by=c("date"="spec_col_date")) %>%
+  mutate(tot = tidyr::replace_na(Total, 0),
+         pos = tidyr::replace_na(Positive, 0),
+         neg = tidyr::replace_na(Negative, 0),
+         tot7 = slide_dbl(tot, sum, .before=3, .after=3, .complete=TRUE),
+         pos7 = slide_dbl(pos, sum, .before=3, .after=3, .complete=TRUE),
+         neg7 = slide_dbl(neg, sum, .before=3, .after=3, .complete=TRUE),
+         daily_pctpos = pos/(pos+neg)*100,
+         pctpos = pos7/(pos7+neg7)*100,
+         avgtot7 = ifelse(Sys.Date() - date <=6, NA, tot7/7),
+         avgpos7 = pos7/7) %>%
+##### THIS NEEDS TO CHANGE #####  
+  #filter(epiweek(date)>= thisweek-12)
+filter((epiweek(date) == epiweek(Sys.Date()) & epiyear(date) == epiyear(Sys.Date())) | #thisweek -0
+    (epiweek(date) == epiweek(Sys.Date()-7) & epiyear(date) == epiyear(Sys.Date()-7)) |  #thisweek -1
+    (epiweek(date) == epiweek(Sys.Date()-14) & epiyear(date) == epiyear(Sys.Date()-14)) | #thisweek-2
+    (epiweek(date) == epiweek(Sys.Date()-21) & epiyear(date) == epiyear(Sys.Date()-21)) | #thisweek-3
+    (epiweek(date) == epiweek(Sys.Date()-28) & epiyear(date) == epiyear(Sys.Date()-28)) | #thisweek-4
+    (epiweek(date) == epiweek(Sys.Date()-35) & epiyear(date) == epiyear(Sys.Date()-35)) | #thisweek-5
+    (epiweek(date) == epiweek(Sys.Date()-42) & epiyear(date) == epiyear(Sys.Date()-42)) | #thisweek-6
+    (epiweek(date) == epiweek(Sys.Date()-49) & epiyear(date) == epiyear(Sys.Date()-49)) | #thisweek-7
+    (epiweek(date) == epiweek(Sys.Date()-56) & epiyear(date) == epiyear(Sys.Date()-56)) | #thisweek-8
+    (epiweek(date) == epiweek(Sys.Date()-63) & epiyear(date) == epiyear(Sys.Date()-63)) | #thisweek-9
+    (epiweek(date) == epiweek(Sys.Date()-70) & epiyear(date) == epiyear(Sys.Date()-70)) |#thisweek-10
+    (epiweek(date) == epiweek(Sys.Date()-77) & epiyear(date) == epiyear(Sys.Date()-77)) |#thisweek-11
+    (epiweek(date) == epiweek(Sys.Date()-84) & epiyear(date) == epiyear(Sys.Date()-84)) #thisweek-12
+    )
+####################################
+
+#a. test volume plot
+ggplot(testavg8_pcr)+
+  geom_col(aes(x=date, y=tot), fill="lightgrey")+
+  geom_line(aes(x=date, y=avgtot7), size=2)+
+  theme_classic()+
+  labs(
+    y = "Number of Tests",
+    x="Specimen Collection Date",
+    title="Community testing by date, PCR only"
+    )
+
+#b. test positivity plot
+ggplot(testavg8_pcr, aes(x=date, y=pctpos), color="black")+
+  geom_line(size=2)+
+  theme_classic()+
+  ylim(0, max(testavg8_pcr$pctpos))+
+  labs(
+    y = "% Positive",
+    x="Date",
+    title="Community testing percentage positive by date, PCR only"
+    )
+
+#added 1/27/2021: daily pct positivity:
+#ggplot(testavg8_pcr)+
+#  geom_col(aes(x=date, y=daily_pctpos), fill="lightgrey")+
+#  geom_line(aes(x=date, y=pctpos), color="black", size=2)+
+#  theme_classic()+
+#  ylim(0, max(testavg8$daily_pctpos))+
+#  labs(
+#    y = "% Positive",
+#    x="Specimen Collection Date",
+#    title="Community testing percentage positive by date, PCR only"
+#    )
+
+#c. table with test counts
+weeklytest_pcr <- communitytest %>%
+  filter(pcrag =="pcr" ) %>% 
+##### THIS NEEDS TO CHANGE #####  
+  #filter(epiweek(spec_col_date) >= thisweek-2) %>%
+  filter((epiweek(spec_col_date) == epiweek(Sys.Date()) & epiyear(spec_col_date) == epiyear(Sys.Date())) | #thisweek -0
+    (epiweek(spec_col_date) == epiweek(Sys.Date()-7) & epiyear(spec_col_date) == epiyear(Sys.Date()-7)) |  #thisweek -1
+    (epiweek(spec_col_date) == epiweek(Sys.Date()-14) & epiyear(spec_col_date) == epiyear(Sys.Date()-14)))%>% #thisweek-2
+###################################
+  group_by(epiyear(spec_col_date), epiweek(spec_col_date)) %>%
+  tally() %>%
+  rename(week = `epiweek(spec_col_date)`,
+         year = `epiyear(spec_col_date)`,
+         tests = n)
+
+kable(weeklytest_pcr )
+```
+##Slide 7 - new request for age group info from Albert. Community Tests ONLY. 
+
+```{r slide 75, echo = FALSE}
+#color palette for age graphs
+palettea <- c("#A6CEE3", "#1F78B4", "#B2DF8A", "#33A02C", "#FB9A99", "#FFFF99", "#FDBF6F", "#FF7F00", "#CAB2D6", "#6A3D9A", "#000000")
+
+#d. tests and positive tests by age group
+age_labels3 <- c("0-14", "15-19", "20-24", "25-39", "40-64",  "65+")
+age_labels4 <- c("0-14", "15-19", "20-24", "25-39", "40-64",  "65+", "Overall") 
+
+#age population denominators
+age_pop <- read_csv("population_data/2018_dph_asrh/2018_asrh.csv") %>% 
+  #select(age_3, pop) %>% 
+  #filter(!is.na(age_3)) %>%
+  select(age_4, pop_4) %>% 
+  filter(!is.na(age_4)) %>% 
+  rename(agepop=pop_4)
+
+weeklytest_all <- communitytest %>% 
+  mutate(week=epiweek(spec_col_date)) %>% 
+  mutate(year=epiyear(spec_col_date)) %>%
+  group_by(year, week, result2) %>% 
+  tally() %>% 
+  spread(result2, n) %>%
+##### THIS NEEDS TO CHANGE ####
+ # filter(week <= thisweek-1 & week >= thisweek-12) %>% 
+  filter(
+    (week == epiweek(Sys.Date()-7) & year == epiyear(Sys.Date()-7)) |  #thisweek -1
+    (week == epiweek(Sys.Date()-14) & year == epiyear(Sys.Date()-14)) | #thisweek-2
+    (week == epiweek(Sys.Date()-21) & year == epiyear(Sys.Date()-21)) | #thisweek-3
+    (week == epiweek(Sys.Date()-28) & year == epiyear(Sys.Date()-28)) | #thisweek-4
+    (week == epiweek(Sys.Date()-35) & year == epiyear(Sys.Date()-35)) | #thisweek-5
+    (week == epiweek(Sys.Date()-42) & year == epiyear(Sys.Date()-42)) | #thisweek-6
+    (week == epiweek(Sys.Date()-49) & year == epiyear(Sys.Date()-49)) | #thisweek-7
+    (week == epiweek(Sys.Date()-56) & year == epiyear(Sys.Date()-56)) | #thisweek-8
+    (week == epiweek(Sys.Date()-63) & year == epiyear(Sys.Date()-63)) | #thisweek-9
+    (week == epiweek(Sys.Date()-70) & year == epiyear(Sys.Date()-70)) |#thisweek-10
+    (week == epiweek(Sys.Date()-77) & year == epiyear(Sys.Date()-77)) |#thisweek-11
+    (week == epiweek(Sys.Date()-84) & year == epiyear(Sys.Date()-84)) #thisweek-12
+    )%>% 
+#####################################  
+  mutate(age_group="Overall",
+         agepop=3572665, 
+         Total = sum(Positive, Negative, Indeterminate, na.rm=TRUE),
+         rate = (Total/7)/agepop*100000,
+         pctpos = Positive / (Positive + Negative)*100,
+      ##### THIS NEEDS TO CHANGE #####   
+         #year = 2020,
+         date = MMWRweek2Date(MMWRyear=year, MMWRweek=week, MMWRday=7))
+
+weeklytest_age <- communitytest %>%
+  filter(!is.na(spec_col_date) & !is.na(age)) %>% 
+  mutate(age_group = cut(age, breaks = c(-1,14,19,24,39,64,Inf),labels = age_labels3),
+         week = epiweek(spec_col_date)) %>%
+  mutate(year = epiyear(spec_col_date)) %>%
+  group_by(age_group, year,week, result2) %>% 
+  tally()  %>%
+  spread(result2, n) %>% 
+  left_join(age_pop, by=c("age_group" ="age_4")) %>% 
+  #rbind(weeklytest_all) %>% 
+  replace_na(replace = list(Positive=0, Negative=0, Indeterminate=0)) %>% 
+##### THIS NEEDS TO CHANGE #####  
+  #filter(week <= thisweek-1 & week >= thisweek-12) %>% 
+  filter(
+    (week == epiweek(Sys.Date()-7) & year == epiyear(Sys.Date()-7)) |  #thisweek -1
+    (week == epiweek(Sys.Date()-14) & year == epiyear(Sys.Date()-14)) | #thisweek-2
+    (week == epiweek(Sys.Date()-21) & year == epiyear(Sys.Date()-21)) | #thisweek-3
+    (week == epiweek(Sys.Date()-28) & year == epiyear(Sys.Date()-28)) | #thisweek-4
+    (week == epiweek(Sys.Date()-35) & year == epiyear(Sys.Date()-35)) | #thisweek-5
+    (week == epiweek(Sys.Date()-42) & year == epiyear(Sys.Date()-42)) | #thisweek-6
+    (week == epiweek(Sys.Date()-49) & year == epiyear(Sys.Date()-49)) | #thisweek-7
+    (week == epiweek(Sys.Date()-56) & year == epiyear(Sys.Date()-56)) | #thisweek-8
+    (week == epiweek(Sys.Date()-63) & year == epiyear(Sys.Date()-63)) | #thisweek-9
+    (week == epiweek(Sys.Date()-70) & year == epiyear(Sys.Date()-70)) |#thisweek-10
+    (week == epiweek(Sys.Date()-77) & year == epiyear(Sys.Date()-77)) |#thisweek-11
+    (week == epiweek(Sys.Date()-84) & year == epiyear(Sys.Date()-84)) #thisweek-12
+    )%>% 
+###################################  
+  mutate(Total = sum(Positive, Negative, Indeterminate, na.rm=TRUE),
+         rate = (Total/7)/agepop*100000,
+         pctpos = Positive / (Positive + Negative)*100,
+  ##### THIS NEEDS TO CHANGE #####       
+         #year = 2020,
+         date = MMWRweek2Date(MMWRyear=year, MMWRweek=week, MMWRday=7))
+
+weeklytest_age$age_group <- factor(weeklytest_age$age_group, labels = age_labels3, levels = age_labels3 )
+
+#plot total tests over time by age group
+ggplot(weeklytest_age, aes(x=date, y=rate))+
+  geom_line(aes(color=age_group), size=2)+
+  geom_line(data=weeklytest_all,  size=2.5, linetype="dotdash")+
+  theme_classic()+
+  scale_color_brewer(palette = "Set2")+
+  labs(x='Date',
+       y='Tests per 100,000 Population per Day',
+       color='Age Group (years)')
+
+#plot % positive tests over time by age group
+ggplot(weeklytest_age, aes(x=date, y=pctpos))+
+  geom_line(aes(color=age_group), size=2)+
+  geom_line(data=weeklytest_all, size=2.5, linetype="dotdash")+
+  theme_classic()+
+  ylim(0, 15)+
+  #ylim(0,max(weeklytest_age$pctpos))+
+  scale_color_brewer(palette="Set2")+
+  labs(x='Date',
+       y='% Positive Tests',
+       color='Age Group (years)')
+
+
+#cases by age group
+weeklycases_all <- casenew %>%
+#### THIS NEEDS TO CHANGE ####  
+  #filter(week <= thisweek-1 & week >= thisweek-12) %>%
+filter(
+    (week == epiweek(Sys.Date()-7) & year == epiyear(Sys.Date()-7)) |  #thisweek -1
+    (week == epiweek(Sys.Date()-14) & year == epiyear(Sys.Date()-14)) | #thisweek-2
+    (week == epiweek(Sys.Date()-21) & year == epiyear(Sys.Date()-21)) | #thisweek-3
+    (week == epiweek(Sys.Date()-28) & year == epiyear(Sys.Date()-28)) | #thisweek-4
+    (week == epiweek(Sys.Date()-35) & year == epiyear(Sys.Date()-35)) | #thisweek-5
+    (week == epiweek(Sys.Date()-42) & year == epiyear(Sys.Date()-42)) | #thisweek-6
+    (week == epiweek(Sys.Date()-49) & year == epiyear(Sys.Date()-49)) | #thisweek-7
+    (week == epiweek(Sys.Date()-56) & year == epiyear(Sys.Date()-56)) | #thisweek-8
+    (week == epiweek(Sys.Date()-63) & year == epiyear(Sys.Date()-63)) | #thisweek-9
+    (week == epiweek(Sys.Date()-70) & year == epiyear(Sys.Date()-70)) |#thisweek-10
+    (week == epiweek(Sys.Date()-77) & year == epiyear(Sys.Date()-77)) |#thisweek-11
+    (week == epiweek(Sys.Date()-84) & year == epiyear(Sys.Date()-84)) #thisweek-12
+    )%>% 
+#################################  
+  group_by(year,week) %>%
+  tally() %>%
+  mutate(rate = (n/7)/3572665*100000,
+         age_group="Overall",
+  #### THIS NEEDS TO CHANGE ####       
+         #year = 2020,
+         week= MMWRweek2Date(MMWRyear=year, MMWRweek=week, MMWRday=7))
+
+weeklycase_age <- communitycase %>%
+  filter(!is.na(age)) %>% 
+  mutate(age_group = cut(age, breaks = c(-1,14,19,24,39,64,Inf),labels = age_labels3),
+         week = epiweek(spec_col_date)) %>% 
+  group_by(year, week, age_group) %>% 
+  tally() %>% 
+  ungroup() %>% 
+  mutate(rate=0) %>% 
+  #rbind(weeklycases_all) %>% 
+#### THIS NEEDS TO CHANGE ####  
+  #filter(week <= thisweek-1 & week >= thisweek-12) %>% 
+filter( 
+    (week == epiweek(Sys.Date()-7) & year == epiyear(Sys.Date()-7)) |  #thisweek -1
+    (week == epiweek(Sys.Date()-14) & year == epiyear(Sys.Date()-14)) | #thisweek-2
+    (week == epiweek(Sys.Date()-21) & year == epiyear(Sys.Date()-21)) | #thisweek-3
+    (week == epiweek(Sys.Date()-28) & year == epiyear(Sys.Date()-28)) | #thisweek-4
+    (week == epiweek(Sys.Date()-35) & year == epiyear(Sys.Date()-35)) | #thisweek-5
+    (week == epiweek(Sys.Date()-42) & year == epiyear(Sys.Date()-42)) | #thisweek-6
+    (week == epiweek(Sys.Date()-49) & year == epiyear(Sys.Date()-49)) | #thisweek-7
+    (week == epiweek(Sys.Date()-56) & year == epiyear(Sys.Date()-56)) | #thisweek-8
+    (week == epiweek(Sys.Date()-63) & year == epiyear(Sys.Date()-63)) | #thisweek-9
+    (week == epiweek(Sys.Date()-70) & year == epiyear(Sys.Date()-70)) |#thisweek-10
+    (week == epiweek(Sys.Date()-77) & year == epiyear(Sys.Date()-77)) |#thisweek-11
+    (week == epiweek(Sys.Date()-84) & year == epiyear(Sys.Date()-84)) #thisweek-12
+    )%>% 
+#######################################  
+  left_join(age_pop, by=c("age_group" ="age_4")) %>% 
+  mutate(rate = ifelse(age_group=="Overall", rate, 
+                       ifelse(n==0, NA, (n/7) / agepop *100000)),
+    ##### THIS NEEDS TO CHANGE ####     
+         #year = 2020,
+         week= MMWRweek2Date(MMWRyear=year, MMWRweek=week, MMWRday=7)) 
+
+weeklycase_age$age_group <- factor(weeklycase_age$age_group, labels = age_labels4, levels = age_labels4 )
+
+
+ggplot(weeklycase_age, aes(x=week, y=rate))+
+  geom_line(aes(color=age_group), size=2)+
+  geom_line(data=weeklycases_all, size=2.5, linetype="dotdash")+
+  #gghighlight(age_group=="Overall")
+  ylim(0,max(weeklycase_age$rate))+
+  theme_classic()+
+  # theme(
+  #   legend.position="bottom"
+  # )+
+  scale_color_brewer(palette= "Set2")+
+  labs(x='Date',
+       y='Cases per 100,000 Population per Day',
+       color='Age Group (years)')
+  
+
+#littlemissdata.com/blog/highlight
+#brewer.pal(n=7, name="YlOrRd")
+#SWITCH TO BUBBLE PLOT OF AGE GROUPS FOR INCIDENCE
+```
+
+##Slide 8 - map number of tests & number of cases by town for last 3 weeks
+
+
+```{r slide 8, echo = FALSE}
+
+
+#a. count cases and tests for each week
+#cases
+weeklycases_nc <- communitycase %>%
+#### THIS NEEDS TO CHANGE ####  
+  #filter(week >= thisweek-2) %>% 
+filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) | 
+    (week == epiweek(Sys.Date()-7) & year == epiyear(Sys.Date()-7)) | 
+    (week == epiweek(Sys.Date()-14) & year == epiyear(Sys.Date()-14)))%>%
+##########################  
+  group_by(year,week) %>% 
+  tally()
+
+#tests = weeklytest
+
+weeklycommunity <- weeklycases_nc %>%
+  left_join(weeklytest, by=c("week", "year")) %>%
+  rename(cases=n)
+
+kable(weeklycommunity )
+
+tompalette2 <- c("#1a9641", "#a6d96a", "#ffffbf", "#fdae61", "#d7191c")
+
+#b. map tests for each week
+test3wk_count <- communitytest %>%
+  mutate(week = epiweek(spec_col_date)) %>% 
+  mutate(year = epiyear(spec_col_date)) %>%
+  mutate(NAME = str_to_title(city)) %>%
+#### THIS NEEDS TO CHANGE #####  
+  #filter(week >=10) %>% 
+  filter((week >=10 & year == 2020) | (week >= 1 & year == 2021))%>%
+#############################  
+  group_by(year, week, result2, NAME) %>% 
+  tally() %>%
+  spread(result2, n) %>% 
+  complete(NAME = town_pop18$city, fill= list(Positive=0, Negative=0, Total=0)) %>%
+  filter(NAME != "Not_available") %>%
+  replace_na(replace = list(Indeterminate = 0, Postive=0, Negative=0)) %>% 
+  ungroup() %>% 
+  left_join(town_pop18, by = c("NAME" = "city")) %>% 
+  group_by(NAME) %>% 
+  mutate(Total = Positive + Negative + Indeterminate,
+         Pos14 = Positive + lag(Positive),
+         Total14=Pos14+ Negative + lag(Negative)+Indeterminate + lag(Indeterminate),
+         #Total = ifelse(Total==0, NA, Total),
+         rate = (Total/7) / pop * 100000, 
+         rate14 = (Total14/14)/pop*100000,
+         pctpos = ifelse(Total==0 , 0, Positive / (Positive + Negative) *100),
+         pctpos14 = ifelse(Total14==0, 0, (Pos14)/(Pos14+Negative+lag(Negative))*100),
+  ####### THIS NEEDS TO CHANGE #####       
+         #year = 2020
+         ) %>% 
+#### THIS NEEDS TO CHANGE ####  
+  #filter(week >=thisweek-2)
+filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) | 
+    (week == epiweek(Sys.Date()-7) & year == epiyear(Sys.Date()-7)) | 
+    (week == epiweek(Sys.Date()-14) & year == epiyear(Sys.Date()-14)))
+######################################
+
+tot_groups <-c("0", "<50", "51-100", "101-200", "201-500", "501-1000", ">1000")
+rate_groups <-c("0", "<75", "76-150", "151-225", "226-300", "301-450", ">450" )
+pos_groups <- c("<1%", "1-<3%", "3-<5%", "5-<10%", "10%+")
+pos14_groups <- c("<5%", "5-<10%", "10%+")
+test3wk_count<- test3wk_count %>% 
+  mutate(totcat =  cut(Total, breaks=c(-Inf, 0, 50, 100, 200, 500, 1000, Inf), labels=tot_groups),
+         ratecat =  cut(rate, breaks=c(-Inf, 0, 75, 150, 225, 300, 450, Inf), labels=rate_groups), 
+         poscat =  cut(pctpos, breaks=c(-Inf, 1, 3, 5, 10, Inf), labels=pos_groups),
+         pos14cat = ifelse(Total14 < 100 | pctpos14 < 5, 1,
+                           ifelse(pctpos14 >=5 & pctpos14 <10, 4, 
+                                  ifelse(pctpos14 >=10, 5, 0))),
+         week= MMWRweek2Date(MMWRyear=year, MMWRweek=week, MMWRday=7),
+         day=ifelse(day(week)<10, paste0(0,day(week)), day(week)),
+         week = paste0(month(week), "-", day, "-", year(week)))
+#join to geography
+subdat_3wkt <- subdat %>% 
+  left_join(
+    test3wk_count, by = c("NAME" = "NAME")    
+  ) 
+#make map
+ggplot(subdat_3wkt)+
+  geom_sf(aes(fill = totcat))+
+  #facet_wrap(vars(week))+
+  facet_wrap(vars(as.Date(week, format="%m-%d-%Y")))+
+  scale_fill_brewer(palette = "Blues", direction = 1, na.value="white")+
+  theme_void()+
+  labs(
+    fill = "Test Count"
+  )+
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.title = element_text(size = 11),
+    legend.text = element_text(size=9)
+  )
+
+ggplot(subdat_3wkt)+
+  geom_sf(aes(fill = ratecat))+
+  #facet_wrap(vars(week))+
+  facet_wrap(vars(as.Date(week, format="%m-%d-%Y")))+
+  scale_fill_brewer(palette = "Blues", direction = 1, na.value="white")+
+  theme_void()+
+  labs(
+    fill = "Tests per 100,000 Population per Day"
+  )+
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.title = element_text(size = 11),
+    legend.text = element_text(size=9)
+  )
+
+ggplot(subdat_3wkt)+
+  geom_sf(aes(fill = poscat))+
+  #facet_wrap(vars(week))+
+  facet_wrap(vars(as.Date(week, format="%m-%d-%Y")))+
+  #scale_fill_manual(values=tompalette)+
+  scale_fill_brewer(palette = "Purples", direction = 1, na.value="white")+
+  theme_void()+
+  labs(
+    fill = "Percentage Positive Tests"
+  )+
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.title = element_text(size = 11),
+    legend.text = element_text(size=9)
+  )
+
+
+
+#c. map cases for each week
+num_groups <- c("None", "1 to 4", "5 to 24", "25 to 49", "50 to 99", "100 to 199", "200 to 499", "500 to 999", "1000+")
+rate_groups2 <- c("<1", "1-<5", "5-<10", "10-<25", "25+")
+#map case color palette
+paletteo<- c("#fcf8f8", "#fff7bc", "#fec44f", "#fe9929", "#d95f0e", "#993404")
+
+
+#count cases by town by week
+casestownwk_count <- communitycase %>%
+#### THIS NEEDS TO CHANGE ####  
+  #filter(week >= 10) %>% 
+ filter((week >=10 & year == 2020) | (week >= 1 & year == 2021))%>%
+################################  
+  mutate(NAME = str_to_title(city)) %>% 
+  group_by(year, week, NAME) %>% 
+  tally() %>%
+  filter(NAME != "Not_available") %>% 
+  complete(NAME = town_pop18$city, fill= list(n=0)) %>%
+  ungroup() %>% 
+  left_join(town_pop18, by = c("NAME" = "city")) %>% 
+  group_by(NAME) %>% 
+  mutate(n_cat = cut(n, breaks = c(-Inf,0,5,25,50,100,200,500,1000, Inf), labels = num_groups),
+         n14 = n+lag(n),
+         rate = ifelse(n==0, 0, (n/7) / pop *100000),
+         rate14 = ifelse(n14==0, 0, (n14/14) / pop *100000),
+         #ratecat = cut(rate, breaks=c(-Inf, 1, 5, 10, 25, Inf), labels=rate_groups2),
+      #### THIS NEEDS TO CHANGE ####   
+         #year = 2020,
+         rate14cat1 = ifelse(n14 < 5 | rate14<5, "<5 cases or <5 per 100k", 
+                                        ifelse(rate14 >=5 & rate14 <10, "5-9 per 100k", 
+                                               ifelse(rate14 >=10 & rate14 <15, "10-14 per 100k", 
+                                                      ifelse(rate14 >=15 & rate14 <25, "15-24 per 100k",
+                                                      ifelse(rate14 >=25, "25+ per 100k", "not cat"))))),
+         
+         rate14cat = ifelse(n14 < 5, 1, 
+                                    ifelse( rate14 <5, 1, 
+                                        ifelse(rate14 >=5 & rate14 <10, 2, 
+                                               ifelse(rate14 >=10 & rate14 < 15, 3,
+                                                  ifelse(rate14 >=15 & rate14 <25, 4, 
+                                                      ifelse(rate14 >=25 , 5,0))))))) %>% 
+  group_by(NAME) %>% 
+  mutate(changerate = rate - lag(rate),
+         pctchangerate = ifelse(changerate ==0, 0, (changerate / lag(rate))*100),
+         changen = n - lag(n),
+         changeratecat = ifelse(pctchangerate < -10, "decrease",
+                                ifelse(pctchangerate >10, "increase", "no change")),
+         changencat = ifelse(changen < 0 , "decrease", 
+                             ifelse(changen >0, "increase", "no change")))
+ratelevels<-c("<5 cases or <5 per 100k","5-9 per 100k","10-14 per 100k","15-24 per 100k","25+ per 100k")
+casestownwk_count$rate14cat1<-factor(casestownwk_count$rate14cat1, ratelevels)
+
+cases3wk_count <- casestownwk_count %>% 
+##### THIS NEEDS TO CHANGE #####  
+  #filter(week >= thisweek-2) %>%
+filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) | 
+    (week == epiweek(Sys.Date()-7) & year == epiyear(Sys.Date()-7)) | 
+    (week == epiweek(Sys.Date()-14) & year == epiyear(Sys.Date()-14)))%>%
+####################################
+  mutate(week= MMWRweek2Date(MMWRyear=year, MMWRweek=week, MMWRday=7),
+         day=ifelse(day(week)<10, paste0(0,day(week)), day(week)),
+        week = paste0(month(week), "-", day, "-", year(week)))
+
+#join to geodata
+subdat_3wkc <- subdat %>% 
+  left_join(
+    cases3wk_count, by = c("NAME" = "NAME")    
+  ) 
+subdat_3wkc$n_cat[is.na(subdat_3wkc$n_cat)] <- "None"
+
+check<-count(subdat_3wkc, n_cat)
+
+#create maps 
+ggplot(subdat_3wkc)+
+ # facet_wrap(vars(week))+
+  facet_wrap(vars(as.Date(week, format="%m-%d-%Y")))+
+  geom_sf(aes(fill = n_cat))+
+  #geom_sf_text(aes(label = NAME), col = "black", size = 1.5)+
+  scale_fill_brewer(palette="YlOrBr")+
+  theme_void()+
+  labs(
+    fill = "Case Count"
+  )+
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.title = element_text(size = 11),
+    legend.text = element_text(size=11)
+  )
+
+
+tompalette2 <- c("white", "#ffffb2", "gold", "darkorange", "#f03b20")
+
+#create maps 
+ggplot(subdat_3wkc)+
+  #facet_wrap(vars(week))+
+  facet_wrap(vars(as.Date(week, format="%m-%d-%Y")))+
+  geom_sf(aes(fill = rate14cat1))+
+  scale_fill_manual(values = tompalette2, drop=FALSE)+
+  theme_void()+
+  labs(
+    fill = "Average Daily Incidence Rate per 100,000 \nover last two weeks"
+  )+
+  theme(
+    legend.position = "bottom",
+    legend.direction = "vertical",
+    legend.title = element_text(size = 11),
+    legend.text = element_text(size=11)
+  )
+
+
+
+```
+
+
+#Slide 9 - Turn Around Time
+```{r slide 9, echo = FALSE}
+##Slide 9 - turn around time = ALEX
+elr <- testgeo2 %>% 
+  filter(spec_col_date >= max(spec_col_date, na.rm = T)-42) %>% 
+  mutate(reported = as.Date(mdy(date_reported_dph))) %>% 
+  mutate(tat = as.numeric(abs(spec_col_date - reported))) %>% 
+  filter(!is.na(tat))
+end_date <- Sys.Date()-1
+
+### MANUAL EDITS 1/7/2021:
+#elr$tat[which(elr$eventid %in% 104449140)]<- 7
+#elr$tat[which(elr$eventid %in% 101522681)]<- 7
+### Manual Edits 1/14/2021:
+#elr$tat[which(elr$eventid %in% 104664218 & elr$spec_col_date == "2021-01-03")] <- 4
+#elr$tat[which(elr$eventid %in% 104690793 & elr$spec_col_date == "2021-01-03")] <- 4
+#elr$tat[which(elr$eventid %in% 104690830 & elr$spec_col_date == "2020-12-19")] <- 19
+### MANUAL EDITS 1/21/2021:
+#elr$tat[which(elr$eventid %in% 104897542 & elr$spec_col_date == "2021-01-11")] <- 3
+#elr$tat[which(elr$eventid %in% 104897543 & elr$spec_col_date == "2021-01-12")] <- 2
+#elr$tat[which(elr$eventid %in% 104897545 & elr$spec_col_date == "2021-01-12")] <- 2
+### Manual edits 1/28/2021:
+elr$tat[which(elr$eventid %in% 102163048 & elr$spec_col_date == "2021-01-09")] <- 12
+elr$tat[which(elr$eventid %in% 105083891 & elr$spec_col_date == "2021-01-12")] <- 9
+
+wrong <- elr %>% filter(tat > 30)%>% filter(spec_col_date >= end_date-20 & spec_col_date <= end_date-7)
+wrong_foremail <- wrong %>% select(eventid, lab_result_create_date, lab_result_mod_date, spec_col_date, date_tested, date_reported_dph)
+#write_csv(wrong_foremail, "CRFs_entered_as_labs.csv")
+
+#elr <- elr %>% filter(!eventid %in% wrong$eventid)
+
+
+elr9med <- elr %>% 
+  group_by(spec_col_date) %>% 
+  summarise(
+    medtat = median(tat),
+    #sd = std(tat),
+    lower = quantile(tat)[2],
+    upper = quantile(tat)[4]
+    ) %>% 
+  ungroup() %>% 
+  filter(spec_col_date >= end_date-20 & spec_col_date <= end_date-7)
+
+ggplot(elr9med, aes(x =spec_col_date))+
+  geom_line(aes(y = medtat), size =1)+
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = "grey70", alpha = 0.5)+
+  scale_x_date(breaks = "2 days", date_labels = "%b-%d")+
+  theme_classic()+
+  labs(
+    title = "Median Test Turn Around Time in Days",
+    subtitle = "with Interquartile Range",
+    y = "Median Turn Around time in Days",
+    x = "Specimen Collection Date"
+  )
+
+
+elr9histo <- elr %>% 
+  filter(spec_col_date >= end_date-20 & spec_col_date <= end_date-7) %>% 
+  group_by(tat) %>% 
+  summarise(
+    test = n(),
+  ) %>% 
+  ungroup()# %>% 
+  #filter(tat <=15)
+
+
+ggplot(elr9histo)+
+  geom_col(aes(tat, test, fill = tat), width=1, col = "black")+
+  geom_vline(xintercept = 2, linetype = "longdash")+
+  scale_x_continuous(breaks = seq(0,max(elr9histo$tat),by = 2))+
+  theme_classic()+
+  theme(legend.position = "none")+
+  labs(
+    title = "Test Turnaround Time",
+    subtitle = paste0(format(end_date-20, format="%b %d"),"-",format(end_date-7, format="%b %d")),
+    y = "Number of Tests",
+    x = "TAT, days"   
+       )
+
+elr9medweek <- elr %>% 
+  mutate(mmwr_week = epiweek(spec_col_date)) %>% 
+  mutate(mmwr_year = epiyear(spec_col_date)) %>%
+  group_by(mmwr_year,mmwr_week) %>% 
+  summarise(
+    medtat = median(tat),
+    #sd = std(tat),
+    lower = quantile(tat)[2],
+    upper = quantile(tat)[4]
+  ) %>% 
+  ungroup() %>% 
+#### THIS NEEDS TO CHANGE ####  
+  #filter(mmwr_week > thisweek-3) %>% 
+  filter((mmwr_week == epiweek(Sys.Date()) & mmwr_year == epiyear(Sys.Date())) | 
+    (mmwr_week == epiweek(Sys.Date()-7) & mmwr_year == epiyear(Sys.Date()-7)) | 
+    (mmwr_week == epiweek(Sys.Date()-14) & mmwr_year == epiyear(Sys.Date()-14)))%>%
+####################################
+  ##### THIS NEEDS TO CHANGE ####  
+  mutate(#mmwr_year = 2020,
+         weekstartdate = MMWRweek2Date(mmwr_year, mmwr_week)) %>% 
+  select(weekstartdate, medtat, lower, upper)
+
+kable(elr9medweek )
+
+```
+
+
+##Slide 10 - Syndromic Surveillance
+```{r slide 10, echo = FALSE}
+clipath <- paste0(dir, "/sys_here/cli_state")
+clifiles <- list.files(clipath, ".xlsx", full.names = T)
+cli <- readxl::read_excel(clifiles,skip = 2, col_names = T) %>% 
+  rename(date = "...1",
+         ccdd = "...2",
+         percent = Connecticut,
+         count = "Connecticut Data Count",
+         total_count = "Connecticut All Count"
+         ) %>% 
+  mutate(ccdd = "CLI")
+
+ilipath <- paste0(dir, "/sys_here/ili_state")
+ilifiles <- list.files(ilipath, ".xlsx", full.names = T)
+ili <- readxl::read_excel(ilifiles,skip = 2, col_names = T) %>% 
+  rename(date = "...1",
+         ccdd = "...2",
+         percent = Connecticut,
+         count = "Connecticut Data Count",
+         total_count = "Connecticut All Count"
+  )%>% 
+  mutate(ccdd = "ILI")
+
+
+comb <- bind_rows(cli,ili) %>% 
+  mutate(mmwr_week = epiweek(date),
+         mmwr_year = epiyear(date),
+         weekenddate = MMWRweek2Date(mmwr_year, mmwr_week, MMWRday=7)
+         ) %>% 
+  group_by(weekenddate, ccdd) %>% 
+  mutate(weekcount = sum(count),
+         weektotal = sum(total_count),
+         weekperc = weekcount/weektotal*100
+         ) %>% 
+  ungroup()
+ 
+
+end_date8weeks <- floor_date(end_date -84, unit = "1 week")
+ 
+combline <- comb %>% 
+  filter(date >=ymd(end_date8weeks)) %>% 
+  select(ccdd,weekenddate, weekcount,weektotal,weekperc) %>% 
+  mutate(weekenddate = factor(weekenddate)) %>% 
+  unique()
+
+ggplot(combline)+
+  geom_line(aes(weekenddate, weekperc, col = ccdd, group = ccdd), size = 1)+
+  scale_color_brewer(palette = "Dark2")+
+  scale_x_discrete(drop = FALSE)+
+  theme_classic()+
+  theme(
+    legend.position = "right",
+    legend.background = element_rect(colour = "black"),
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1
+    )
+        )+
+  ylim(0,max(combline$weekperc))+
+  labs(
+    title = "Percentage (%) of ILI and CLI-related Hospital ED Visits",
+    y = "Percentage (%) of all Hospital ED Vists",
+    x ="MMWR Week",
+    col = "Syndrome"
+  )
+
+
+## since march 1st
+combline2 <- comb %>% 
+  filter(date >=ymd("2020-03-01")) %>% 
+  select(ccdd,weekenddate, weekcount,weektotal,weekperc) %>% 
+  mutate(weekenddate = factor(weekenddate)) %>% 
+  unique()
+
+ggplot(combline2)+
+  geom_line(aes(weekenddate, weekperc, col = ccdd, group = ccdd), size = 1)+
+  scale_color_brewer(palette = "Dark2")+
+  scale_x_discrete(drop = FALSE)+
+  theme_classic()+
+  theme(
+    legend.position = c(0.85,0.8),
+    legend.background = element_rect(colour = "black"),
+    axis.text.x = element_text(
+      angle =45,
+      hjust = 1
+    )
+  )+
+  labs(
+    title = "Percentage (%) of ILI and CLI-related Hospital ED Visits",
+    y = "Percentage (%) of all Hospital ED Vists",
+    x ="MMWR Week",
+    col = "Syndrome"
+  )
+
+systable <- comb %>% 
+#### THIS NEEDS TO CHANGE ####  
+  #filter(mmwr_week > thisweek-3 & ccdd=="CLI") %>%
+  filter((mmwr_week == epiweek(Sys.Date()) & mmwr_year == epiyear(Sys.Date())& ccdd=="CLI") |
+  (mmwr_week == epiweek(Sys.Date()-7) & mmwr_year == epiyear(Sys.Date()-7) & ccdd=="CLI") |
+  (mmwr_week == epiweek(Sys.Date()-14) & mmwr_year == epiyear(Sys.Date()-14)&ccdd=="CLI"))%>%
+###########################3
+  select(weekenddate, weektotal, weekperc) %>% 
+  unique()
+
+kable(systable )
+
+```
+
+```{r slide 11 through 15, echo = FALSE, include = FALSE}
+
+##Slide 11 - Wastewater = FORREST? 
+
+##Slide 12 - Outbreaks = Lexi
+
+##Slide 13 - LTCF Summary = Cari
+
+##Slide 14 - DOC? = OLIVIA?
+
+##Slide 15 - School = blank
+
+```
+
+##Slide 16 - hospitalizations + Deaths
+
+
+```{r slide 16, echo = FALSE}
+#a. 7-day rolling average hospital census (?) by county
+cha_cty <- chalong %>%
+  filter(Type =="Admit") %>%
+  left_join(county_pop, by="County") %>%
+  group_by(County) %>%
+  mutate(count = replace_na(value, 0), 
+         count7 = slide_dbl(count, sum, .before=6, .after=0,  .complete=TRUE), 
+         rate7 = if_else(County=="Connecticut", (count7/3572665)*100000,
+                         (count7/Total)*100000),
+         avgcount7 = count7/7) %>%
+#### THIS NEEDS TO CHANGE ####  
+  #filter(epiweek(date) >= thisweek-12)
+filter((epiweek(date) == epiweek(Sys.Date()) & epiyear(date) == epiyear(Sys.Date())) | #thisweek -0
+    (epiweek(date) == epiweek(Sys.Date()-7) & epiyear(date) == epiyear(Sys.Date()-7)) |  #thisweek -1
+    (epiweek(date) == epiweek(Sys.Date()-14) & epiyear(date) == epiyear(Sys.Date()-14)) | #thisweek-2
+    (epiweek(date) == epiweek(Sys.Date()-21) & epiyear(date) == epiyear(Sys.Date()-21)) | #thisweek-3
+    (epiweek(date) == epiweek(Sys.Date()-28) & epiyear(date) == epiyear(Sys.Date()-28)) | #thisweek-4
+    (epiweek(date) == epiweek(Sys.Date()-35) & epiyear(date) == epiyear(Sys.Date()-35)) | #thisweek-5
+    (epiweek(date) == epiweek(Sys.Date()-42) & epiyear(date) == epiyear(Sys.Date()-42)) | #thisweek-6
+    (epiweek(date) == epiweek(Sys.Date()-49) & epiyear(date) == epiyear(Sys.Date()-49)) | #thisweek-7
+    (epiweek(date) == epiweek(Sys.Date()-56) & epiyear(date) == epiyear(Sys.Date()-56)) | #thisweek-8
+    (epiweek(date) == epiweek(Sys.Date()-63) & epiyear(date) == epiyear(Sys.Date()-63)) | #thisweek-9
+    (epiweek(date) == epiweek(Sys.Date()-70) & epiyear(date) == epiyear(Sys.Date()-70)) |#thisweek-10
+    (epiweek(date) == epiweek(Sys.Date()-77) & epiyear(date) == epiyear(Sys.Date()-77)) |#thisweek-11
+    (epiweek(date) == epiweek(Sys.Date()-84) & epiyear(date) == epiyear(Sys.Date()-84)) #thisweek-12
+    )
+##################################
+
+ggplot(cha_cty)+
+  geom_line(aes(x=date, y=avgcount7, color=County), size=2)+
+  scale_color_brewer(palette= "Paired")+
+  theme_classic()+
+  labs(
+    y = "COVID-19 Hospital Census",
+    x="Date")
+
+kable(chaavgcensus )
+
+#ggplot(deathavg_cty)+
+deathavg_wk<-casenew %>% 
+  filter(outcome=="Died") %>% 
+  mutate(week=epiweek(death_date)) %>%
+  mutate(year=epiyear(death_date))%>%
+  group_by(year,week, cong_yn) %>% 
+  tally() %>% 
+#### THIS NEEDS TO CHANGE ####  
+  #filter(week >= 10) %>% #updated from "thisweek-12" to "10" on 12/8 (LE)
+   filter((week >=10 & year == 2020) | (week >= 1 & year == 2021))%>%
+#############################
+#### THIS NEEDS TO CHANGE ####  
+  mutate(
+    #year = 2020,
+         date = MMWRweek2Date(MMWRyear=year, MMWRweek=week, MMWRday=7))%>%
+  group_by(year,week)%>%
+  mutate(percent = paste0(round(n/sum(n)*100, 0), "%"))
+
+deathavg_wk1<-casenew %>% 
+  filter(outcome=="Died") %>% 
+  mutate(week=epiweek(death_date)) %>% 
+  mutate(year=epiyear(death_date)) %>%
+  group_by(year, week, cong_yn) %>% 
+  tally() %>%
+#### THIS NEEDS TO CHANGE ####  
+ # filter(week >= thisweek-12) %>%
+filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) | #thisweek -0
+    (week == epiweek(Sys.Date()-7) & year == epiyear(Sys.Date()-7)) |  #thisweek -1
+    (week == epiweek(Sys.Date()-14) & year == epiyear(Sys.Date()-14)) | #thisweek-2
+    (week == epiweek(Sys.Date()-21) & year == epiyear(Sys.Date()-21)) | #thisweek-3
+    (week == epiweek(Sys.Date()-28) & year == epiyear(Sys.Date()-28)) | #thisweek-4
+    (week == epiweek(Sys.Date()-35) & year == epiyear(Sys.Date()-35)) | #thisweek-5
+    (week == epiweek(Sys.Date()-42) & year == epiyear(Sys.Date()-42)) | #thisweek-6
+    (week == epiweek(Sys.Date()-49) & year == epiyear(Sys.Date()-49)) | #thisweek-7
+    (week == epiweek(Sys.Date()-56) & year == epiyear(Sys.Date()-56)) | #thisweek-8
+    (week == epiweek(Sys.Date()-63) & year == epiyear(Sys.Date()-63)) | #thisweek-9
+    (week == epiweek(Sys.Date()-70) & year == epiyear(Sys.Date()-70)) |#thisweek-10
+    (week == epiweek(Sys.Date()-77) & year == epiyear(Sys.Date()-77)) |#thisweek-11
+    (week == epiweek(Sys.Date()-84) & year == epiyear(Sys.Date()-84)) #thisweek-12
+    )%>% 
+##############################  
+#### THIS NEEDS TO CHANGE ####  
+  mutate(
+    #year = 2020,
+         date = MMWRweek2Date(MMWRyear=year, MMWRweek=week, MMWRday=7))%>%
+  group_by(year, week)%>%
+  mutate(percent = paste0(round(n/sum(n)*100, 0), "%"))
+
+
+ggplot(deathavg_wk, aes(date, n, group=cong_yn))+
+  geom_col(aes(fill=cong_yn))+
+  #geom_text(aes(label=percent), position=position_stack(vjust=0.5), size = 2.75)+
+  #geom_line(aes(x=date, y=avgcount7, color=county), size=1)+
+  theme_classic()+
+  scale_fill_manual(values = c('#d8b365',"#5ab4ac" ))+
+  #scale_y_continuous(limits=c(0, 60), breaks=c(0,10, 20, 30, 40,50,60))+
+  labs(
+    fill = "Reside in Congregate Setting",
+   # y = "Rolling Average Number of COVID-19 Deaths",
+    y = "Number of COVID-19 Deaths",
+    x = "Date of Death"
+  )
+
+ggplot(deathavg_wk1, aes(date, n, group=cong_yn))+
+  geom_col(aes(fill=cong_yn))+
+  geom_text(aes(label=percent), position=position_stack(vjust=0.5), size = 2.75)+
+  #geom_line(aes(x=date, y=avgcount7, color=county), size=1)+
+  theme_classic()+
+  scale_fill_manual(values = c('#d8b365',"#5ab4ac" ))+
+  #scale_y_continuous(limits=c(0, 60), breaks=c(0,10, 20, 30, 40,50,60))+
+  labs(
+    fill = "Reside in Congregate Setting",
+   # y = "Rolling Average Number of COVID-19 Deaths",
+    y = "Number of COVID-19 Deaths",
+    x = "Date of Death"
+  )
+
+
+kable(weeklydeaths )
+```
+
+```{r, echo = FALSE, include = TRUE}
+##towns with higher incidence
+#select list of towns with higher incidence
+toptowns <- casestownwk_count %>% 
+#### THIS NEEDS TO CHANGE ####  
+  #filter(week == thisweek-1 &  rate14cat %in% c(4,5)) %>% 
+  filter(week == epiweek(Sys.Date()-7) &  rate14cat %in% c(4,5)) %>%
+###########################
+  select(NAME)
+
+#assign counties
+cc_map <- read_csv(
+  paste0(dir,"/dependancies/City County Mapping.csv")) %>% 
+  mutate(COUNTY = paste0(COUNTY," County"))
+
+toptowns <-toptowns %>% 
+  left_join(cc_map, by=c("NAME"="CITY")) %>% 
+  ungroup()
+ctys<-count(toptowns, COUNTY)
+
+#filter entire dataset to just those towns with higher incidence
+highincidence <- casestownwk_count %>% 
+#### THIS NEEDS TO CHANGE ####  
+  #filter(NAME %in% toptowns$NAME & week >= thisweek-5 & week !=thisweek) %>%
+    filter((week == epiweek(Sys.Date()-7) & year == epiyear(Sys.Date()-7) & NAME %in% toptowns$NAME) |  #thisweek -1
+    (week == epiweek(Sys.Date()-14) & year == epiyear(Sys.Date()-14)& NAME %in% toptowns$NAME) | #thisweek-2
+    (week == epiweek(Sys.Date()-21) & year == epiyear(Sys.Date()-21) & NAME %in% toptowns$NAME) | #thisweek-3
+    (week == epiweek(Sys.Date()-28) & year == epiyear(Sys.Date()-28) & NAME %in% toptowns$NAME) | #thisweek-4
+    (week == epiweek(Sys.Date()-35) & year == epiyear(Sys.Date()-35) & NAME %in% toptowns$NAME) #thisweek-5
+  )%>%
+################################  
+  left_join(cc_map, by=c("NAME"="CITY"))
+
+highincidence <- highincidence[order(highincidence$year, highincidence$week),]
+highincidence$week <- factor(highincidence$week, levels = highincidence$week[order(highincidence$year, highincidence$week)], labels = highincidence$week[order(highincidence$year, highincidence$week)])
+
+newlondon <- highincidence %>% 
+  filter(COUNTY=="New London County")
+
+
+ggplot(newlondon)+
+  geom_line(aes(x=week, y=rate14, color=NAME, group=NAME), size=2)+
+   geom_hline(aes(yintercept=15), size=1, linetype="dotted")+
+  theme_classic()+
+  ylim(0, max(newlondon$rate14))+
+  labs(
+    title="Towns with average 15+ cases per day in New London County",
+    x="Week of specimen collection or onset",
+    y="14-day average rate", 
+    color="Town"
+  )
+
+hartfordwindham <- highincidence %>% 
+  filter(COUNTY %in% c("Hartford County", "Windham County"))
+ggplot(hartfordwindham)+
+  geom_line(aes(x=week, y=rate14, color=NAME, group=NAME), size=2)+
+   geom_hline(aes(yintercept=15), size=1, linetype="dotted")+
+  theme_classic()+
+  ylim(0, max(hartfordwindham$rate14))+
+  labs(
+    title="Towns with average 15+ cases per day in Hartford & Windham Counties",
+    x="Week of specimen collection or onset",
+    y="14-day average rate", 
+    color="Town"
+  )
+
+newhavenfairfield <- highincidence %>% 
+  filter(COUNTY %in% c("Fairfield County", "New Haven County"))
+ggplot(newhavenfairfield)+
+  geom_line(aes(x=week, y=rate14, color=NAME, group=NAME), size=2)+
+   geom_hline(aes(yintercept=15), size=1, linetype="dotted")+
+  theme_classic()+
+  ylim(0, max(newhavenfairfield$rate14))+
+  labs(
+    title="Towns with average 15+ cases per day in New Haven and Fairfield Counties",
+    x="Week of specimen collection or onset",
+    y="14-day average rate", 
+    color="Town"
+  )
+
+#filter entire dataset to large towns (Bridgeport, Stamford, Hartford, Danbury, New Haven, Waterbury)
+bigtowns <- casestownwk_count %>% 
+  filter(NAME %in% c("Bridgeport", "Stamford", "Hartford", "New Haven", "Danbury", "Waterbury")) %>% 
+#### THIS NEEDS TO CHANGE ####  
+  #filter(week >= thisweek-5 & week !=thisweek)
+filter(
+    (week == epiweek(Sys.Date()-7) & year == epiyear(Sys.Date()-7)) |  #thisweek -1
+    (week == epiweek(Sys.Date()-14) & year == epiyear(Sys.Date()-14)) | #thisweek-2
+    (week == epiweek(Sys.Date()-21) & year == epiyear(Sys.Date()-21)) | #thisweek-3
+    (week == epiweek(Sys.Date()-28) & year == epiyear(Sys.Date()-28)) | #thisweek-4
+    (week == epiweek(Sys.Date()-35) & year == epiyear(Sys.Date()-35))  #thisweek-5
+)
+
+bigtowns <- bigtowns[order(bigtowns$year, bigtowns$week),]
+bigtowns$week <- factor(bigtowns$week, levels = bigtowns$week[order(bigtowns$year, bigtowns$week)], labels = bigtowns$week[order(bigtowns$year, bigtowns$week)])
+
+##############################
+ggplot(bigtowns)+
+  geom_line(aes(x=week, y=rate14, color=NAME, group=NAME), size=2)+
+  geom_hline(aes(yintercept=15), size=1, linetype="dotted")+
+  theme_classic()+
+  ylim(0,max(bigtowns$rate14))+
+  labs(
+    title="14-day average daily incidence in large towns",
+    x="Week of specimen collection or onset",
+    y="14-day average rate", 
+    color="Town"
+  )
+
+
+```
+
+
+
