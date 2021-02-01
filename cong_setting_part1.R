@@ -50,12 +50,12 @@ lasttime <- data.table::fread(paste0("L:/daily_reporting_figures_rdp/csv/", last
 #only keep cases not in last file
 check <- cases_14 %>% 
   filter(!eventid %in% lasttime$eventid)
-write_csv(check, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "checkCongregatesetting.csv"))
+write_csv(check, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "checkCongregatesetting.csv")) #should place in SQL or just leave in global environment for other code. Right?  folks aren't checking these anymore?
 
 #use geocoding to help?
 
 #####CORRECT DAY FOR LATEST GEOCODED DATASET
-monthday <- format(ymd("2021-01-25"), "%b_%d")
+monthday <- format(ymd("2021-01-25"), "%b_%d") #### change to list geo coded sql tables and just pick last one automatically. probably add upstream of this.
 ###############################################
 
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
