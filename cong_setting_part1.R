@@ -1,62 +1,42 @@
-# options(scipen = 999)
-# mypak <- function(pkg){
-#   new.pkg <- pkg[!(pkg %in% installed.packages(lib.loc = .libPaths()[1])[, "Package"])]
-#   if (length(new.pkg)) 
-#     install.packages(new.pkg, dependencies = TRUE, repos = "https://cran.rstudio.com/")
-#   sapply(pkg, require, character.only = TRUE)
-# }
-# my_packages <-  c("ggspatial","data.table","sf","odbc","tm","viridis",
-#                   "kableExtra","webshot", "geosphere", "pracma", "tidyverse", "tidytext", "ggplot2", "ggraph",
-#                   "igraph", "widyr", "stringr", "lubridate", "readr", "leaflet", "RColorBrewer", "ggmap", "rgdal",
-#                   "tigris", "acs", "tidycensus", "DT", "rgeos", "formatR", "knitr", "MMWRweek", "sf",
-#                   "RODBC", "plotly", 'rgeos', "scales", "english", 'flextable', 'slider', "transformr", "gganimate")
-# mypak(my_packages)
-# dir <- getwd()
-
 if(!dir.exists("L:/")) message("You need to have L drive mapped")
 .libPaths(c("L:/library", .libPaths()))
 
 #### required packages are on L: ####
-# require(rmarkdown)
 require(tidyverse)
 require(sf)
 require(odbc)
-require(kableExtra)
 require(lubridate)
 require(formatR)
 require(knitr)
 require(MMWRweek)
 require(scales)
-require(english)
-require(flextable)
 require(DBI)
 
 
-#0. set this epiweek
-thisweek <-epiweek(Sys.Date())
+####0. set this epiweek and year####
+thisweek <-lubridate::epiweek(Sys.Date())
+thisyear <-lubridate::epiyear(Sys.Date())
 
-#1. Read in case data (cases w/ phi)
-casenew <- read_csv(paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "cases_wphi.csv"),
-                    col_types = cols(spec_col_date = col_character(), 
-                                     event_date = col_character()))
+####1. Read in latest case data####
+latestcasesdate <- list.files('L:/daily_reporting_figures_rdp/csv')[length(list.files('L:/daily_reporting_figures_rdp/csv'))]
+casenew <- data.table::fread(paste0('L:/daily_reporting_figures_rdp/csv/', latestcasesdate,"/",latestcasesdate,"cases_wphi.csv"))
+rm(latestcasesdate)
 
-#2. create new variables for reside in congregate setting (y/n), date for case (1st positive specimen collection or eventdate),
-#and mmwr week for that case date
-casenew <- casenew %>%
-  mutate(cong_yn = if_else((str_detect(cong_exposure_type, "Reside")) &
-                             (str_detect(cong_setting, "Jail / Prison") | str_detect(cong_setting, "Long term care facility") | str_detect(cong_setting, "Assisted Living Facility")),
-                           "Yes", "No", missing = "No"),
+####2. Filter to last 2 complete mmwr weeks####
+#selects folks not labeled cong already
+beginofcurmmwr <- MMWRweek2Date(MMWRyear = thisyear, MMWRweek = thisweek, MMWRday = 1)
+
+cases_14 <- cases_14 %>%
+  mutate(
          date = ifelse(disease_status == "Confirmed" & !is.na(spec_col_date), spec_col_date, event_date),
          date = ymd(date), 
          week = epiweek(date), 
          year = epiyear(date)
-  ) 
-count(casenew, cong_yn)
-
-#3. create dataset of cases with date in past 2 mmwr weeks & apparently congregate setting = No
-cases_14 <- casenew %>%
-  filter(week==thisweek-1 | week==thisweek-2) %>%
-  filter(cong_yn == "No")
+         ) %>%
+  filter(
+    date >= beginofcurmmwr-14 
+    & date < beginofcurmmwr 
+    & cong_yn == "No") 
 
 #4. Create list to check for addresses associated with congregate settings among cases not marked as congregate setting cases for past 7 days
 #read in last file checked (you will have to set the date to last Monday/Wednesday)
