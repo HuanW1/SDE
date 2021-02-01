@@ -19,13 +19,12 @@ thisyear <-lubridate::epiyear(Sys.Date())
 
 ####1. Read in latest case data####
 latestcasesdate <- list.files('L:/daily_reporting_figures_rdp/csv')[length(list.files('L:/daily_reporting_figures_rdp/csv'))]
-casenew <- data.table::fread(paste0('L:/daily_reporting_figures_rdp/csv/', latestcasesdate,"/",latestcasesdate,"cases_wphi.csv"))
+cases_14 <- data.table::fread(paste0('L:/daily_reporting_figures_rdp/csv/', latestcasesdate,"/",latestcasesdate,"cases_wphi.csv"), data.table = F)
 rm(latestcasesdate)
 
 ####2. Filter to last 2 complete mmwr weeks####
 #selects folks not labeled cong already
 beginofcurmmwr <- MMWRweek2Date(MMWRyear = thisyear, MMWRweek = thisweek, MMWRday = 1)
-
 cases_14 <- cases_14 %>%
   mutate(
          date = ifelse(disease_status == "Confirmed" & !is.na(spec_col_date), spec_col_date, event_date),
@@ -38,19 +37,19 @@ cases_14 <- cases_14 %>%
     & date < beginofcurmmwr 
     & cong_yn == "No") 
 
-#4. Create list to check for addresses associated with congregate settings among cases not marked as congregate setting cases for past 7 days
+####3. Create list addresses associated with congregate settings among cases not marked as congregate setting cases for past 7 days####
 #read in last file checked (you will have to set the date to last Monday/Wednesday)
 
 
+####3a FILL IN THIS DATE#####
+lastdate <- lubridate::ymd("2021-01-25") #this needs automation and someone to explain this and the above to me
 
-####FILL IN THIS DATE#####
-lastdate<- ymd("2021-01-25")
-##########################
-
-lasttime<- read_csv(paste0("L:/daily_reporting_figures_rdp/csv/", lastdate ,"/", lastdate, "cases_wphi.csv"))
+lasttime <- data.table::fread(paste0("L:/daily_reporting_figures_rdp/csv/", lastdate ,"/", lastdate, "cases_wphi.csv"), data.table = F) %>% 
+  select(eventid) %>% 
+  unique()
 #only keep cases not in last file
-check<-cases_14 %>% 
-  filter(! eventid %in% lasttime$eventid)
+check <- cases_14 %>% 
+  filter(!eventid %in% lasttime$eventid)
 write_csv(check, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "checkCongregatesetting.csv"))
 
 #use geocoding to help?
