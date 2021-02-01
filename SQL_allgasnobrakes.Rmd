@@ -1002,8 +1002,8 @@ tableforgary <- ovlsum
 dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
 write_csv(ovlsum, paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date(), "/", Sys.Date(), ".csv"))
 # testing new code Feb 1
-df_to_table(ovlsum, "test_overall_summary", overwrite = TRUE, append = FALSE)
 
+df_to_table(ovlsum, "test_overall_summary", overwrite = TRUE, append = FALSE)
 
 ovlsum <- regulartable(ovlsum) %>%
   flextable::autofit()
