@@ -1,0 +1,19 @@
+#creation of cong setting depandancies and sending on up to sql
+library(tidyverse)#, lib.loc = .libPaths()[2])
+library(DBI)
+library(odbc)
+con <- DBI::dbConnect(odbc::odbc(), "epicenter")
+
+#reading in the town codes csv that the report uses as well as cong setting folks
+town_codes <- read_csv("L:/daily_reporting_figures_rdp/gary_csv/town_codes/Town_ID.csv") %>% 
+  select(c(ANPSADPI, TOWNNO, COUSUBFP, TOWNNO_C, TOWN_UC, TOWN_LC))
+
+#writing the dependancy table
+#DBI::dbWriteTable(conn = con, value = town_codes, name = SQL("DPH_COVID_IMPORT.dbo.RPT_TOWN_CODES"))
+
+#reading in boros list
+boros_list <- read_csv("C:\\Users\\senetckya\\Downloads\\boros_list.csv")
+#DBI::dbWriteTable(conn = con, value = boros_list, name = SQL("DPH_COVID_IMPORT.dbo.CONG_BOROS_LIST"))
+
+
+odbc::dbDisconnect(con)
