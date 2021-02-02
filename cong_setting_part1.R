@@ -83,7 +83,6 @@ statement <- paste0("SELECT [r].[case_id]
                               ,[r].[type]
                     FROM [DPH_COVID_IMPORT].[dbo].[", tabs,"] as [r]")
 alltestgeo <-  DBI::dbGetQuery(conn = con , statement = statement)
-odbc::dbDisconnect(con)
 rm(statement)
 
 alltestgeo<- alltestgeo %>% 
@@ -106,4 +105,10 @@ newmaybecong <- check %>%
                                         )
                                                                                                         #misleading name
 data.table::fwrite(newmaybecong, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "NEWcheckCongregatesetting_GEOCODE.csv"))#ones that don't code in, probably not needed with molly's code, leave in for now                           # name change to past14daysdelta?  new cases compared to when this was run last from past 2 complete mmwr weeks
-                                                                                                      
+  
+
+
+#5 send the new date ran up
+justran <-tibble("DateRan" = Sys.Date()) 
+DBI::dbWriteTable(conn = con, value = justran, name = SQL("DPH_COVID_IMPORT.dbo.CONG_DATERAN"), overwrite = FALSE, append = TRUE)
+odbc::dbDisconnect(con)
