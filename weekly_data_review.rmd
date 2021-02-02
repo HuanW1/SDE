@@ -426,7 +426,7 @@ kable(chaavgcensus )
 
 #d. graph of deaths by day over time 
 death_ct <- casenew %>%
-  filter(outcome=="Died") %>% 
+  filter(covid_death == "YES") %>% 
   group_by(death_date) %>% 
   tally() %>%
   rename(date=death_date)
@@ -450,7 +450,7 @@ ggplot(deathavg)+
 
 totaldeaths <- sum(death_ct$n)
 weeklydeaths <- casenew %>%
-  filter(outcome=="Died") %>% 
+  filter(covid_death == "YES") %>% 
   mutate(week = epiweek(death_date)) %>%
   mutate(year = epiyear(death_date)) %>%
 ##### THIS NEEDS TO CHANGE ####  
@@ -1185,8 +1185,12 @@ end_date <- Sys.Date()-1
 elr$tat[which(elr$eventid %in% 102163048 & elr$spec_col_date == "2021-01-09")] <- 12
 elr$tat[which(elr$eventid %in% 105083891 & elr$spec_col_date == "2021-01-12")] <- 9
 
-wrong <- elr %>% filter(tat > 30)%>% filter(spec_col_date >= end_date-20 & spec_col_date <= end_date-7)
-wrong_foremail <- wrong %>% select(eventid, lab_result_create_date, lab_result_mod_date, spec_col_date, date_tested, date_reported_dph)
+wrong <- 
+  elr %>% 
+  filter(tat > 21)%>% 
+  filter(spec_col_date >= end_date-20 & spec_col_date <= end_date-7)
+
+# wrong_foremail <- wrong %>% select(eventid, lab_result_create_date, lab_result_mod_date, spec_col_date, date_tested, date_reported_dph)
 #write_csv(wrong_foremail, "CRFs_entered_as_labs.csv")
 
 #elr <- elr %>% filter(!eventid %in% wrong$eventid)
@@ -1433,7 +1437,7 @@ kable(chaavgcensus )
 
 #ggplot(deathavg_cty)+
 deathavg_wk<-casenew %>% 
-  filter(outcome=="Died") %>% 
+  filter(covid_death == "YES") %>% 
   mutate(week=epiweek(death_date)) %>%
   mutate(year=epiyear(death_date))%>%
   group_by(year,week, cong_yn) %>% 
@@ -1450,7 +1454,7 @@ deathavg_wk<-casenew %>%
   mutate(percent = paste0(round(n/sum(n)*100, 0), "%"))
 
 deathavg_wk1<-casenew %>% 
-  filter(outcome=="Died") %>% 
+  filter(covid_death == "YES") %>% 
   mutate(week=epiweek(death_date)) %>% 
   mutate(year=epiyear(death_date)) %>%
   group_by(year, week, cong_yn) %>% 
@@ -1489,9 +1493,10 @@ ggplot(deathavg_wk, aes(date, n, group=cong_yn))+
   #scale_y_continuous(limits=c(0, 60), breaks=c(0,10, 20, 30, 40,50,60))+
   labs(
     fill = "Reside in Congregate Setting",
-   # y = "Rolling Average Number of COVID-19 Deaths",
     y = "Number of COVID-19 Deaths",
-    x = "Date of Death"
+    x = "Date of Death",
+   title = "COVID-19 Deaths per Week of Death",
+   subtitle = paste0("n = ", sum(deathavg_wk$n))
   )
 
 ggplot(deathavg_wk1, aes(date, n, group=cong_yn))+
@@ -1505,8 +1510,95 @@ ggplot(deathavg_wk1, aes(date, n, group=cong_yn))+
     fill = "Reside in Congregate Setting",
    # y = "Rolling Average Number of COVID-19 Deaths",
     y = "Number of COVID-19 Deaths",
-    x = "Date of Death"
+    x = "Date of Death",
+   title = "COVID-19 Deaths per Week of Death",
+   subtitle = paste0("n = ", sum(deathavg_wk1$n))
   )
+
+
+############ deaths by specimen collection date ##############
+deathavg_wk_speccoldate<-casenew %>% 
+  filter(covid_death=="YES" & result == "detected") %>% 
+  mutate(week=epiweek(spec_col_date)) %>%
+  mutate(year=epiyear(spec_col_date))%>%
+  group_by(year,week, cong_yn) %>% 
+  tally() %>% 
+#### THIS NEEDS TO CHANGE ####  
+  #filter(week >= 10) %>% #updated from "thisweek-12" to "10" on 12/8 (LE)
+   filter((week >=10 & year == 2020) | (week >= 1 & year == 2021))%>%
+#############################
+#### THIS NEEDS TO CHANGE ####  
+  mutate(
+    #year = 2020,
+         date = MMWRweek2Date(MMWRyear=year, MMWRweek=week, MMWRday=7))%>%
+  group_by(year,week)%>%
+  mutate(percent = paste0(round(n/sum(n)*100, 0), "%"))
+
+deathavg_wk1_speccoldate<-casenew %>% 
+  filter(covid_death=="YES" & result == "detected") %>% 
+  mutate(week=epiweek(spec_col_date)) %>% 
+  mutate(year=epiyear(spec_col_date)) %>%
+  group_by(year, week, cong_yn) %>% 
+  tally() %>%
+#### THIS NEEDS TO CHANGE ####  
+ # filter(week >= thisweek-12) %>%
+filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) | #thisweek -0
+    (week == epiweek(Sys.Date()-7) & year == epiyear(Sys.Date()-7)) |  #thisweek -1
+    (week == epiweek(Sys.Date()-14) & year == epiyear(Sys.Date()-14)) | #thisweek-2
+    (week == epiweek(Sys.Date()-21) & year == epiyear(Sys.Date()-21)) | #thisweek-3
+    (week == epiweek(Sys.Date()-28) & year == epiyear(Sys.Date()-28)) | #thisweek-4
+    (week == epiweek(Sys.Date()-35) & year == epiyear(Sys.Date()-35)) | #thisweek-5
+    (week == epiweek(Sys.Date()-42) & year == epiyear(Sys.Date()-42)) | #thisweek-6
+    (week == epiweek(Sys.Date()-49) & year == epiyear(Sys.Date()-49)) | #thisweek-7
+    (week == epiweek(Sys.Date()-56) & year == epiyear(Sys.Date()-56)) | #thisweek-8
+    (week == epiweek(Sys.Date()-63) & year == epiyear(Sys.Date()-63)) | #thisweek-9
+    (week == epiweek(Sys.Date()-70) & year == epiyear(Sys.Date()-70)) |#thisweek-10
+    (week == epiweek(Sys.Date()-77) & year == epiyear(Sys.Date()-77)) |#thisweek-11
+    (week == epiweek(Sys.Date()-84) & year == epiyear(Sys.Date()-84)) #thisweek-12
+    )%>% 
+##############################  
+#### THIS NEEDS TO CHANGE ####  
+  mutate(
+    #year = 2020,
+         date = MMWRweek2Date(MMWRyear=year, MMWRweek=week, MMWRday=7))%>%
+  group_by(year, week)%>%
+  mutate(percent = paste0(round(n/sum(n)*100, 0), "%"))
+
+
+ggplot(deathavg_wk_speccoldate, aes(date, n, group=cong_yn))+
+  geom_col(aes(fill=cong_yn))+
+  #geom_text(aes(label=percent), position=position_stack(vjust=0.5), size = 2.75)+
+  #geom_line(aes(x=date, y=avgcount7, color=county), size=1)+
+  theme_classic()+
+  scale_fill_manual(values = c('#d8b365',"#5ab4ac" ))+
+  #scale_y_continuous(limits=c(0, 60), breaks=c(0,10, 20, 30, 40,50,60))+
+  labs(
+    fill = "Reside in Congregate Setting",
+   # y = "Rolling Average Number of COVID-19 Deaths",
+    y = "Number of COVID-19 Deaths",
+    x = "Specimen Collection Date",
+   title = "COVID-19 Deaths per Week of Specimen Collection",
+   subtitle = paste0("n = ", sum(deathavg_wk_speccoldate$n))
+  )
+
+ggplot(deathavg_wk1_speccoldate, aes(date, n, group=cong_yn))+
+  geom_col(aes(fill=cong_yn))+
+  geom_text(aes(label=percent), position=position_stack(vjust=0.5), size = 2.75)+
+  #geom_line(aes(x=date, y=avgcount7, color=county), size=1)+
+  theme_classic()+
+  scale_fill_manual(values = c('#d8b365',"#5ab4ac" ))+
+  #scale_y_continuous(limits=c(0, 60), breaks=c(0,10, 20, 30, 40,50,60))+
+  labs(
+    fill = "Reside in Congregate Setting",
+   # y = "Rolling Average Number of COVID-19 Deaths",
+    y = "Number of COVID-19 Deaths",
+    x = "Specimen Collection Date",
+   title = "COVID-19 Deaths per Week of Specimen Collection",
+   subtitle = paste0("n = ", sum(deathavg_wk1_speccoldate$n))
+  )
+
+
+
 
 
 kable(weeklydeaths )
