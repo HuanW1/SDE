@@ -1163,6 +1163,7 @@ ggplot(subdat_3wkc)+
 #Slide 9 - Turn Around Time
 ```{r slide 9, echo = FALSE}
 ##Slide 9 - turn around time = ALEX
+#need to filter out the records with inaccurate TAT 
 elr <- testgeo2 %>% 
   filter(spec_col_date >= max(spec_col_date, na.rm = T)-42) %>% 
   mutate(reported = as.Date(mdy(date_reported_dph))) %>% 
