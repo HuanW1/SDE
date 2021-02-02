@@ -8,10 +8,9 @@ require(odbc)
 require(lubridate)
 require(formatR)
 require(MMWRweek)
-require(scales)
 require(DBI)
 require(stringr)
-
+con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 ####0. set this epiweek and year####
 thisweek <-lubridate::epiweek(Sys.Date())
@@ -27,8 +26,8 @@ rm(latestcasesdate)
 beginofcurmmwr <- MMWRweek2Date(MMWRyear = thisyear, MMWRweek = thisweek, MMWRday = 1)
 cases_14 <- cases_14 %>%
   mutate(
-         date = ifelse(disease_status == "Confirmed" & !is.na(spec_col_date), spec_col_date, event_date),
-         date = ymd(date), 
+         date = ifelse(disease_status == "Confirmed" & !is.na(spec_col_date), spec_col_date, event_date), #account for probs?
+         date = lubridate::ymd(date),   
          week = epiweek(date), 
          year = epiyear(date)
          ) %>%
@@ -41,8 +40,16 @@ cases_14 <- cases_14 %>%
 #read in last file checked (you will have to set the date to last Monday/Wednesday)
 
 
-####3a FILL IN THIS DATE#####
-lastdate <- lubridate::ymd("2021-01-25") #this needs automation and someone to explain this and the above to me
+####3a Last ran#####
+statement <- paste0("SELECT * FROM DPH_COVID_IMPORT.dbo.CONG_DATERAN")
+lastdate <-  DBI::dbGetQuery(conn = con , statement = statement) %>% 
+  as_tibble() %>% 
+  mutate(DateRan = lubridate::ymd(DateRan)) %>% 
+  arrange(desc(DateRan)) %>% 
+  slice(1L) %>% 
+  pull(DateRan)
+rm(statement)
+ #this needs automation and someone to explain this and the above to me, is variable, SQL FLAG
 
 lasttime <- data.table::fread(paste0("L:/daily_reporting_figures_rdp/csv/", lastdate ,"/", lastdate, "cases_wphi.csv"), data.table = F) %>% 
   select(eventid) %>% 
@@ -50,26 +57,17 @@ lasttime <- data.table::fread(paste0("L:/daily_reporting_figures_rdp/csv/", last
 #only keep cases not in last file
 check <- cases_14 %>% 
   filter(!eventid %in% lasttime$eventid)
-write_csv(check, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "checkCongregatesetting.csv")) #should place in SQL or just leave in global environment for other code. Right?  folks aren't checking these anymore?
-
-#use geocoding to help?
-
-#####CORRECT DAY FOR LATEST GEOCODED DATASET
-monthday <- format(ymd("2021-01-25"), "%b_%d") #### change to list geo coded sql tables and just pick last one automatically. probably add upstream of this. can we just get one table that overwrites in sql from tom? would break a bunch of code elsewhere, would have to fix.
-###############################################
-
-
-
+#write_csv(check, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "checkCongregatesetting.csv")) #should place in SQL or just leave in global environment for other code. Right?  folks aren't checking these anymore? remove- check future code?
+rm(lasttime)
 
 ####4 pulling lastest geocoded data ####
-con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 statement <- paste0("SELECT * FROM DPH_COVID_IMPORT.INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'")
 tabs <-  DBI::dbGetQuery(conn = con , statement = statement)
 tabs <- tibble::as_tibble(tabs) %>% 
   filter(stringr::str_detect(string = TABLE_NAME, pattern = "Geo_Tract")) %>% 
   mutate(date = stringr::str_extract(string = TABLE_NAME, pattern = "\\w\\w\\w\\_\\d\\d?"),
          date = paste0(date,"_",year(Sys.Date())),
-         date = mdy(date)
+         date = lubridate::mdy(date)
          ) %>% 
   arrange(desc(date)) %>% 
   slice(1L) %>% 
@@ -90,23 +88,22 @@ rm(statement)
 
 alltestgeo<- alltestgeo %>% 
   mutate(eventid = as.numeric(case_id))
-
-check2<-check %>% 
+maybecong<-check %>% 
   left_join(alltestgeo, by="eventid") %>% 
   mutate(Name=ifelse(Name=="" | Name=="NULL", NA, Name),
          License__=ifelse(License__=="" | License__=="NULL", NA, License__),
-         DBA=ifelse(DBA==""| DBA=="NULL", NA, DBA))
-rm(alltestgeo)
-maybecong<-check2 %>% 
-  filter(!is.na(Name) | !is.na(License__) | !is.na(DBA))
+         DBA=ifelse(DBA==""| DBA=="NULL", NA, DBA)) %>% 
+  filter(!is.na(Name) & !is.na(License__) & !is.na(DBA))
 
-write_csv(maybecong, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "checkCongregatesetting_GEOCODE.csv"))
+rm(alltestgeo)
+data.table::fwrite(maybecong, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "checkCongregatesetting_GEOCODE.csv"))#basis of rest of code?
 
 #4 anything in toms will beflagged in the 'new master'
 
 newmaybecong <- check %>% 
   mutate(
     intoms = ifelse(eventid %in%  maybecong$case_id, 1,0)
-    )
-
-write_csv(newmaybecong, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "NEWcheckCongregatesetting_GEOCODE.csv"))
+                                        )
+                                                                                                        #misleading name
+data.table::fwrite(newmaybecong, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "NEWcheckCongregatesetting_GEOCODE.csv"))#ones that don't code in, probably not needed with molly's code, leave in for now                           # name change to past14daysdelta?  new cases compared to when this was run last from past 2 complete mmwr weeks
+                                                                                                      
