@@ -7,10 +7,10 @@ require(sf)
 require(odbc)
 require(lubridate)
 require(formatR)
-require(knitr)
 require(MMWRweek)
 require(scales)
 require(DBI)
+require(stringr)
 
 
 ####0. set this epiweek and year####
@@ -55,10 +55,26 @@ write_csv(check, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", 
 #use geocoding to help?
 
 #####CORRECT DAY FOR LATEST GEOCODED DATASET
-monthday <- format(ymd("2021-01-25"), "%b_%d") #### change to list geo coded sql tables and just pick last one automatically. probably add upstream of this.
+monthday <- format(ymd("2021-01-25"), "%b_%d") #### change to list geo coded sql tables and just pick last one automatically. probably add upstream of this. can we just get one table that overwrites in sql from tom? would break a bunch of code elsewhere, would have to fix.
 ###############################################
 
+
+
+
+####4 pulling lastest geocoded data ####
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
+statement <- paste0("SELECT * FROM DPH_COVID_IMPORT.INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'")
+tabs <-  DBI::dbGetQuery(conn = con , statement = statement)
+tabs <- tibble::as_tibble(tabs) %>% 
+  filter(stringr::str_detect(string = TABLE_NAME, pattern = "Geo_Tract")) %>% 
+  mutate(date = stringr::str_extract(string = TABLE_NAME, pattern = "\\w\\w\\w\\_\\d\\d?"),
+         date = paste0(date,"_",year(Sys.Date())),
+         date = mdy(date)
+         ) %>% 
+  arrange(desc(date)) %>% 
+  slice(1L) %>% 
+  select(TABLE_NAME)
+
 statement <- paste0("SELECT [r].[case_id]
                               ,[r].[X]
                               ,[r].[Y]
@@ -67,9 +83,10 @@ statement <- paste0("SELECT [r].[case_id]
                               ,[r].[License__]
                               ,[r].[DBA]
                               ,[r].[type]
-                    FROM [DPH_COVID_IMPORT].[dbo].[", monthday,"_Covid_Geo_Tract] as [r]")
+                    FROM [DPH_COVID_IMPORT].[dbo].[", tabs,"] as [r]")
 alltestgeo <-  DBI::dbGetQuery(conn = con , statement = statement)
 odbc::dbDisconnect(con)
+rm(statement)
 
 alltestgeo<- alltestgeo %>% 
   mutate(eventid = as.numeric(case_id))
@@ -79,7 +96,7 @@ check2<-check %>%
   mutate(Name=ifelse(Name=="" | Name=="NULL", NA, Name),
          License__=ifelse(License__=="" | License__=="NULL", NA, License__),
          DBA=ifelse(DBA==""| DBA=="NULL", NA, DBA))
-
+rm(alltestgeo)
 maybecong<-check2 %>% 
   filter(!is.na(Name) | !is.na(License__) | !is.na(DBA))
 
