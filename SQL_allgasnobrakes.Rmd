@@ -1349,12 +1349,31 @@ ggplot(subdat14nc)+
 
 
 ```{r newcasetable, eval = wedthurs}
-#monthday <- "OCT_15"
-# needed to be split up before...now maybe not so much. we'll see for now
-if(wday(Sys.Date()) == 5){
-  monthday <- format(Sys.Date()-1, "%b_%d")
 
+# code change Feb 2 to better capture most recent geocode table
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
+most_current_geo <- 
+  odbc::odbcListObjects(con, 
+                        catalog = "DPH_COVID_IMPORT", 
+                        schema = "dbo") %>% 
+  filter(stringr::str_detect(string = name, 
+                             pattern = "Geo_Tract")) %>%
+  tidyr::separate(data = .,
+                  col = name,
+                  sep = "_",
+                  into = c("month", "day"),
+                  extra = "drop",
+                  remove = FALSE) %>%
+  mutate(table_date = mdy(paste(month, 
+                                day, 
+                                year(Sys.Date()), 
+                                sep = "-"))) %>%
+  slice_max(order_by = table_date) %>%
+  pull(name)
+
+# table_id <- DBI::Id(catalog = "DPH_COVID_IMPORT", schema = "dbo", table = most_current_geo)
+# alltestgeo <- DBI::dbReadTable(con, table_id)
+
 statement <- paste0("SELECT [r].[case_id]
                               ,[r].[X]
                               ,[r].[Y]
@@ -1363,25 +1382,10 @@ statement <- paste0("SELECT [r].[case_id]
                               ,[r].[License__]
                               ,[r].[DBA]
                               ,[r].[type]
-                    FROM [DPH_COVID_IMPORT].[dbo].[", monthday,"_Covid_Geo_Tract] as [r]")
+                    FROM [DPH_COVID_IMPORT].[dbo].[", most_current_geo,"] as [r]")
 alltestgeo <-  DBI::dbGetQuery(conn = con , statement = statement)
-odbc::dbDisconnect(con)
-} else{
-  monthday <- format(Sys.Date(), "%b_%d")
 
-con <- DBI::dbConnect(odbc::odbc(), "epicenter")
-statement <- paste0("SELECT [r].[case_id]
-                              ,[r].[X]
-                              ,[r].[Y]
-                              ,[r].[geoid10]
-                              ,[r].[Name]
-                              ,[r].[License__]
-                              ,[r].[DBA]
-                              ,[r].[type]
-                    FROM [DPH_COVID_IMPORT].[dbo].[", monthday,"_Covid_Geo_Tract] as [r]")
-alltestgeo <-  DBI::dbGetQuery(conn = con , statement = statement)
 odbc::dbDisconnect(con)
-}
 
 # SLUGGISH Agreed :) I didn't write it haha -AS
 testgeo <- alltestgeo %>%
