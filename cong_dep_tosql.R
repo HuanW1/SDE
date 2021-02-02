@@ -16,4 +16,15 @@ boros_list <- read_csv("C:\\Users\\senetckya\\Downloads\\boros_list.csv")
 #DBI::dbWriteTable(conn = con, value = boros_list, name = SQL("DPH_COVID_IMPORT.dbo.CONG_BOROS_LIST"))
 
 
+
+addr_nursing <- as_tibble(read_excel("Facility List CTEDSS Entry with Event IDs.xlsx",sheet="NursHome_AL_RCF"))
+addr_prisons <- as_tibble(read_excel("Facility List CTEDSS Entry with Event IDs.xlsx",sheet="Correctional Facilities")) %>% 
+  filter(!is.na(`Facility Name`) & `Facility Name` != "https://portal.ct.gov/DOC/Miscellaneous/Facilities")
+
+# DBI::dbWriteTable(conn = con, value = addr_nursing, name = SQL("DPH_COVID_IMPORT.dbo.CONG_NURSING_FACILITIES"))
+# DBI::dbWriteTable(conn = con, value = addr_prisons, name = SQL("DPH_COVID_IMPORT.dbo.CONG_PRISON_FACILITIES"))
+
+cong_date <- tibble("DateRan" = Sys.Date())   #setting first sql flag for cong running
+
+
 odbc::dbDisconnect(con)
