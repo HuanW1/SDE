@@ -12,6 +12,10 @@ require(data.table)
 #Set start date for dataset (beginning Sunday of the last complete week)
 start_date <- ymd("2021-01-19")
 
+#### better option
+prev.days <- seq(today() - 20, today(), by = 'day')
+start_date <- prev.days[weekdays(prev.days) == 'Sunday'][1]
+
 #Read in data imported into ContaCT
 readmycsv <- function(files) {
   read_csv(files, col_type = cols(
@@ -26,13 +30,15 @@ readmycsv <- function(files) {
 
 
 CTfiles <- list.files("W:/DosApps/EPI/EPISTAFF/2019-nCoV/ContaCT Data Quality/ContaCT_import_here/", ".csv")
+
+## This needs a relook
 # The files are "dirty" you'll get lots of warnings
 CTfile.list <- sapply(paste0("W:/DosApps/EPI/EPISTAFF/2019-nCoV/ContaCT Data Quality/ContaCT_import_here/",
                              CTfiles),
                       readmycsv,
                       simplify=FALSE)
 
-# importdt is messed up
+# Needs cleaning up
 CTimport <- rbindlist(CTfile.list, idcol="importdt", fill=TRUE)[, importdt:= substr(importdt, 104, 111)] %>%
   rename( street1 = `Address 1: Street 1`,
           street2 = `Address 1: Street 2`,
@@ -46,19 +52,9 @@ CTimport <- rbindlist(CTfile.list, idcol="importdt", fill=TRUE)[, importdt:= sub
 
 
 
-#combine imports with missing datafile
 ContaCT <- CTimport %>%
-  #left_join(MissImport, by="eventid") %>%
-  mutate (
-    #`Mobile Phone` = if_else(!is.na(lookedup), Phone, `Mobile Phone`),
-        #  street1 = if_else(!is.na(lookedup), Street1, street1),
-        # city = if_else(!is.na(lookedup), City, city),
-        #  state = if_else(!is.na(lookedup), State, state),
-        #  zip = if_else(!is.na(lookedup), ZIP, zip),
-          EXPORT_DATETIME = mdy(importdt),
+  mutate (EXPORT_DATETIME = mdy(importdt),
           bigID = str_to_lower(paste0(`First Name`, `Last Name`, Birthday)))
- # select(-c("Phone", "Street1", "City", "State", "ZIP")) #, "importdt"))
-
 
 #elrline list from daily report
 elrfiles <-
@@ -67,11 +63,28 @@ elrfiles <-
 
 # > 5 millions rows go get coffee
 # This needs a good hard look lots and lots of errors here
-elr4paula <- read_csv(paste0("W:/DosApps/EPI/EPISTAFF/2019-nCoV/ContaCT Data Quality/lab_data_here/", elrfiles)) %>%
-  mutate(bigID = str_to_lower(paste0(fname, lname, dob)),
-         result2=ifelse(result=="detected", "Positive",
+### Let's talk about this one
+elr4paula <- 
+  read_csv(paste0("W:/DosApps/EPI/EPISTAFF/2019-nCoV/ContaCT Data Quality/lab_data_here/", elrfiles),
+           col_types = list(.default = col_character(),
+                            eventid = col_double(),
+                            dob = col_date(format = ""),
+                            age = col_double(),
+                            case_create_date = col_date(format = ""),
+                            case_mod_date = col_date(format = ""),
+                            case_modification_date = col_date(format = "%m/%d/%Y"),
+                            case_effective_date = col_date(format = ""),
+                            case_eff_from_date = col_date(format = ""),
+                            symp_onset_date = col_date(format = "%m/%d/%Y"),
+                            date_tested = col_date(format = "%m/%d/%Y"),
+                            spec_rec_date = col_date(format = "%m/%d/%Y"),
+                            date_reported_dph = col_date(format = "%m/%d/%Y"),
+                            event_date = col_date(format = ""),
+                            spec_col_date = col_date(format = ""),
+                            lab_result_create_date = col_date(format = "%m/%d/%Y"),
+                            lab_result_mod_date = col_date(format = "%m/%d/%Y"))) %>%
+  mutate(result2 = ifelse(result=="detected", "Positive",
                         ifelse(result=="not detected", "Negative", "Indeterminate")))
-
 
 #### Alison need accurate column names
 # there is no create_date column
