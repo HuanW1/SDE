@@ -3,10 +3,8 @@ if(!dir.exists("L:/")) message("You need to have L drive mapped")
 
 #### required packages are on L: ####
 require(tidyverse)
-require(sf)
 require(odbc)
 require(lubridate)
-require(formatR)
 require(MMWRweek)
 require(DBI)
 require(stringr)
@@ -98,10 +96,8 @@ check<- check %>%
   mutate(
     intoms = ifelse(eventid %in%  maybecong$case_id, 1,0)
                                         )
-                                                                                                        #misleading name
-data.table::fwrite(check, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "NEWcheckCongregatesetting_GEOCODE.csv"))#ones that don't code in, probably not needed with molly's code, leave in for now                           # name change to past14daysdelta?  new cases compared to when this was run last from past 2 complete mmwr weeks
-  
-
+#new cases compared to when this was run last from past 2 complete mmwr weeks                             
+data.table::fwrite(check, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "CONG_past14daysdelta.csv"))
 
 #5 send the new date ran up
 justran <-tibble("DateRan" = Sys.Date()) 

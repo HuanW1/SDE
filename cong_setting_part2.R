@@ -6,27 +6,28 @@
 #
 # release version for ctdph view
 # 1. 1/18/21: transmission yale to dph
+# 2. 2/3/21 Edited by DPH
 #
 # notes: 
 # -1. this routine expects that all data has been conditioned for city
 # -2. will need to reconfigure section 1g to reflect true dataset
 ################################################################
 
-#tic=Sys.time()
 
-# load librarires
+# load libraries
 library(stringr)			# str_trim
 library(stringdist)		# amatch, stringdist
 library(readxl)			# read_excel
 library(mgsub)			# mgsub
 library(readr)
-
-# set working directory
-#setwd("~/Desktop/DPH/ Congrate Setting Project/1.27")
-# setwd("/Users/wininger/Desktop/Docs/CTDPH/Molly")
+library(data.table)
 
 # declare data file for reading
-read_file="street_sample.csv"  #set to file from previous
+if(exists("check")){
+  read_file <- check
+} else{
+  read_file <- data.table::fread("L:/daily_reporting_figures_rdp/csv/2021-02-03/2021-02-03CONG_past14daysdelta.csv", data.table = FALSE)   
+}
 
 # declare files containing the official lists of ct towns and boros
 city_file = read_csv("Town_ID.csv")
