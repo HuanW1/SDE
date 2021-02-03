@@ -3058,7 +3058,7 @@ if (csv_write) {
   write_csv(gary_state_file, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/state_Result.csv"))
 }
 if (SQL_write) {
-  df_to_table(gary_state_file, "ODP_state_result", overwrite = TRUE, append = FALSE)
+  df_to_table(gary_state_file, "ODP_state_Result", overwrite = TRUE, append = FALSE)
 }
 
 #town
