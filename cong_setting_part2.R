@@ -28,7 +28,14 @@ con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 if(exists("check")){
   read_file <- check
 } else{
-  read_file <- data.table::fread("L:/daily_reporting_figures_rdp/csv/2021-02-03/2021-02-03CONG_past14daysdelta.csv", data.table = FALSE)   
+  statement <- paste0("SELECT * FROM DPH_COVID_IMPORT.dbo.CONG_DATERAN")
+  lastdate <-  DBI::dbGetQuery(conn = con , statement = statement) %>% 
+    as_tibble() %>% 
+    mutate(DateRan = lubridate::ymd(DateRan)) %>% 
+    arrange(desc(DateRan)) %>% 
+    slice(1L) %>% 
+    pull(DateRan)
+  read_file <- data.table::fread(paste0("L:/daily_reporting_figures_rdp/csv/",lastdate, "/",lastdate,"CONG_past14daysdelta.csv"), data.table = FALSE)   
 }
 
 # declare files containing the official lists of ct towns and boros
@@ -51,7 +58,7 @@ addr_nursing <-  DBI::dbGetQuery(conn = con , statement = statement)
 statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[CONG_PRISON_FACILITIES]")
 addr_prisons <-  DBI::dbGetQuery(conn = con , statement = statement)
 list_addr <- c(addr_nursing$Address,addr_prisons$Address)
-rm(statement)
+
 
 #~ 1b. create a crosswalk between boros and towns
 ct_cities=city_file$TOWN_LC
@@ -100,22 +107,19 @@ cong=data.frame(list_strt,list_city,list_name,list_LevelofCare)
 names(cong)=c("Street","City","Name","Level of Care")
 
 #~ 1g. extract data from file
-data=read.csv(read_file)
-data$eventID=1:nrow(data)
-data=data[1:100000,]
+data <- read_file
 
 # clear garbage
 rm(city_file,boro_file,read_file,addr_nursing,addr_prisons)
 rm(list_addr,ct_cities,ct_boros,boros_patt,prison_cities)
 rm(start_locns,prisons,comma_locns,list_strt,list_city,list_name)
-
-
+rm(statement)
 
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ### 2. dataset conditioning ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ### string operations to facilitate text-comparisons
-
+data <- data %>% rename(Street = street, City = city)
 #~ 2a. condition strings
 cong$Street=tolower(cong$Street)
 cong$City=tolower(cong$City)
@@ -279,8 +283,8 @@ data$disposition=factor(data$disposition,levels=c("Yes","Maybe","Unlikely","No")
 
 
 ##~ re-ordering for visual proof
-data$match_name=substr(data$match_name,1,30)
-data[order(data$disposition,data$match_dist),][c(1:500,8800:8850),]
+# data$match_name=substr(data$match_name,1,30)
+# data[order(data$disposition,data$match_dist),][c(1:500,8800:8850),]
 
 
 #~ write out analysis file for offline review
