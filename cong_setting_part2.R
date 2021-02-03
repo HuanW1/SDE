@@ -12,15 +12,17 @@
 # -1. this routine expects that all data has been conditioned for city
 # -2. will need to reconfigure section 1g to reflect true dataset
 ################################################################
+if(!dir.exists("L:/")) message("You need to have L drive mapped")
+.libPaths(c("L:/library", .libPaths()))
 
-
-# load libraries
+# load libraries and connection
 library(stringr)			# str_trim
 library(stringdist)		# amatch, stringdist
 library(readxl)			# read_excel
 library(mgsub)			# mgsub
 library(readr)
 library(data.table)
+con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 # declare data file for reading
 if(exists("check")){
@@ -30,12 +32,11 @@ if(exists("check")){
 }
 
 # declare files containing the official lists of ct towns and boros
-city_file = read_csv("Town_ID.csv")
-boros_list =read_csv("boros_list.csv")
+statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[CONG_BOROS_LIST]")
+boros_list <-  DBI::dbGetQuery(conn = con , statement = statement)
 
-#city_file="~/Desktop/DPH/ Congrate Setting Project/1.27/Town_ID.csv"
-#boro_file="/Users/wininger/Desktop/Docs/CTDPH/Alison/resources/boros_list.csv"
-
+statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[RPT_TOWN_CODES]")
+city_file <-  DBI::dbGetQuery(conn = con , statement = statement)
 
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ### 1. data set construction ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -44,9 +45,13 @@ boros_list =read_csv("boros_list.csv")
 ### congregate settings
 
 #~ 1a. obtain addresses from curated listed of congregate facilities
-addr_nursing=as.data.frame(read_excel("Facility List CTEDSS Entry with Event IDs.xlsx",sheet="NursHome_AL_RCF"))
-addr_prisons=as.data.frame(read_excel("Facility List CTEDSS Entry with Event IDs.xlsx",sheet="Correctional Facilities"))
-list_addr=c(addr_nursing$Address,addr_prisons$Address)
+statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[CONG_NURSING_FACILITIES]")
+addr_nursing <-  DBI::dbGetQuery(conn = con , statement = statement)
+
+statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[CONG_PRISON_FACILITIES]")
+addr_prisons <-  DBI::dbGetQuery(conn = con , statement = statement)
+list_addr <- c(addr_nursing$Address,addr_prisons$Address)
+rm(statement)
 
 #~ 1b. create a crosswalk between boros and towns
 ct_cities=city_file$TOWN_LC
