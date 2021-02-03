@@ -96,6 +96,9 @@ if (monthsame) {
   )
 }
 
+csv_write <- TRUE
+SQL_write <- FALSE
+
 # Put this function in here for now
 
 df_to_table <- 
@@ -589,9 +592,15 @@ case2 <- case %>%
   select(-phone) %>% 
   select(eventid,disease_status, age, gender, city, county, state, hisp_race, race, hisp,hospitalized, admit_date, discharge_date, icu, preg, symptoms, symp_onset_date, spec_col_date, fever, fatigue, sob, headache, cough, myalgia, new_olfact_taste, rigors, pneumonia, ards, outcome, death_date, healthcare_worker, cong_setting, cong_exposure_type, cong_facility, cong_yn, case_create_date, event_date, mmwrweek)
 
-dir.create(paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date()))
-write_csv(case2, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "cases.csv"))
-rm(case2)
+if (csv_write) {
+  dir.create(paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date()))
+  write_csv(case2, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "cases.csv"))
+  rm(case2)
+}
+if (SQL_write) {
+#  df_to_table()
+}
+
 
 case3 <- case %>% 
 select(eventid,fname, lname, dob, phone, disease_status, age, gender, street, city, county, state, hisp_race, race, hisp,hospitalized, admit_date, discharge_date, icu, preg, symptoms, symp_onset_date, spec_col_date, fever, fatigue, sob, headache, cough, myalgia, new_olfact_taste, rigors, pneumonia, ards, outcome, covid_death, vrn, ocme_reported, ocmeid, death_date, healthcare_worker, cong_setting, cong_exposure_type, cong_facility,cong_yn, case_create_date, event_date, test, result, lab_name, mmwrweek)
@@ -3018,7 +3027,12 @@ gary_ages <- case %>%
   pivot_wider(names_from = age_group, values_from = n)
 gary_state_file <-  bind_cols(State, LastUpdateDate, TotalCases, ConfirmedCases,ProbableCases, HospitalizedCases, TotalDeaths, ConfirmedDeaths, ProbableDeaths,gary_ages)
 
-write_csv(gary_state_file, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/state_Result.csv"))
+if (csv_write) {
+  write_csv(gary_state_file, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/state_Result.csv"))
+}
+if (SQL_write) {
+  df_to_table(gary_state_file, "ODP_state_result", overwrite = FALSE, append = TRUE)
+}
 
 #town
 town_codes <- read_csv("L:/daily_reporting_figures_rdp/gary_csv/town_codes/Town_ID.csv") %>%
@@ -3145,7 +3159,14 @@ gary_town_file <- tibble(
   mutate(Town = paste0(str_replace(Town, " town", "")))
 gary_town_file[is.na(gary_town_file)] <- 0
 
-write_csv(gary_town_file, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/town_Result.csv"))
+if (csv_write) {
+  write_csv(gary_town_file, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/town_Result.csv"))
+}
+if (SQL_write) {
+  df_to_table(gary_town_file, "ODP_town_Result", overwrite = FALSE, append = TRUE)
+}
+
+
 
 #ConProbByDate.csv
 ConProbByDate <- epicurve %>%
@@ -3156,7 +3177,13 @@ ConProbByDate[is.na(ConProbByDate)] <- 0
 ConProbByDate <- ConProbByDate %>% 
   mutate(Total =  Confirmed + Probable)
 
-write_csv(ConProbByDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/ConProbByDate.csv"))
+
+if (csv_write) {
+  write_csv(ConProbByDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/ConProbByDate.csv"))
+}
+if (SQL_write) {
+  df_to_table(ConProbByDate, "ODP_ConProbByDate", overwrite = FALSE, append = TRUE)
+}
 
 #gendersummary
 gender_tots <- gender_race_eth %>% 
@@ -3443,14 +3470,30 @@ countycountDate <- case %>%
   ungroup() %>% 
   filter(!is.na(County) & !is.na(Date))
 
-write_csv(countycountDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/CountySummarybyDate.csv"))
-write_csv(death_by_deathdate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/DodSummary.csv"))
-write_csv(GenderSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/GenderSummary.csv"))
-write_csv(StateSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/StateSummary.csv"))
-write_csv(AgeGroupSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/AgeGroupSummary.csv"))
-write_csv(CountySummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/CountySummary.csv"))
-write_csv(REStateSummary , paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/REStateSummary.csv"), na = "")
-write_csv(agg_test_gary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/TestCounty.csv"))
+
+if (csv_write) {
+  write_csv(countycountDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", 
+                                    Sys.Date(), "/CountySummarybyDate.csv"))
+  write_csv(death_by_deathdate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/DodSummary.csv"))
+  write_csv(GenderSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/GenderSummary.csv"))
+  write_csv(StateSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/StateSummary.csv"))
+  write_csv(AgeGroupSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/AgeGroupSummary.csv"))
+  write_csv(CountySummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/CountySummary.csv"))
+  write_csv(REStateSummary , paste0("L:/daily_reporting_figures_rdp/gary_csv/", 
+                                    Sys.Date(), "/REStateSummary.csv"), na = "")
+  write_csv(agg_test_gary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/TestCounty.csv"))
+}
+if (SQL_write) {
+  df_to_table(countycountDate, "ODP_CountySummarybyDate", overwrite = FALSE, append = TRUE)
+  df_to_table(death_by_deathdate, "ODP_DodSummary", overwrite = FALSE, append = TRUE)
+  df_to_table(GenderSummary, "ODP_GenderSummary")
+  df_to_table(StateSummary, "ODP_StateSummary")
+  df_to_table(AgeGroupSummary, "ODP_AgeGroupSummary")
+  df_to_table(CountySummary, "ODP_CountySummary")
+  df_to_table(REStateSummary, "ODP_REStateSummary")
+  df_to_table(agg_test_gary, "ODP_TestCounty")
+}
+
 ## write_csv(agg_test_cdc,paste0("csv/",Sys.Date(),"/", Sys.Date(), "test.csv"))
 ```
 
