@@ -597,8 +597,9 @@ if (csv_write) {
   write_csv(case2, 
             paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), 
                    "/", Sys.Date(), "cases.csv"))
-  rm(case2)
 }
+
+rm(case2)
 
 if (SQL_write) {
   #  df_to_table()
@@ -614,6 +615,7 @@ if(csv_write){
 }
 
 rm(case3)
+
 case <- case %>% 
   select(-phone)
 cdc_numbers <- case %>% 
@@ -877,14 +879,17 @@ neg_tests_thursday <- neg_tests_thursday$n
 #                  ".csv")
 #           )
 
-data.table::fwrite(elr_linelist, 
-                   paste0("L:/daily_reporting_figures_rdp/elr_linelists/elr_linelist", 
-                          Sys.Date(), 
-                          ".csv"), 
-                   buffMB = 16, 
-                   nThread = 4, 
-                   verbose = FALSE, 
-                   showProgress = FALSE)
+if(csv_write) {
+  data.table::fwrite(elr_linelist, 
+                     paste0("L:/daily_reporting_figures_rdp/elr_linelists/elr_linelist", 
+                            Sys.Date(), 
+                            ".csv"), 
+                     buffMB = 16, 
+                     nThread = 4, 
+                     verbose = FALSE, 
+                     showProgress = FALSE)
+}
+rm(df)
 
 ```
 
