@@ -96,8 +96,8 @@ if (monthsame) {
   )
 }
 
-csv_write <- TRUE
-SQL_write <- FALSE
+csv_write <- FALSE
+SQL_write <- TRUE
 
 # Put this function in here for now
 
@@ -594,18 +594,24 @@ case2 <- case %>%
 
 if (csv_write) {
   dir.create(paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date()))
-  write_csv(case2, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "cases.csv"))
+  write_csv(case2, 
+            paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), 
+                   "/", Sys.Date(), "cases.csv"))
   rm(case2)
 }
+
 if (SQL_write) {
-#  df_to_table()
+  #  df_to_table()
 }
 
 
 case3 <- case %>% 
 select(eventid,fname, lname, dob, phone, disease_status, age, gender, street, city, county, state, hisp_race, race, hisp,hospitalized, admit_date, discharge_date, icu, preg, symptoms, symp_onset_date, spec_col_date, fever, fatigue, sob, headache, cough, myalgia, new_olfact_taste, rigors, pneumonia, ards, outcome, covid_death, vrn, ocme_reported, ocmeid, death_date, healthcare_worker, cong_setting, cong_exposure_type, cong_facility,cong_yn, case_create_date, event_date, test, result, lab_name, mmwrweek)
 
-write_csv(case3, paste0("L:/daily_reporting_figures_rdp/csv/",Sys.Date(),"/", Sys.Date(), "cases_wphi.csv"))
+if(csv_write){
+  write_csv(case3, paste0("L:/daily_reporting_figures_rdp/csv/",
+                          Sys.Date(),"/", Sys.Date(), "cases_wphi.csv"))
+}
 
 rm(case3)
 case <- case %>% 
@@ -621,7 +627,11 @@ cdc_numbers <- case %>%
     by = c('disease_status' = 'disease_status')
   )
 
-write_csv(cdc_numbers, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/",  Sys.Date(), "cdc_numbers.csv")) #who actually uses this?
+if(csv_write) {
+  write_csv(cdc_numbers, 
+            paste0("L:/daily_reporting_figures_rdp/csv/", 
+                                Sys.Date(), "/",  Sys.Date(), "cdc_numbers.csv")) #who actually uses this?
+}
 
 ```
 
@@ -1008,9 +1018,13 @@ ovlsum <- bind_cols(tbl_summary, tbl_total, chg_yst)
 
 tableforgary <- ovlsum
 
-dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
-write_csv(ovlsum, paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date(), "/", Sys.Date(), ".csv"))
-# testing new code Feb 1
+if(csv_write) {
+  dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
+  write_csv(ovlsum, 
+            paste0("L:/daily_reporting_figures_rdp/yesterday/", 
+                           Sys.Date(), "/", Sys.Date(), ".csv"))
+  # testing new code Feb 1
+}
 
 df_to_table(ovlsum, "test_overall_summary", overwrite = TRUE, append = FALSE)
 
@@ -1077,8 +1091,12 @@ tableforgary <- ovlsum
 cha_stats <-  bind_cols(tbl_summary, tbl_total) %>%
   rename(summary = `Overall Summary`, total = `Total**`)
 
-dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
-write_csv(ovlsum, paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date(), "/", Sys.Date(), ".csv"))
+if(csv_write) {
+  dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
+  write_csv(ovlsum, 
+            paste0("L:/daily_reporting_figures_rdp/yesterday/", 
+                   Sys.Date(), "/", Sys.Date(), ".csv"))
+}
 
 ovlsum <- regulartable(ovlsum) %>%
   flextable::autofit()
@@ -1463,7 +1481,11 @@ newcasetable <- c14nc_count %>%
 #drop n
 #0 is 0 and 1 to 4 is <5
 
-write_csv(newcasetable, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "newcases+tests.csv"))
+if(csv_write){
+  write_csv(newcasetable, 
+            paste0("L:/daily_reporting_figures_rdp/csv/", 
+                   Sys.Date(), "/", Sys.Date(), "newcases+tests.csv"))
+}
 
 ```
 
@@ -3535,9 +3557,15 @@ gary_dailyincidence<-cases_14_nc %>%
   left_join(town_codes, by = c("townname" = "ANPSADPI"))%>%
   rename(Town_No = TOWNNO) %>% 
   select(Town_No, NAME, pop, casesweek1, casesweek2, totalcases, CaseRate, RateCategory, TotalTests, PercentPositive, UpdateDate, ReportPeriodStartDate, ReportPeriodEndDate)
-write_csv(gary_dailyincidence,paste0("L:/daily_reporting_figures_rdp/gary_csv/CTTown_Alert.csv"))
-dir.create(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date(), "/avg_di"))
-write_csv(gary_dailyincidence, paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date(),"/avg_di/avgdailyincidence.csv"))
+
+if(csv_write) {
+  write_csv(gary_dailyincidence, 
+            paste0("L:/daily_reporting_figures_rdp/gary_csv/CTTown_Alert.csv"))
+  dir.create(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date(), "/avg_di"))
+  write_csv(gary_dailyincidence, 
+            paste0("L:/daily_reporting_figures_rdp/yesterday/", 
+                   Sys.Date(),"/avg_di/avgdailyincidence.csv"))
+}
 
 ```
 
@@ -3596,10 +3624,13 @@ gdi <- gdi %>%
 
   #kable2
 #  dir.create("tables")
-  dir.create(paste0("L:/daily_reporting_figures_rdp/tables/", Sys.Date()))
-  write_csv(kable2, paste0("L:/daily_reporting_figures_rdp/tables/", Sys.Date(),"/TownAlertLevelsTable.csv"))
-
-   
+ if(csv_write) {
+   dir.create(paste0("L:/daily_reporting_figures_rdp/tables/", Sys.Date()))
+   write_csv(kable2, 
+             paste0("L:/daily_reporting_figures_rdp/tables/", 
+                    Sys.Date(),"/TownAlertLevelsTable.csv"))
+ }
+ 
 ```
 
 ```{r town_alert_summary,  eval=wedthurs, message=FALSE, warning=FALSE, include=FALSE}
@@ -3701,7 +3732,11 @@ Summary <- towncatthisweek %>%
   left_join(newtowns) %>% 
   left_join(losttowns) 
 
-write_csv(Summary, paste0("L:/daily_reporting_figures_rdp/tables/", Sys.Date(), "/SummaryAlertLevelsTable.csv"))
+if(csv_write){
+  write_csv(Summary, paste0("L:/daily_reporting_figures_rdp/tables/", 
+                            Sys.Date(), "/SummaryAlertLevelsTable.csv"))
+}
+
 Summary
 
 
@@ -3748,7 +3783,11 @@ modelingdata <- bind_cols(spec_dates, admissions, deathsdata, labdata) %>%
   select(-c(admit_date, dod, spec_col_date))
 #dir.create(paste0(path1,"/modeling/"))
 #write_csv(modelingdata, paste0(path1,"/modeling/", Sys.Date(), ".csv"))
-write_csv(modelingdata, paste0("L:/daily_reporting_figures_rdp/gary_csv/CT_daily_counts_totals.csv"))
+
+if(csv_write){
+  write_csv(modelingdata, 
+            paste0("L:/daily_reporting_figures_rdp/gary_csv/CT_daily_counts_totals.csv"))
+}
 
 forrestdata <- testgeo2 %>%
   filter(cong_test!="Yes") %>%
@@ -3760,7 +3799,12 @@ forrestdata <- testgeo2 %>%
          agtotal = sum(ag_detected, `ag_not detected`, na.rm=TRUE))
 
 #create dataset for Forrest
-write_csv(forrestdata, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "dailytest_communityonly.csv"))
+
+if(csv_write){
+  write_csv(forrestdata, 
+            paste0("L:/daily_reporting_figures_rdp/csv/", 
+                   Sys.Date(), "/", Sys.Date(), "dailytest_communityonly.csv"))
+}
 
 #create dataset for sde indicator for county test counts
 sdedata <- testgeo2 %>%
@@ -3772,7 +3816,12 @@ sdedata <- testgeo2 %>%
   tally() %>% 
   spread(result2, n) %>% 
   replace_na(replace=list(Positive=0, Negative=0, Indeterminate=0)) 
-write_csv(sdedata, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "communitytest_county.csv"))
+
+if(csv_write){
+  write_csv(sdedata, 
+            paste0("L:/daily_reporting_figures_rdp/csv/", 
+                   Sys.Date(), "/", Sys.Date(), "communitytest_county.csv"))
+}
 
 ```
 
@@ -3806,7 +3855,12 @@ county7 <- tibble(
 )  
 }
 
-write_csv(county7, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", "county7days.csv"))
+if(csv_write){
+  write_csv(county7, 
+            paste0("L:/daily_reporting_figures_rdp/csv/", 
+                   Sys.Date(), "/", "county7days.csv"))
+}
+
 ```
 
 
@@ -3831,15 +3885,29 @@ mastercase <- cases %>%
   filter(!is.na(city) & !is.na(`Health Department Name`) & city != "Not Available") %>% 
   arrange(`Health Department Name`, city)
 
-write_csv(mastercase, path = paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", Sys.Date(), "/", "mastereventidlist.csv"))  
-
-for(i in TOI){
-  casesi <- cases %>%  
-    filter(city == i) %>% 
-    select(eventid)
-dir.create(paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", Sys.Date(), "/",townlhd$`Health Department Name`[townlhd$Town == i]))  
-write_csv(casesi, path = paste0("L:/daily_reporting_figures_rdp/town_case_eventids/",Sys.Date(),"/",townlhd$`Health Department Name`[townlhd$Town == i] ,"/",i,"last2week.csv"))  
+if(csv_write){
+  write_csv(mastercase, 
+            path = paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", 
+                          Sys.Date(), "/", "mastereventidlist.csv"))
 }
+
+if(csv_write) {
+  for(i in TOI){
+    casesi <- cases %>%  
+      filter(city == i) %>% 
+      select(eventid)
+    
+    dir.create(paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", 
+                      Sys.Date(), "/", 
+                      townlhd$`Health Department Name`[townlhd$Town == i]))  
+    write_csv(casesi, 
+              path = paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", 
+                            Sys.Date(), "/", 
+                            townlhd$`Health Department Name`[townlhd$Town == i] ,
+                            "/", i, "last2week.csv"))  
+  }
+}
+
 ```
 
 
