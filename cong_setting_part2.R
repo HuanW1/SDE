@@ -22,11 +22,11 @@ library(mgsub)			# mgsub
 library(readr)
 
 # set working directory
-setwd("~/Desktop/DPH/ Congrate Setting Project/1.27")
+#setwd("~/Desktop/DPH/ Congrate Setting Project/1.27")
 # setwd("/Users/wininger/Desktop/Docs/CTDPH/Molly")
 
 # declare data file for reading
-read_file="street_sample.csv"
+read_file="street_sample.csv"  #set to file from previous
 
 # declare files containing the official lists of ct towns and boros
 city_file = read_csv("Town_ID.csv")

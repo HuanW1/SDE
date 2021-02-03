@@ -82,29 +82,24 @@ statement <- paste0("SELECT [r].[case_id]
                               ,[r].[DBA]
                               ,[r].[type]
                     FROM [DPH_COVID_IMPORT].[dbo].[", tabs,"] as [r]")
-alltestgeo <-  DBI::dbGetQuery(conn = con , statement = statement)
+maybecong <-  DBI::dbGetQuery(conn = con , statement = statement)%>% 
+  mutate(eventid = as.numeric(case_id))%>% 
+  right_join(check, by="eventid") %>% 
+  mutate_if(is.character, list(~na_if(., ""))) %>% 
+  mutate_if(is.character, list(~na_if(., "NULL"))) %>%
+  filter(!is.na(Name) | !is.na(License__) | !is.na(DBA))
 rm(statement)
 
-alltestgeo<- alltestgeo %>% 
-  mutate(eventid = as.numeric(case_id))
-maybecong<-check %>% 
-  left_join(alltestgeo, by="eventid") %>% 
-  mutate(Name=ifelse(Name=="" | Name=="NULL", NA, Name),
-         License__=ifelse(License__=="" | License__=="NULL", NA, License__),
-         DBA=ifelse(DBA==""| DBA=="NULL", NA, DBA)) %>% 
-  filter(!is.na(Name) & !is.na(License__) & !is.na(DBA))
-
-rm(alltestgeo)
 data.table::fwrite(maybecong, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "checkCongregatesetting_GEOCODE.csv"))#basis of rest of code?
 
 #4 anything in toms will beflagged in the 'new master'
 
-newmaybecong <- check %>% 
+check<- check %>% 
   mutate(
     intoms = ifelse(eventid %in%  maybecong$case_id, 1,0)
                                         )
                                                                                                         #misleading name
-data.table::fwrite(newmaybecong, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "NEWcheckCongregatesetting_GEOCODE.csv"))#ones that don't code in, probably not needed with molly's code, leave in for now                           # name change to past14daysdelta?  new cases compared to when this was run last from past 2 complete mmwr weeks
+data.table::fwrite(check, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "NEWcheckCongregatesetting_GEOCODE.csv"))#ones that don't code in, probably not needed with molly's code, leave in for now                           # name change to past14daysdelta?  new cases compared to when this was run last from past 2 complete mmwr weeks
   
 
 
