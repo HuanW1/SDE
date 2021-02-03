@@ -3058,7 +3058,7 @@ if (csv_write) {
   write_csv(gary_state_file, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/state_Result.csv"))
 }
 if (SQL_write) {
-  df_to_table(gary_state_file, "ODP_state_result", overwrite = FALSE, append = TRUE)
+  df_to_table(gary_state_file, "ODP_state_result", overwrite = TRUE, append = FALSE)
 }
 
 #town
@@ -3190,7 +3190,7 @@ if (csv_write) {
   write_csv(gary_town_file, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/town_Result.csv"))
 }
 if (SQL_write) {
-  df_to_table(gary_town_file, "ODP_town_Result", overwrite = FALSE, append = TRUE)
+  df_to_table(gary_town_file, "ODP_town_Result", overwrite = TRUE, append = FALSE)
 }
 
 
@@ -3209,7 +3209,7 @@ if (csv_write) {
   write_csv(ConProbByDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/ConProbByDate.csv"))
 }
 if (SQL_write) {
-  df_to_table(ConProbByDate, "ODP_ConProbByDate", overwrite = FALSE, append = TRUE)
+  df_to_table(ConProbByDate, "ODP_ConProbByDate", overwrite = TRUE, append = FALSE)
 }
 
 #gendersummary
@@ -3511,14 +3511,14 @@ if (csv_write) {
   write_csv(agg_test_gary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/TestCounty.csv"))
 }
 if (SQL_write) {
-  df_to_table(countycountDate, "ODP_CountySummarybyDate", overwrite = FALSE, append = TRUE)
-  df_to_table(death_by_deathdate, "ODP_DodSummary", overwrite = FALSE, append = TRUE)
-  df_to_table(GenderSummary, "ODP_GenderSummary")
-  df_to_table(StateSummary, "ODP_StateSummary")
-  df_to_table(AgeGroupSummary, "ODP_AgeGroupSummary")
-  df_to_table(CountySummary, "ODP_CountySummary")
-  df_to_table(REStateSummary, "ODP_REStateSummary")
-  df_to_table(agg_test_gary, "ODP_TestCounty")
+  df_to_table(countycountDate, "ODP_CountySummarybyDate", overwrite = TRUE, append = FALSE)
+  df_to_table(death_by_deathdate, "ODP_DodSummary", overwrite = TRUE, append = FALSE)
+  df_to_table(GenderSummary, "ODP_GenderSummary", overwrite = TRUE, append = FALSE)
+  df_to_table(StateSummary, "ODP_StateSummary", overwrite = TRUE, append = FALSE)
+  df_to_table(AgeGroupSummary, "ODP_AgeGroupSummary", overwrite = TRUE, append = FALSE)
+  df_to_table(CountySummary, "ODP_CountySummary", overwrite = TRUE, append = FALSE)
+  df_to_table(REStateSummary, "ODP_REStateSummary", overwrite = TRUE, append = FALSE)
+  df_to_table(agg_test_gary, "ODP_TestCounty", overwrite = TRUE, append = FALSE)
 }
 
 ## write_csv(agg_test_cdc,paste0("csv/",Sys.Date(),"/", Sys.Date(), "test.csv"))
