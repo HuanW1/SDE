@@ -2,6 +2,7 @@
 library(tidyverse)#, lib.loc = .libPaths()[2])
 library(DBI)
 library(odbc)
+library(readxl)
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 #reading in the town codes csv that the report uses as well as cong setting folks
@@ -19,10 +20,10 @@ boros_list <- read_csv("C:\\Users\\senetckya\\Downloads\\boros_list.csv")
 
 addr_nursing <- as_tibble(read_excel("Facility List CTEDSS Entry with Event IDs.xlsx",sheet="NursHome_AL_RCF"))
 addr_prisons <- as_tibble(read_excel("Facility List CTEDSS Entry with Event IDs.xlsx",sheet="Correctional Facilities")) %>% 
-  filter(!is.na(`Facility Name`) & `Facility Name` != "https://portal.ct.gov/DOC/Miscellaneous/Facilities")
+  filter(!is.na(`Facility Name`) & `Facility Name` != "https://portal.ct.gov/DOC/Miscellaneous/Facilities") 
 
-# DBI::dbWriteTable(conn = con, value = addr_nursing, name = SQL("DPH_COVID_IMPORT.dbo.CONG_NURSING_FACILITIES"))
-# DBI::dbWriteTable(conn = con, value = addr_prisons, name = SQL("DPH_COVID_IMPORT.dbo.CONG_PRISON_FACILITIES"))
+# DBI::dbWriteTable(conn = con, value = addr_nursing, name = SQL("DPH_COVID_IMPORT.dbo.CONG_NURSING_FACILITIES"), overwrite = TRUE)
+# DBI::dbWriteTable(conn = con, value = addr_prisons, name = SQL("DPH_COVID_IMPORT.dbo.CONG_PRISON_FACILITIES"), overwrite = TRUE)
 
 cong_date <- tibble("DateRan" = Sys.Date())   #setting first sql flag for cong running
 #DBI::dbWriteTable(conn = con, value = cong_date, name = SQL("DPH_COVID_IMPORT.dbo.CONG_DATERAN"))
