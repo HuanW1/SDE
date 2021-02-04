@@ -4,10 +4,10 @@
 #####modified Jan 20 2021 AK, PG
 ######FLIS Filter added Jan  2021 PG
 
-
 ####Working script for congregate setting data review and updates
 
-
+if(!dir.exists("L:/")) message("You need to have L drive mapped")
+.libPaths(c("L:/library", .libPaths()))
 # load libraries
 library(readxl)			# read_excel
 library(dplyr)			# filter
@@ -15,19 +15,21 @@ library(stringr)		# str_to_title
 library(tidyr)
 library(tidyverse)
 library(lubridate)
+con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
-# set working directory
-setwd("/Users/gacekpa/Documents")
-
-
-#OTHER working directory paths
-#setwd("/Users/KleppingerA/Documents/Deaths/Roster files/congregate")
-
-
-### import the new running geocode
-read_file="2021-01-20checkCongregatesetting_GEOCODE.csv"
-# read-in new geo data from file
-newGEO=read.csv(read_file)
+# declare data file for reading
+if(exists("data")){
+  newGEO <- data
+} else{
+  statement <- paste0("SELECT * FROM DPH_COVID_IMPORT.dbo.CONG_DATERAN")
+  lastdate <-  DBI::dbGetQuery(conn = con , statement = statement) %>% 
+    as_tibble() %>% 
+    mutate(DateRan = lubridate::ymd(DateRan)) %>% 
+    arrange(desc(DateRan)) %>% 
+    slice(1L) %>% 
+    pull(DateRan)
+  newGEO <- data.table::fread(paste0("L:/daily_reporting_figures_rdp/csv/",lastdate, "/",lastdate,"CONG_past14daysdelta.csv"), data.table = FALSE)   
+}
 
 
 #########Need to recode race from Black to "Black or African American" / Multiracial to "Other" / and Unknowns to a blank/missing
@@ -63,7 +65,8 @@ RosterFLISck<- newGEO %>% filter(type != "DOC" & type !="Assisted Living") %>%
 #####match the records not DOC and ALF to the FLIS list
 
 ### import the new running geocode
-read_file="LTCFDailySubmission_Residents Jan18_2021.csv"
+#hopefully change this to a SQL pull
+read_file="LTCFDailySubmission_Residents Jan25_2021.csv"
 # read-in neFLIS list
 FLIS_Raw=read.csv(read_file)
 
@@ -258,7 +261,7 @@ write.table(RosterOver65,"1_19_RosterOVer65.csv",na="",
 
 
 
-
+odbc::dbDisconnect(con)
 
 
 

@@ -61,7 +61,7 @@ addr_nursing <-  DBI::dbGetQuery(conn = con , statement = statement)
 
 statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[CONG_PRISON_FACILITIES]")
 addr_prisons <-  DBI::dbGetQuery(conn = con , statement = statement)
-list_addr <- c(addr_nursing$Address,addr_prisons$Address)
+#list_addr <- c(addr_nursing$Address,addr_prisons$Address)
 
 
 #~ 1b. create a crosswalk between boros and towns
@@ -73,7 +73,7 @@ ct_boros=rbind(ct_cities,boros_list)
 
 #~ 1c. prisons need city to be split off and mapped from Boro to City
 boros_patt=paste(ct_boros$Boro,collapse="|")
-prison_cities=str_extract_all(addr_prisons$Address,boros_patt)
+prison_cities=str_extract_all(addr_prisons$City,boros_patt)
 prison_cities=paste(prison_cities,sep=", ",collapse="; ")
 prison_cities=gsub("c\\(|\\\\|\\\"|\\)|\\(","",prison_cities)
 prison_cities=unlist(str_split(prison_cities,";"))
@@ -84,21 +84,25 @@ prison_cities=str_trim(prison_cities)
 prisons=data.frame(prison_cities)
 names(prisons)="City"
 match_inds=match(prisons$City,ct_boros$Boro)
-prisons$City=ct_boros$Town[match_inds]
+prisons$City <- as.character(ct_boros$Town[match_inds])
+
+#not mapping addr_prisons city (and any boro listed there) to offical city as intended
+
 
 #~ 1d. prisons now need address to be cleaned
-comma_locns=str_locate(addr_prisons$Address,",")[,1]
-prisons$Street=substr(addr_prisons$Address,1,comma_locns-1)
+# comma_locns=str_locate(addr_prisons$Address,",")[,1]
+# prisons$Street=substr(addr_prisons$Address,1,comma_locns-1)
+prisons$Street <-  addr_prisons$Address
 
 #~ 1e. extract prison name, omit blanks (probably a file error)
 prisons$Name=addr_prisons$"Facility Name"
-prisons$Level_of_Care=addr_prisons$"Level of Care"
-prisons=na.omit(prisons)
+prisons$Level_of_Care=addr_prisons$"Level of Care"   # no level of care in look up!? had to add it
+#prisons=na.omit(prisons)
 
 #~ 1f. merge nursing homes and prisons into a single congregate list
-list_strt=c(addr_nursing$Address,prisons$Street)
+list_strt=c(addr_nursing$Address,prisons$Address)
 list_city=c(addr_nursing$"Facility City",prisons$City)
-list_name=c(addr_nursing$"Facility Nickname",prisons$Name)
+list_name=c(addr_nursing$"CTEDSS Entry Name",prisons$Name)
 
 #categorize level of care
 list_LevelofCare=c(addr_nursing$"Level of Care",prisons$"Level_of_Care")
@@ -107,7 +111,10 @@ list_LevelofCare=mgsub(list_LevelofCare,"Nursing Home","LTCF")
 list_LevelofCare=mgsub(list_LevelofCare,"Assisted Living","ALF")
 list_LevelofCare=mgsub(list_LevelofCare,"Senior Independent Living","ALF")
 
-cong=data.frame(list_strt,list_city,list_name,list_LevelofCare)
+#make cong parts same length up to maximum ( really should've been a join on a name vector)
+
+cong <- data.frame(cbind(list_strt,list_city,list_name,list_LevelofCare))
+#cong=data.frame(list_strt,list_city,list_name,list_LevelofCare)
 names(cong)=c("Street","City","Name","Level of Care")
 
 #~ 1g. extract data from file
@@ -115,7 +122,7 @@ data <- read_file
 
 # clear garbage
 rm(city_file,boro_file,read_file,addr_nursing,addr_prisons)
-rm(list_addr,ct_cities,ct_boros,boros_patt,prison_cities)
+rm(ct_cities,ct_boros,boros_patt,prison_cities)#list_addr,
 rm(start_locns,prisons,comma_locns,list_strt,list_city,list_name)
 rm(statement)
 

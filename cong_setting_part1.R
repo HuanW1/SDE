@@ -87,8 +87,9 @@ maybecong <-  DBI::dbGetQuery(conn = con , statement = statement)%>%
   mutate(intoms = 1) %>% 
   select(eventid, name, license, dba, type, X, Y, geoid10, intoms) %>% 
   full_join(check, by = "eventid") %>% 
-  select(eventid, fname, lname, race, hisp, hisp_race, street,city, county, state, cong_setting, cong_exposure_type, cong_facility, cong_yn, name, license, dba, type, X, Y, geoid10, intoms) %>% 
-  replace_na(list(intoms = 0))
+  select(eventid, fname, lname, age, dob, gender, race, hisp, street, city, county, state, cong_setting, cong_exposure_type, cong_facility, cong_yn, name, license, dba, type, X, Y, geoid10, intoms) %>% 
+  replace_na(list(intoms = 0)) %>% 
+  mutate(KEEP = NA)
 rm(statement)
 
 #new cases compared to when this was run last from past 2 complete mmwr weeks                             
