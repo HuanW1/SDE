@@ -305,7 +305,7 @@ data <- data %>%
   )
          )
 
-
+data.table:fwrite(data, "congSetting_review.csv")
 
 ##~ re-ordering for visual proof
 # data$match_name=substr(data$match_name,1,30)

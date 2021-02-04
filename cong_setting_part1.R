@@ -99,4 +99,4 @@ data.table::fwrite(maybecong, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.
 justran <-tibble("DateRan" = Sys.Date()) 
 DBI::dbWriteTable(conn = con, value = justran, name = SQL("DPH_COVID_IMPORT.dbo.CONG_DATERAN"), overwrite = FALSE, append = TRUE)
 odbc::dbDisconnect(con)
-#source("cong_setting_part2")
+source("cong_setting_part2.R")
