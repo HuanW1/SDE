@@ -113,7 +113,7 @@ list_LevelofCare=mgsub(list_LevelofCare,"Senior Independent Living","ALF")
 
 #make cong parts same length up to maximum ( really should've been a join on a name vector)
 
-cong <- data.frame(cbind(list_strt,list_city,list_name,list_LevelofCare))
+cong <- as_tibble(cbind(list_strt,list_city,list_name,list_LevelofCare))
 #cong=data.frame(list_strt,list_city,list_name,list_LevelofCare)
 names(cong)=c("Street","City","Name","Level of Care")
 
@@ -121,9 +121,9 @@ names(cong)=c("Street","City","Name","Level of Care")
 data <- read_file
 
 # clear garbage
-rm(city_file,boro_file,read_file,addr_nursing,addr_prisons)
+rm(city_file,read_file,addr_nursing,addr_prisons)#,boro_file
 rm(ct_cities,ct_boros,boros_patt,prison_cities)#list_addr,
-rm(start_locns,prisons,comma_locns,list_strt,list_city,list_name)
+rm(start_locns,prisons,list_strt,list_city,list_name) #comma_locns,
 rm(statement)
 
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -201,16 +201,18 @@ for (i in 1:length(unique_cities)){
 	cong_inds=which(cong$City==unique_cities[i])
 	cong_streets=cong$Street[cong_inds]
 	cong_facname=cong$Name[cong_inds]
-	cong_LOC=cong$"Level of Care"[cong_inds]
+	cong_LOC=cong$`Level of Care`[cong_inds]
 
 	# match raw addresses to government addresses
 	match_inds=amatch(data_streets,cong_streets,maxDist=100)
 
 	# merge results for this city
-	city_results=data.frame(data_streets,unique_cities[i],cong_streets[match_inds])
+	city_results <- as_tibble(cbind(data_streets,unique_cities[i],cong_streets[match_inds]),.name_repair = "unique")
 	# note the string distance
-	city_results=cbind(city_results,stringdist(city_results[,1],city_results[,3]))
- 
+	#city_results=cbind(city_results,stringdist(city_results[,1],city_results[,3]))
+	city_results <- city_results %>% 
+	  mutate(dist_street = stringdist(...2, ...3))
+	
 	# rename for clarity
 	names(city_results)=c("data_street","match_city","match_street","dist_street")
  
@@ -284,7 +286,7 @@ data$disposition[yes_inds]="Yes"
 data$disposition[no_inds]="No"
 
 # clear garbage
-rm(maybe_diff,maybe_dist,same_side,maybe_diffs,maybe_dists,maybe_inds,yes_inds, maybecong, check, boros_list)
+rm(maybe_diff,maybe_dist,same_side,maybe_diffs,maybe_dists,maybe_inds,yes_inds,  check, boros_list)#maybecong,
 
 #~ reduce and reorder variables to streamline output
 #data=subset(data,select=c("eventID","Street","City","disposition","match_street","match_city","match_name","match_LOF","match_dist"))
@@ -295,6 +297,14 @@ rm(maybe_diff,maybe_dist,same_side,maybe_diffs,maybe_dists,maybe_inds,yes_inds, 
 
 #~ condition disposition as factor
 data$disposition=factor(data$disposition,levels=c("Yes","Maybe","Unlikely","No"))
+data <- data %>% 
+  select(eventid, fname, lname, age, dob, gender, race, hisp, cong_setting, cong_exposure_type, cong_facility, Street, match_street, City, match_city,name, match_name,dba, match_LOF,type,license, match_dist, dist_StreetNumber,dist_StreetName,dist_Characters, intoms,disposition, KEEP) %>%  # X, Y, geoid10,county, state, cong_yn,
+  filter(intoms ==1 | disposition %in% c("Yes", "Maybe")) %>% 
+  mutate(KEEP = ifelse(
+    intoms == 1 & disposition == "Yes", 1, KEEP
+  )
+         )
+
 
 
 ##~ re-ordering for visual proof

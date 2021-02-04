@@ -19,7 +19,7 @@ con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 # declare data file for reading
 if(exists("data")){
-  newGEO <- data
+  newGEO <- data %>%  filter(KEEP==1)
 } else{
   statement <- paste0("SELECT * FROM DPH_COVID_IMPORT.dbo.CONG_DATERAN")
   lastdate <-  DBI::dbGetQuery(conn = con , statement = statement) %>% 
@@ -28,7 +28,12 @@ if(exists("data")){
     arrange(desc(DateRan)) %>% 
     slice(1L) %>% 
     pull(DateRan)
-  newGEO <- data.table::fread(paste0("L:/daily_reporting_figures_rdp/csv/",lastdate, "/",lastdate,"CONG_past14daysdelta.csv"), data.table = FALSE)   
+  newGEO <- data.table::fread(paste0("L:/daily_reporting_figures_rdp/csv/",lastdate, "/",lastdate,"CONG_past14daysdelta.csv"), data.table = FALSE) %>% 
+    filter(KEEP==1)
+}
+
+if(nrow(newGEO)<1){
+  stop("No data to review. Check past14daysdelta file.")
 }
 
 
