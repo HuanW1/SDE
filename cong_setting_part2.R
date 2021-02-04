@@ -22,11 +22,15 @@ library(readxl)			# read_excel
 library(mgsub)			# mgsub
 library(readr)
 library(data.table)
+require(tidyverse)
+require(odbc)
+require(lubridate)
+require(DBI)
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 # declare data file for reading
-if(exists("check")){
-  read_file <- check
+if(exists("maybecong")){
+  read_file <- maybecong
 } else{
   statement <- paste0("SELECT * FROM DPH_COVID_IMPORT.dbo.CONG_DATERAN")
   lastdate <-  DBI::dbGetQuery(conn = con , statement = statement) %>% 
@@ -273,10 +277,14 @@ data$disposition[yes_inds]="Yes"
 data$disposition[no_inds]="No"
 
 # clear garbage
-rm(maybe_diff,maybe_dist,same_side,maybe_diffs,maybe_dists,maybe_inds,yes_inds)
+rm(maybe_diff,maybe_dist,same_side,maybe_diffs,maybe_dists,maybe_inds,yes_inds, maybecong, check, boros_list)
 
 #~ reduce and reorder variables to streamline output
-data=subset(data,select=c("eventID","Street","City","disposition","match_street","match_city","match_name","match_LOF","match_dist"))
+#data=subset(data,select=c("eventID","Street","City","disposition","match_street","match_city","match_name","match_LOF","match_dist"))
+# data <- data %>% 
+#   select(
+#     c("eventid","intoms", "Street","City","disposition","match_street","match_city","match_name","match_LOF","match_dist")
+#   )
 
 #~ condition disposition as factor
 data$disposition=factor(data$disposition,levels=c("Yes","Maybe","Unlikely","No"))
@@ -288,8 +296,10 @@ data$disposition=factor(data$disposition,levels=c("Yes","Maybe","Unlikely","No")
 
 
 #~ write out analysis file for offline review
-write.table(data,"congSetting_review.csv",sep=",",row.names=FALSE,col.names=TRUE)
+#write.table(data,"congSetting_review.csv",sep=",",row.names=FALSE,col.names=TRUE)
 
 #toc=Sys.time()
 #print(toc-tic)
 
+odbc::dbDisconnect(con)
+#source("cong_setting_part3.R")

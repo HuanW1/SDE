@@ -37,7 +37,6 @@ cases_14 <- cases_14 %>%
 ####3. Create list addresses associated with congregate settings among cases not marked as congregate setting cases for past 7 days####
 #read in last file checked (you will have to set the date to last Monday/Wednesday)
 
-
 ####3a Last ran#####
 statement <- paste0("SELECT * FROM DPH_COVID_IMPORT.dbo.CONG_DATERAN")
 lastdate <-  DBI::dbGetQuery(conn = con , statement = statement) %>% 
@@ -47,7 +46,6 @@ lastdate <-  DBI::dbGetQuery(conn = con , statement = statement) %>%
   slice(1L) %>% 
   pull(DateRan)
 rm(statement)
- #this needs automation and someone to explain this and the above to me, is variable, SQL FLAG
 
 lasttime <- data.table::fread(paste0("L:/daily_reporting_figures_rdp/csv/", lastdate ,"/", lastdate, "cases_wphi.csv"), data.table = F) %>% 
   select(eventid) %>% 
@@ -55,7 +53,6 @@ lasttime <- data.table::fread(paste0("L:/daily_reporting_figures_rdp/csv/", last
 #only keep cases not in last file
 check <- cases_14 %>% 
   filter(!eventid %in% lasttime$eventid)
-#write_csv(check, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "checkCongregatesetting.csv")) #should place in SQL or just leave in global environment for other code. Right?  folks aren't checking these anymore? remove- check future code?
 rm(lasttime)
 
 ####4 pulling lastest geocoded data ####
@@ -85,21 +82,19 @@ maybecong <-  DBI::dbGetQuery(conn = con , statement = statement)%>%
   right_join(check, by="eventid") %>% 
   mutate_if(is.character, list(~na_if(., ""))) %>% 
   mutate_if(is.character, list(~na_if(., "NULL"))) %>%
-  filter(!is.na(Name) | !is.na(License__) | !is.na(DBA))
+  filter(!is.na(Name) | !is.na(License__) | !is.na(DBA)) %>% 
+  rename(name = Name, license = License__, dba = DBA) %>%
+  mutate(intoms = 1) %>% 
+  select(eventid, name, license, dba, type, X, Y, geoid10, intoms) %>% 
+  full_join(check, by = "eventid") %>% 
+  select(eventid, fname, lname, race, hisp, hisp_race, street,city, county, state, cong_setting, cong_exposure_type, cong_facility, cong_yn, name, license, dba, type, X, Y, geoid10, intoms) %>% 
+  replace_na(list(intoms = 0))
 rm(statement)
 
-data.table::fwrite(maybecong, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "checkCongregatesetting_GEOCODE.csv"))#basis of rest of code?
-
-#4 anything in toms will beflagged in the 'new master'
-
-check<- check %>% 
-  mutate(
-    intoms = ifelse(eventid %in%  maybecong$case_id, 1,0)
-                                        )
 #new cases compared to when this was run last from past 2 complete mmwr weeks                             
-data.table::fwrite(check, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "CONG_past14daysdelta.csv"))
+data.table::fwrite(maybecong, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "CONG_past14daysdelta.csv"))
 
-#5 send the new date ran up
+####5 send the new date ran up####
 justran <-tibble("DateRan" = Sys.Date()) 
 DBI::dbWriteTable(conn = con, value = justran, name = SQL("DPH_COVID_IMPORT.dbo.CONG_DATERAN"), overwrite = FALSE, append = TRUE)
 odbc::dbDisconnect(con)
