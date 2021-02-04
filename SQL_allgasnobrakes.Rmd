@@ -97,7 +97,7 @@ if (monthsame) {
 }
 
 csv_write <- TRUE
-SQL_write <- FALSE
+SQL_write <- TRUE
 
 # Put this function in here for now
 
@@ -1776,6 +1776,8 @@ ggplot(weekincidence, aes(mmwrweekdate, rate, col = County, group = County))+
 
 
 ```{r plot_thurs_cases_date, message=FALSE, warning=FALSE, fig.align= "center", eval = thursday, dpi = 300}
+case <- case %>% filter(date >= "2020-03-01" & date < Sys.Date())
+
 case_epi <- case %>% 
   filter(disease_status  == "Confirmed") %>% 
   group_by(date) %>% 
