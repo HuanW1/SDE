@@ -3520,7 +3520,7 @@ if (SQL_write) {
   df_to_table(countycountDate, "ODP_CountySummarybyDate", overwrite = TRUE, append = FALSE)
   df_to_table(death_by_deathdate, "ODP_DodSummary", overwrite = TRUE, append = FALSE)
   df_to_table(GenderSummary, "ODP_GenderSummary", overwrite = TRUE, append = FALSE)
-  df_to_table(StateSummary, "ODP_StateSummary", overwrite = TRUE, append = FALSE)
+  df_to_table(StateSummary, "ODP_StateSummary", overwrite = FALSE, append = TRUE)
   df_to_table(AgeGroupSummary, "ODP_AgeGroupSummary", overwrite = TRUE, append = FALSE)
   df_to_table(CountySummary, "ODP_CountySummary", overwrite = TRUE, append = FALSE)
   df_to_table(REStateSummary, "ODP_REStateSummary", overwrite = TRUE, append = FALSE)
