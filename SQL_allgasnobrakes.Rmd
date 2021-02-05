@@ -550,27 +550,31 @@ df <- df %>%
 
 ```{r case_creation1}
 ######case pt 1############
-case <- df
-case <- case %>% 
+case <- df %>% 
   filter(disease_status == "Confirmed"  | disease_status == "Probable") %>%
-  filter(state =="CT"|is.na(state)) %>% 
+  filter(state == "CT" | is.na(state)) %>% 
   mutate(
-    date = ifelse(disease_status %in% c("Confirmed", "Probable") & !is.na(spec_col_date), spec_col_date, event_date),
-         date = as.Date(date, origin = ymd("1970-01-01")),
-         week = epiweek(date), 
-         year = epiyear(date),
-         mmwrweek = epiweek(date), #setting to date so it works for now
-         simple_result = ifelse( 
-          result == "detected",
-          1,2
-          ),
-         pcrtest=ifelse(test %in% pcrtests, 1, 2)
-         ) %>%
+    date = case_when(
+      disease_status %in% c("Confirmed", "Probable") & !is.na(spec_col_date) ~ spec_col_date,
+      disease_status %in% c("Confirmed", "Probable") & is.na(spec_col_date) ~ event_date,
+      TRUE ~ NA_Date_
+    )) %>%
+  filter(date > ymd("2020-03-01") & 
+           date <= today()) %>% 
+  mutate(
+    week = epiweek(date), 
+    year = epiyear(date),
+    mmwrweek = epiweek(date), #setting to date so it works for now
+    simple_result = ifelse( 
+      result == "detected",
+      1,2
+    ),
+    pcrtest = ifelse(test %in% pcrtests, 1, 2)
+  ) %>%
   mutate(cong_yn = if_else(
     cong_exposure_type ==  "Reside" &
-    (cong_setting== "JAIL" | cong_setting == "LTCF"| cong_setting == "ALF" ),
-                           "Yes", "No", missing = "No")) %>% 
-  
+      (cong_setting== "JAIL" | cong_setting == "LTCF"| cong_setting == "ALF" ),
+    "Yes", "No", missing = "No")) %>% 
   group_by(bigID) %>%
   arrange(simple_result,pcrtest,date) %>% # detected, first priority, and then the pcr test or ag if no pcr, then earliest date, date is spec_col_Date for tests with that or eventdate if none listed or is a non ag+ prob
   slice(1L) %>%
