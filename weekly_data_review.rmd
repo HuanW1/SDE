@@ -5,7 +5,7 @@ output:
   html_document: default
   pdf_document: default
 author: 'Sydney Jones'
-date: 9/3/2020
+date: 2/11/2021
 created on: 7/29/2020
 ---
 
@@ -27,7 +27,7 @@ my_packages <-  c("ggspatial","data.table","sf","odbc","tm","viridis",
                   "tigris", "acs", "tidycensus", "DT", "rgeos", "formatR", "knitr", "MMWRweek", "sf",
                   "RODBC", "plotly", 'rgeos', "scales", "english", 'flextable', 'slider', "transformr", "gganimate", "tibble", "dplyr")
 mypak(my_packages)
-dir <- getwd()
+dir <- "L:/daily_reporting_figures_rdp/"
 
 theme_update(
   axis.title = element_text(size = 20),
@@ -51,16 +51,16 @@ if(file.exists("shape_files/cb_2017_09_cousub_500k.shp")){
   subdat<-st_transform(subdat,"+init=epsg:4326")
 }
 cc_map <- read_csv(
-  paste0(dir,"/dependancies/City County Mapping.csv")) %>% 
+  paste0(dir, "dependancies/City County Mapping.csv")) %>% 
   mutate(COUNTY = paste0(COUNTY," County"))
 
 
 #3. load town and county population data
-town_pop18 <- read_csv("population_data/pop_towns2018.csv")%>%
+town_pop18 <- read_csv(paste0(dir, "population_data/pop_towns2018.csv"))%>%
   rename(city=Town, 
           pop=`Est. Pop.`)
 
-county_pop <- read_csv("population_data/county_pop.csv")
+county_pop <- read_csv(paste0(dir,"population_data/county_pop.csv"))
 
 
 #4. set epi week and other date info
@@ -71,7 +71,7 @@ dates<- tibble("date"=seq.Date(as.Date("2020-02-22"), Sys.Date(), by='day'), j=1
 
 
 #5. Read in case data (cases w/ phi)
-casenew <- read_csv(paste0("csv/", Sys.Date(), "/", Sys.Date(), "cases_wphi.csv"),
+casenew <- read_csv(paste0(dir, "csv/", Sys.Date(), "/", Sys.Date(), "cases_wphi.csv"),
                     col_types = cols(spec_col_date = col_character(), 
                                      event_date = col_character()))
 
@@ -90,7 +90,7 @@ casenew <- casenew %>%
 count(casenew, cong_yn)
 
 #6. create community only testing dataset 
-monthday <- format(Sys.Date()-1, "%b_%d")
+monthday <- format(Sys.Date()-1, "%b_%d_%y")
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 statement <- paste0("SELECT [r].[case_id]
                               ,[r].[X]
@@ -116,7 +116,7 @@ testgeo <- alltestgeo %>%
   slice(1L) %>%
   ungroup()
 
-elr_linelist <- read_csv(paste0("elr_linelists//","elr_linelist", Sys.Date(), ".csv")) %>% 
+elr_linelist <- read_csv(paste0(dir, "elr_linelists//","elr_linelist", Sys.Date(), ".csv")) %>% 
   filter(spec_col_date <= Sys.Date()) %>% 
   mutate(result2 = ifelse(result =="detected", "Positive", 
                           ifelse(result =="not detected", "Negative", "Indeterminate")))
@@ -133,7 +133,7 @@ communitytest <- testgeo2 %>%
   filter(!cong_test %in% "Yes")
 
 #7. Read in town alert dataset
-town_alert <- read_csv(paste0("tables/", Sys.Date(), "/TownAlertLevelsTable.csv"))
+town_alert <- read_csv(paste0(dir, "tables/", Sys.Date(), "/TownAlertLevelsTable.csv"))
 
 #8. CHA data
 cha_file <- list.files("CHA_data_here", pattern = ".csv")
@@ -221,9 +221,9 @@ arrange(popbycat, desc(RateCategory))
 
 ## NEW continuous scale, 14-day average case rates by town:
 ```{r, echo=FALSE, message=FALSE, fig.width=16, fig.height=4}
-case_dat <- read_csv(paste0("gary_csv/", Sys.Date(), "/", "CTTown_Alert.csv"))
-case_dat1 <- read_csv(paste0("gary_csv/", Sys.Date()-7, "/", "CTTown_Alert.csv"))
-case_dat2 <- read_csv(paste0("gary_csv/", Sys.Date()-14, "/", "CTTown_Alert.csv"))
+case_dat <- read_csv(paste0(dir, "gary_csv/", Sys.Date(), "/", "CTTown_Alert.csv"))
+case_dat1 <- read_csv(paste0(dir, "gary_csv/", Sys.Date()-7, "/", "CTTown_Alert.csv"))
+case_dat2 <- read_csv(paste0(dir, "gary_csv/", Sys.Date()-14, "/", "CTTown_Alert.csv"))
 
 
 case_dat <- bind_rows(case_dat, case_dat1) %>% bind_rows(case_dat2)
@@ -426,7 +426,7 @@ kable(chaavgcensus )
 
 #d. graph of deaths by day over time 
 death_ct <- casenew %>%
-  filter(covid_death == "YES") %>% 
+  filter(covid_death=="YES") %>% 
   group_by(death_date) %>% 
   tally() %>%
   rename(date=death_date)
@@ -450,7 +450,7 @@ ggplot(deathavg)+
 
 totaldeaths <- sum(death_ct$n)
 weeklydeaths <- casenew %>%
-  filter(covid_death == "YES") %>% 
+  filter(covid_death=="YES") %>% 
   mutate(week = epiweek(death_date)) %>%
   mutate(year = epiyear(death_date)) %>%
 ##### THIS NEEDS TO CHANGE ####  
@@ -729,7 +729,7 @@ age_labels3 <- c("0-14", "15-19", "20-24", "25-39", "40-64",  "65+")
 age_labels4 <- c("0-14", "15-19", "20-24", "25-39", "40-64",  "65+", "Overall") 
 
 #age population denominators
-age_pop <- read_csv("population_data/2018_dph_asrh/2018_asrh.csv") %>% 
+age_pop <- read_csv(dir, "population_data/2018_dph_asrh/2018_asrh.csv") %>% 
   #select(age_3, pop) %>% 
   #filter(!is.na(age_3)) %>%
   select(age_4, pop_4) %>% 
@@ -1163,7 +1163,6 @@ ggplot(subdat_3wkc)+
 #Slide 9 - Turn Around Time
 ```{r slide 9, echo = FALSE}
 ##Slide 9 - turn around time = ALEX
-#need to filter out the records with inaccurate TAT 
 elr <- testgeo2 %>% 
   filter(spec_col_date >= max(spec_col_date, na.rm = T)-42) %>% 
   mutate(reported = as.Date(mdy(date_reported_dph))) %>% 
@@ -1183,18 +1182,16 @@ end_date <- Sys.Date()-1
 #elr$tat[which(elr$eventid %in% 104897543 & elr$spec_col_date == "2021-01-12")] <- 2
 #elr$tat[which(elr$eventid %in% 104897545 & elr$spec_col_date == "2021-01-12")] <- 2
 ### Manual edits 1/28/2021:
-elr$tat[which(elr$eventid %in% 102163048 & elr$spec_col_date == "2021-01-09")] <- 12
-elr$tat[which(elr$eventid %in% 105083891 & elr$spec_col_date == "2021-01-12")] <- 9
+#elr$tat[which(elr$eventid %in% 102163048 & elr$spec_col_date == "2021-01-09")] <- 12
+#elr$tat[which(elr$eventid %in% 105083891 & elr$spec_col_date == "2021-01-12")] <- 9
 
-wrong <- 
-  elr %>% 
-  filter(tat > 21)%>% 
-  filter(spec_col_date >= end_date-20 & spec_col_date <= end_date-7)
+wrong <- elr %>% filter(tat > 21)%>% filter(spec_col_date >= end_date-20 & spec_col_date <= end_date-7)
 
-# wrong_foremail <- wrong %>% select(eventid, lab_result_create_date, lab_result_mod_date, spec_col_date, date_tested, date_reported_dph)
-#write_csv(wrong_foremail, "CRFs_entered_as_labs.csv")
+#wrong_foremail <- wrong %>% select(eventid, lab_result_create_date, lab_result_mod_date, spec_col_date, date_tested, date_reported_dph)
 
-#elr <- elr %>% filter(!eventid %in% wrong$eventid)
+write_csv(wrong, paste0(dir, "turnaround_issues.csv"))
+
+elr <- elr %>% filter(!(eventid %in% wrong$eventid & spec_col_date %in% wrong$spec_col_date))
 
 
 elr9med <- elr %>% 
@@ -1213,6 +1210,7 @@ ggplot(elr9med, aes(x =spec_col_date))+
   geom_ribbon(aes(ymin = lower, ymax = upper), fill = "grey70", alpha = 0.5)+
   scale_x_date(breaks = "2 days", date_labels = "%b-%d")+
   theme_classic()+
+  ylim(0, (max(upper)+1))+
   labs(
     title = "Median Test Turn Around Time in Days",
     subtitle = "with Interquartile Range",
@@ -1355,7 +1353,7 @@ ggplot(combline2)+
     legend.position = c(0.85,0.8),
     legend.background = element_rect(colour = "black"),
     axis.text.x = element_text(
-      angle =45,
+      angle =55,
       hjust = 1
     )
   )+
@@ -1438,7 +1436,7 @@ kable(chaavgcensus )
 
 #ggplot(deathavg_cty)+
 deathavg_wk<-casenew %>% 
-  filter(covid_death == "YES") %>% 
+  filter(covid_death=="YES") %>% 
   mutate(week=epiweek(death_date)) %>%
   mutate(year=epiyear(death_date))%>%
   group_by(year,week, cong_yn) %>% 
@@ -1455,7 +1453,7 @@ deathavg_wk<-casenew %>%
   mutate(percent = paste0(round(n/sum(n)*100, 0), "%"))
 
 deathavg_wk1<-casenew %>% 
-  filter(covid_death == "YES") %>% 
+  filter(covid_death=="YES") %>% 
   mutate(week=epiweek(death_date)) %>% 
   mutate(year=epiyear(death_date)) %>%
   group_by(year, week, cong_yn) %>% 
@@ -1494,6 +1492,7 @@ ggplot(deathavg_wk, aes(date, n, group=cong_yn))+
   #scale_y_continuous(limits=c(0, 60), breaks=c(0,10, 20, 30, 40,50,60))+
   labs(
     fill = "Reside in Congregate Setting",
+   # y = "Rolling Average Number of COVID-19 Deaths",
     y = "Number of COVID-19 Deaths",
     x = "Date of Death",
    title = "COVID-19 Deaths per Week of Death",
