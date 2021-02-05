@@ -2,16 +2,12 @@
 #####jan 6, now 16 2021 AK
 #####jan 23 completed mostly with MW help
 
-rm(list=ls())
 
 # load libraries
 library(readxl)			# read_excel
 library(dplyr)			# filter
 library(stringr)		# str_to_title
 library(tidyr)
-
-# set working directory
-setwd("R:/CT DPH/Death Rostering")
 
 ###########################
 ## import the old OCME list
