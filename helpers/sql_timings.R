@@ -1,21 +1,3 @@
-# con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
-#
-# statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[CTEDSS_DAILY_REPORT_ALL_Cases]")
-# tock <- Sys.time()
-# raw_cases <- DBI::dbGetQuery(conn = con2 , statement = statement)
-# tick <- Sys.time()
-# tick - tock
-#
-# rm(statement, raw_cases)
-# statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[DAILY_Reports_ALL_COVID_TESTS]")
-#
-# tock <- Sys.time()
-# raw_tests <-  DBI::dbGetQuery(conn = con2 , statement = statement)
-# tick <- Sys.time()
-# tick - tock
-#
-# rm(statement, raw_tests)
-#
 
 # library(data.table)
 # library(dtplyr)
@@ -70,29 +52,10 @@ statement <-
 
 
 raw_tests <-  DBI::dbGetQuery(conn = con2 , statement = statement)
-# tick <- Sys.time()
-# tick - tock
 
 odbc::dbDisconnect(con2)
 
-# raw_tests <- raw_tests %>% rename(spec_col_date = SPEC_COLL_DATE)
-# names(raw_cases) <- str_to_lower(names(raw_cases))
-# names(raw_tests) <- str_to_lower(names(raw_tests))
-
-# tock <- Sys.time()
 df <-  left_join(raw_cases, raw_tests, by = c("event_id"))
-# tick <- Sys.time()
-# tick - tock
-
-# raw_cases2 <- lazy_dt(raw_cases)
-# raw_tests2 <- lazy_dt(raw_tests)
-#
-# tock <- Sys.time()
-# df <-  left_join(raw_cases2, raw_tests2, by = c("event_id"))
-
-# rm(raw_cases, raw_tests)
-# gc()
-
 
 df <- df %>%
   mutate(across(.cols = case_create_date:case_eff_from_date,
@@ -194,8 +157,6 @@ names(backend_tests) <- str_to_lower(names(backend_tests))
 
 backend <- backend %>%
   select(-c("case_unid", "participant_unid", "hisp_race", "racecount", "lboname", "case_status", "mmwrweek", "spec_col_date", "result","test" , "lab_name"))
-# backend[backend == "NA"] <- NA
-# backend[backend == ""] <- NA
 
 #####tests cleanup######
 backend_tests <- backend_tests %>%
