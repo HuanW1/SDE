@@ -62,7 +62,7 @@ RosterDOCALF<- newGEO %>% filter(type == "DOC" | type =="Assisted Living") %>%
 
 ### filter not DOC and ALF
 RosterFLISck<- newGEO %>% filter(type != "DOC" & type !="Assisted Living") %>% 
-  select(eventid, age, dba, Name, street, city, gender, race, hisp,  type,lname, fname, dob)
+  select(eventid, age, dba, name, Street, City, gender, race, hisp,  type,lname, fname, dob)
 
 
 #######Need to recode hispanic from H or NH to Yes, No)
@@ -155,7 +155,7 @@ RosterFLISck$Match_Name=results$Match_Name
 
 ################################
 TrueFLISmatch=subset(RosterFLISck, MATCH=="TRUE") %>% 
-  select(eventid, age, lname, fname, dob, gender, race, hisp, DBA, type, Name)
+  select(eventid, age, lname, fname, dob, gender, race, hisp, dba, type, Name)
 
 # make type say LTCF
 TrueFLISmatch$type <-"LTCF"
@@ -163,14 +163,14 @@ TrueFLISmatch$type <-"LTCF"
 #make temp of DOCALF
 temp_DOCALF=RosterDOCALF
 
-# rename DBA
-TrueFLISmatch = rename(TrueFLISmatch, 'Facility Name' ="DBA")
+# rename dba
+TrueFLISmatch = rename(TrueFLISmatch, 'Facility Name' ="dba")
 TrueFLISmatch = rename(TrueFLISmatch, 'Race' = "race")
 TrueFLISmatch = rename(TrueFLISmatch, 'Hispanic' ="hisp")
 TrueFLISmatch = rename(TrueFLISmatch, 'Gender' ="gender")
 TrueFLISmatch = rename(TrueFLISmatch, 'Type of congregate setting' ="type")
 TrueFLISmatch = rename(TrueFLISmatch, 'Event ID' ="eventid")
-temp_DOCALF = rename(temp_DOCALF, 'Facility Name' ="DBA")
+temp_DOCALF = rename(temp_DOCALF, 'Facility Name' ="dba")
 temp_DOCALF = rename(temp_DOCALF, 'Type of congregate setting' ="type")
 temp_DOCALF = rename(temp_DOCALF, 'Race' = "race")
 temp_DOCALF = rename(temp_DOCALF, 'Hispanic' ="hisp")
