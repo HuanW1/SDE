@@ -17,7 +17,7 @@ statement <-
           preg, symptoms, symp_onset_date, fever, fatigue, sob,
           chills, sorethroat, headache, cough, myalgia, new_olfact_taste,
           rigors, pneumonia, ards, outcome, death_date, diedwithcovid as covid_death,
-          ocme_cov_rpt as ocme_reported, ocme_num as ocmeid, death_sfn as vrn, 
+          ocme_cov_rpt as ocme_reported, ocme_num as ocmeid, death_sfn as vrn,
           healthcare_worker, cong_setting,
           cong_exposure_type, cong_facility, cong_yn as ptreside, daycare_yn as daycare_attendee,
           daycare_occu as daycare_staff, case_create_date, case_mod_date, case_effective_date,
@@ -58,19 +58,23 @@ odbc::dbDisconnect(con2)
 
 df <-  left_join(raw_cases, raw_tests, by = c("eventid"))
 
-df <- df %>%
-  mutate(across(.cols = case_create_date:case_eff_from_date,
-                ~ as_date(.x))) %>%
-  mutate(across(where(is.character), ~ na_if(.x, "NA"))) %>%
+# rm(backend)
+# rm(backend_tests)
+
+df <-
+  df %>%
   mutate(
+    across(.cols = case_create_date:case_eff_from_date,
+           ~ as_date(.x)),
+    across(where(is.character), ~ na_if(.x, "NA")),
     ptreside = str_to_sentence(ptreside),
     gender = str_to_sentence(gender),
     death_date = mdy(death_date),
     event_date = mdy(event_date),
     spec_col_date = mdy(spec_col_date),
     outcome = str_to_sentence(outcome),
-    fname =str_to_lower(fname),
-    lname =str_to_lower(lname),
+    fname = str_to_lower(fname),
+    lname = str_to_lower(lname),
     dob = as.Date(mdy(dob)),
     disease_status = str_to_sentence(disease_status),
     age = floor(time_length(
