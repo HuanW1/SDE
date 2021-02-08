@@ -36,7 +36,6 @@ if(nrow(newGEO)<1){
   stop("No data to review. Check past14daysdelta file.")
 }
 
-
 #########Need to recode race from Black to "Black or African American" / Multiracial to "Other" / and Unknowns to a blank/missing
 
 # for Black in Roster$Race, enforce as "Black or African American"
@@ -59,11 +58,11 @@ newGEO$hisp=gsub("H","YES",newGEO$hisp)
 
 ### filter on DOC and ALF
 RosterDOCALF<- newGEO %>% filter(type == "DOC" | type =="Assisted Living") %>% 
-  select(eventid, age, lname, fname, dob, gender, race, hisp, DBA, type, Name)
+  select(eventid, age, lname, fname, dob, gender, race, hisp, dba, type, name)
 
 ### filter not DOC and ALF
 RosterFLISck<- newGEO %>% filter(type != "DOC" & type !="Assisted Living") %>% 
-  select(eventid, age, DBA, Name, street, city, gender, race, hisp,  type,lname, fname, dob)
+  select(eventid, age, dba, Name, street, city, gender, race, hisp,  type,lname, fname, dob)
 
 
 #######Need to recode hispanic from H or NH to Yes, No)
