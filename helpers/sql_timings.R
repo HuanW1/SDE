@@ -11,15 +11,16 @@ con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
 tock <- Sys.time()
 # dbListFields(con2, SQL("DPH_COVID_IMPORT.dbo.CTEDSS_DAILY_REPORT_ALL_Cases"))
 statement <-
-  paste0("SELECT EVENT_ID as event_id, fname, lname, dob, phone,
+  paste0("SELECT EVENT_ID as eventid, fname, lname, dob, phone,
           disease_status, age, gender, street, city, county, state,
           race, hisp, hospitalized, admit_date, discharge_date, icu,
           preg, symptoms, symp_onset_date, fever, fatigue, sob,
           chills, sorethroat, headache, cough, myalgia, new_olfact_taste,
-          rigors, pneumonia, ards, outcome, death_date, diedwithcovid,
-          ocme_cov_rpt, ocme_num, death_sfn, healthcare_worker, cong_setting,
-          cong_exposure_type, cong_facility, cong_yn, daycare_yn,
-          daycare_occu, case_create_date, case_mod_date, case_effective_date,
+          rigors, pneumonia, ards, outcome, death_date, diedwithcovid as covid_death,
+          ocme_cov_rpt as ocme_reported, ocme_num as ocmeid, death_sfn as vrn, 
+          healthcare_worker, cong_setting,
+          cong_exposure_type, cong_facility, cong_yn as ptreside, daycare_yn as daycare_attendee,
+          daycare_occu as daycare_staff, case_create_date, case_mod_date, case_effective_date,
           case_eff_From_date as case_eff_from_date, event_date, facilityName,
           zip_code, race_concat
          FROM [DPH_COVID_IMPORT].[dbo].[CTEDSS_DAILY_REPORT_ALL_Cases]")
@@ -29,14 +30,14 @@ raw_cases <- DBI::dbGetQuery(conn = con2 , statement = statement)
 
 statement <-
   paste0(
-    "SELECT EVENT_ID as event_id,
+    "SELECT EVENT_ID as eventid,
       INVESTIGATION_CREATE_DATE as investigation_create_date,
       INVESTIGATION_MOD_DATE as investigation_mod_date,
       NEW_ELR_RESULT as new_elr_result,
-      MRN_ELR as mrn_elr, TEST_NAME as test_name, RESULT as result,
+      MRN_ELR as mrn_elr, TEST_NAME as test, RESULT as result,
       TESTED_DATE as tested_date, SPEC_COLL_DATE as spec_col_date,
       SPEC_REC_DATE as spec_rec_date, SPEC_NUM as spec_num,
-      SPEC_SOURCE as spec_source, AUTH_FACILITY as auth_facility,
+      SPEC_SOURCE as source, AUTH_FACILITY as auth_facility,
       ORDERING_PROVIDER_NAME as ordering_provider_name,
       LAB_NAME as lab_name, FACILITY_NAME as facility_name,
       ORDERING_PROVIDER_FNAME as ordering_provider_fname,
@@ -55,27 +56,12 @@ raw_tests <-  DBI::dbGetQuery(conn = con2 , statement = statement)
 
 odbc::dbDisconnect(con2)
 
-df <-  left_join(raw_cases, raw_tests, by = c("event_id"))
+df <-  left_join(raw_cases, raw_tests, by = c("eventid"))
 
 df <- df %>%
   mutate(across(.cols = case_create_date:case_eff_from_date,
                 ~ as_date(.x))) %>%
-  mutate(across(where(is.character), ~ na_if(.x, "NA")))
-
-df <- df %>%
-  #rename key variables
-  rename(
-    test = test_name,
-    eventid = event_id,
-    vrn = death_sfn,
-    ocme_reported = ocme_cov_rpt,
-    ocmeid = ocme_num,
-    daycare_attendee = daycare_yn,
-    daycare_staff = daycare_occu,
-    source = spec_source,
-    covid_death = diedwithcovid,
-    ptreside = cong_yn
-  ) %>%
+  mutate(across(where(is.character), ~ na_if(.x, "NA"))) %>%
   mutate(
     ptreside = str_to_sentence(ptreside),
     gender = str_to_sentence(gender),
