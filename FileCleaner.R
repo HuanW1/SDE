@@ -24,21 +24,23 @@
 
 # load libraries
 library(readxl)			# read_excel
-library(dplyr)			# filter
-library(stringr)		# str_to_title
+library(tidyverse)			# filter
+library(zipcodeR)
+library(stringdist)
+
 
 # set working directory
-setwd("/Users/KleppingerA/Documents/Nancy Barrett")
+# setwd("/Users/KleppingerA/Documents/Nancy Barrett")
 #setwd("/Users/wininger/desktop/docs/CTDPH/Alison")
 
 ######################################################################
 #read only one file (no loops)
-read_file="CELR_Feb04_Feb08.csv"
+read_file = "L:/CELR/SQLOutput/CELR_Jan01-Feb09.csv"
 
 # read-in raw data from file
 #data = read.delim(read_file, header = TRUE, stringsAsFactors = FALSE, quote = "")
 #data=read.table(read_file, header = TRUE, sep=".")
-data=read.csv(read_file)
+data = read_csv(read_file)
 
 ############################################################################
 
@@ -47,7 +49,7 @@ data=read.csv(read_file)
 library(summarytools)
 summarytools::freq(data$Patient_county, order = "freq")
 
-library(summarytools)
+
 summarytools::freq(data$Patient_city, order = "freq")
 
   # clean city (Nancy Barrett Process 7)

@@ -12,16 +12,16 @@
 ################################################################
 
 # load libraries
-library(stringr)			# str_to_title
-library(zipcodeR)		# search_state
-library(stringdist)		# amatch and stringdist
+# library(stringr)			# str_to_title
+# library(zipcodeR)		# search_state
+# library(stringdist)		# amatch and stringdist
 
 
 # declare all files up-top
-city_file="/Users/KleppingerA/Documents/Nancy Barrett/Town_ID.csv"
-county_file="/Users/KleppingerA/Documents/Nancy Barrett/City County Mapping.csv"
-boro_file="/Users/KleppingerA/Documents/Nancy Barrett/boros_list.csv"
-mystic_file="/Users/KleppingerA/Documents/Nancy Barrett/_mystic.csv"
+city_file="L:/daily_reporting_figures_rdp/gary_csv/town_codes/Town_ID.csv"
+county_file="City_County_Mapping.csv"
+boro_file="boros_list.csv"
+mystic_file="_mystic.csv"
 
 ### find the missing counties - created AK on 2/5/2021 ###
 # subset by rows of missing counties
@@ -358,7 +358,7 @@ for (i in max(data$City_Tier):1){
 
 
 #~ 8e. enforce that persistent match failures retain original City
-data$City_Match[which(data$City_Tier==-1)]=data$City[which(data$City_Tier==-1)]
+data$City_Match[which(data$City_Tier==-1)]=data$Patient_city[which(data$City_Tier==-1)]
 
 # clear garbage
 rm(score_cols,scores_matx,i)
