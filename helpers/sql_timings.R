@@ -121,6 +121,7 @@ df <-
     city = str_to_title(city)
   )
 
+# Need 358 to 399 then the join
 
 tick <- Sys.time()
 tick - tock
