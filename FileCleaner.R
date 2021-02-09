@@ -27,7 +27,7 @@ library(readxl)			# read_excel
 library(tidyverse)			# filter
 library(zipcodeR)
 library(stringdist)
-
+library(summarytools)
 
 # set working directory
 # setwd("/Users/KleppingerA/Documents/Nancy Barrett")
@@ -46,7 +46,7 @@ data = read_csv(read_file)
 
 # before cleaning counts!
 # look for counts of counties
-library(summarytools)
+
 summarytools::freq(data$Patient_county, order = "freq")
 
 
