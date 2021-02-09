@@ -56,6 +56,9 @@ raw_tests <-  DBI::dbGetQuery(conn = con2 , statement = statement)
 
 odbc::dbDisconnect(con2)
 
+age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
+
+
 df <-  left_join(raw_cases, raw_tests, by = c("eventid"))
 
 # rm(backend)
@@ -118,10 +121,40 @@ df <-
     race = str_replace_all(race, "_", " "),
     race = str_to_title(race),
     hisp = str_to_sentence(hisp),
-    city = str_to_title(city)
+    city = str_to_title(city),
+    race = case_when(
+      race == "Black African American" ~ "Black",
+      race == "Asian" | race == "Native Hawaiian Pacific Islander" ~ "Asian or Pacific Islander",
+      race == "American Indian Alaskan Native" ~ "American Indian or Alaskan Native",
+      TRUE ~ race
+    ),
+    hisp = if_else(
+      hisp == "Yes",
+      "H",
+      "NH",
+      "NH"  #na eth set to NH otherwise it breaks so many things
+    ),
+    race = case_when(
+      is.na(race) | race =="Refused" ~ "Unknown",
+      !race %in% c("White", "Black", "Asian", "American Indian or Alaskan Native",
+                   "Asian or Pacific Islander", "Other", "Unknown") ~ "Multiracial",
+      TRUE ~ race
+    ),
+    hisp_race = paste0(hisp, " ", race),
+    hisp_race = ifelse(hisp == "H", "Hispanic", hisp_race),
+    hisp_race = ifelse(hisp_race == "NH Unknown", "Unknown", hisp_race),
+    age_group = cut(age,
+                    breaks = c(-1,9,19,29,39,49,59,69,79, Inf),
+                    labels = age_labels)
   )
 
+
+
 # Need 358 to 399 then the join
+
+# df <-
+#   df %>%
+#   left_join(cc_map %>% rename(county = COUNTY), by = c("city" = "CITY"))
 
 tick <- Sys.time()
 tick - tock
