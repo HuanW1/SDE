@@ -188,11 +188,11 @@ temp_DOCALF = rename(temp_DOCALF, 'Event ID' ="eventid")
 FinalRosterMerge <- rbind(TrueFLISmatch, temp_DOCALF)
 
 # change lower case to all capitals for Roster
-FinalRosterMerge$'Facility Name' = str_to_title(FinalRosterMerge$'Facility Name')
+FinalRosterMerge$`Facility Name` = str_to_title(FinalRosterMerge$`Facility Name`)
 
 # for remaining blank elements in Facility, enforce as Name variable info
 empt_inds=which(is.na(FinalRosterMerge$`Facility Name`))
-if (length(empt_inds)>0){FinalRosterMerge$'Facility Name'[empt_inds]=FinalRosterMerge$Name[empt_inds]}
+if (length(empt_inds)>0){FinalRosterMerge$`Facility Name`[empt_inds]=FinalRosterMerge$name[empt_inds]}
 
 # if type of cong setting includes 'AL', then it should be 'ALF'
 doc_inds=grep("Assisted Living",FinalRosterMerge$`Type of congregate setting`,ignore.case=TRUE)
@@ -210,8 +210,9 @@ FinalRosterMerge$State<-"CT"
 
 # put the variables in this order
 
-FinalRosterMergeforCTEDSS <- FinalRosterMerge[ ,c(1,13,7,8,6,9,17,12,10,14,15,16)]
-
+#FinalRosterMergeforCTEDSS <- FinalRosterMerge[ ,c(1,13,7,8,6,9,17,12,10,14,15,16)]
+FinalRosterMergeforCTEDSS <- FinalRosterMerge %>% 
+  select(`Event ID`, `Facility Number`, Race, Hispanic, Gender, `Facility Name`, State, `Congregate Setting`, `Type of congregate setting`, Product, `Type of CoV`, NMI)
 
 write.table(FinalRosterMergeforCTEDSS,"FinalRosterMergeforCTEDSS.csv",na="",
             row.names=FALSE,col.names=TRUE,sep=",")

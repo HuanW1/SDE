@@ -113,7 +113,7 @@ list_LevelofCare=mgsub(list_LevelofCare,"Senior Independent Living","ALF")
 
 #make cong parts same length up to maximum ( really should've been a join on a name vector)
 
-cong <- as_tibble(cbind(list_strt,list_city,list_name,list_LevelofCare))
+cong <- suppressWarnings(as_tibble(cbind(list_strt,list_city,list_name,list_LevelofCare)))
 #cong=data.frame(list_strt,list_city,list_name,list_LevelofCare)
 names(cong)=c("Street","City","Name","Level of Care")
 
