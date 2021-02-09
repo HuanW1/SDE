@@ -1,0 +1,335 @@
+"Street","Lat","Lon","eastwest","north"
+"Alden Street",41.35764,-71.96329,"east",FALSE
+"Allen Street",41.34822,-71.9564,"east",FALSE
+"Allyns Alley",41.332096,-71.96382,"east",FALSE
+"Anchor Lane",41.32797,-71.96836,"east",FALSE
+"Andrews Road",41.32609,-71.96935,"east",FALSE
+"Ariel Court",41.351864,-71.94649,"east",FALSE
+"Avery Street",41.349514,-71.95824,"east",FALSE
+"Bay Street",41.357033,-71.96459,"east",FALSE
+"Bayberry Court",41.35179,-71.95443,"east",FALSE
+"Bayberry Lane",41.328197,-71.96498,"east",FALSE
+"Beach Drive",41.340107,-71.9636,"east",FALSE
+"Black Duck Road",41.333942,-71.96274,"east",FALSE
+"Borodell Avenue",41.35563,-71.95782,"east",FALSE
+"Broadway Avenue",41.35282,-71.96393,"east",FALSE
+"Broadway Avenue Exd",41.34886,-71.96396,"east",FALSE
+"Brown Street",41.357334,-71.95972,"east",FALSE
+"Bruggeman Court",41.360756,-71.95987,"east",FALSE
+"Bruggeman Place",41.36087,-71.96329,"east",FALSE
+"Canberra Court",41.351864,-71.944145,"east",FALSE
+"Cat Brier Lane",41.330193,-71.96497,"east",FALSE
+"Chippechaug Trail",41.335888,-71.96417,"east",FALSE
+"Church Street",41.35538,-71.96692,"east",FALSE
+"Clara Drive",41.372387,-71.95468,"east",FALSE
+"Clift Street",41.35742,-71.96916,"east",FALSE
+"Clipper Drive",41.36168,-71.95669,"east",FALSE
+"Clipper Point Road",41.3837,-71.95751,"east",FALSE
+"Coburn Avenue",41.349556,-71.95637,"east",FALSE
+"Coogan Boulevard",41.372826,-71.96031,"east",FALSE
+"Cooper Drive",41.36294,-71.957054,"east",FALSE
+"Cottrell Street",41.354595,-71.967926,"east",FALSE
+"Cove Hill Road",41.32851,-71.972786,"east",FALSE
+"Coveside Court",41.3534,-71.95279,"east",FALSE
+"Cutter Drive",41.362606,-71.95678,"east",FALSE
+"Denison Avenue",41.35216,-71.96104,"east",FALSE
+"Dubois Drive",41.340305,-71.961914,"east",FALSE
+"E Forest Road",41.327717,-71.96618,"east",FALSE
+"Edgemont Street",41.349792,-71.96408,"east",FALSE
+"Egret Road",41.33782,-71.965904,"east",FALSE
+"Eldridge Street",41.358437,-71.96881,"east",FALSE
+"Elizabeth Court",41.35117,-71.943756,"east",FALSE
+"Elm Place",41.354908,-71.961975,"east",FALSE
+"Fair Acres Circle",41.378284,-71.95974,"east",FALSE
+"Fair Acres Lane",41.37799,-71.95819,"east",FALSE
+"Forsyth Street",41.355865,-71.966194,"east",FALSE
+"Frazier Street",41.35614,-71.96574,"east",FALSE
+"Geiser Street",41.351765,-71.95232,"east",FALSE
+"Gled Hill Street",41.34014,-71.957924,"east",FALSE
+"Golden Road",41.356155,-71.95072,"east",FALSE
+"Gravel Street",41.355,-71.969955,"east",FALSE
+"Greenmanville Avenue",41.3567,-71.963196,"east",FALSE
+"Griffen Drive",41.352898,-71.943504,"east",FALSE
+"Haley Street",41.353985,-71.96816,"east",FALSE
+"Harry Auston Drive",41.34609,-71.95838,"east",FALSE
+"Hatch Street",41.348244,-71.957954,"east",FALSE
+"Hendel Drive",41.377155,-71.958336,"east",FALSE
+"Heron Road",41.336086,-71.97015,"east",FALSE
+"Hewitt Road",41.3479,-71.95549,"east",FALSE
+"Hickory Ldg",41.33022,-71.965324,"east",FALSE
+"Hinckley Street",41.36233,-71.9628,"east",FALSE
+"Holmes Street",41.355484,-71.96697,"east",FALSE
+"Huckle Berry Lane",41.328102,-71.96489,"east",FALSE
+"Ice Pond Road",41.32766,-71.96749,"east",FALSE
+"Isham Street",41.358727,-71.96383,"east",FALSE
+"Ivy Road",41.35619,-71.95863,"east",FALSE
+"Jackson Avenue",41.353424,-71.965385,"east",FALSE
+"Jerome Avenue",41.348164,-71.9639,"east",FALSE
+"Joyce Street",41.343807,-71.95705,"east",FALSE
+"Judd Avenue",41.35031,-71.9556,"east",FALSE
+"Jutland Court",41.35288,-71.94355,"east",FALSE
+"Kensington Court",41.352535,-71.943596,"east",FALSE
+"Lema Drive",41.339752,-71.9644,"east",FALSE
+"Lincoln Avenue",41.35118,-71.96252,"east",FALSE
+"Long Wharf Drive",41.346302,-71.95319,"east",FALSE
+"Long Wharf Road",41.346302,-71.95319,"east",FALSE
+"Mallard Drive",41.336098,-71.96559,"east",FALSE
+"Maritime Drive",41.372314,-71.95134,"east",FALSE
+"Masons Island Road",41.34775,-71.95551,"east",FALSE
+"Meadowbrook Lane",41.353596,-71.95129,"east",FALSE
+"Michelle Lane",41.3797,-71.95964,"east",FALSE
+"Mistuxet Avenue",41.35675,-71.962906,"east",FALSE
+"Money Point Road",41.328976,-71.96625,"east",FALSE
+"Mystic Hill Road",41.357952,-71.95781,"east",FALSE
+"N Stonington Road",41.347652,-71.95529,"east",FALSE
+"Nauyaug N",41.329117,-71.96734,"east",FALSE
+"Nauyaug Point Road",41.327652,-71.96852,"east",FALSE
+"Niles Road",41.33969,-71.967476,"east",FALSE
+"Oak Street",41.358116,-71.96368,"east",FALSE
+"Old North Road",41.339928,-71.96363,"east",FALSE
+"Old South Road",41.332935,-71.9647,"east",FALSE
+"Orchard Hill Drive",41.340164,-71.96265,"east",FALSE
+"Osprey Lane",41.334564,-71.962845,"east",FALSE
+"Park Place",41.3585,-71.968666,"east",FALSE
+"Pequotsepos Center N",41.366543,-71.94556,"east",FALSE
+"Pequotsepos Center Road",41.366116,-71.94423,"east",FALSE
+"Pequotsepos Road",41.369564,-71.94292,"east",FALSE
+"Pequotsepos Road Exd",41.369564,-71.94292,"east",FALSE
+"Pleasant Street",41.36571,-71.96223,"east",FALSE
+"Plover Lane",41.33522,-71.96299,"east",FALSE
+"Poggy Bay Lane",41.330235,-71.96823,"east",FALSE
+"Pondside Court",41.351467,-71.94673,"east",FALSE
+"Quarry Road",41.33865,-71.971115,"east",FALSE
+"Quarry Road Exn",41.337376,-71.97166,"east",FALSE
+"Ram Point Road",41.332954,-71.97263,"east",FALSE
+"Reynolds Hill Road",41.35314,-71.960754,"east",FALSE
+"Richmond Lane",41.354965,-71.94953,"east",FALSE
+"Riverbend Drive",41.381973,-71.95677,"east",FALSE
+"Rogers Drive",41.342857,-71.95559,"east",FALSE
+"Roosevelt Avenue",41.35132,-71.96377,"east",FALSE
+"Roseleah Drive",41.348164,-71.964386,"east",FALSE
+"Rossie Pentway",41.363422,-71.962776,"east",FALSE
+"Rossie Street",41.361664,-71.962875,"east",FALSE
+"Sandpiper Lane",41.33293,-71.96368,"east",FALSE
+"School House Road",41.336,-71.964325,"east",FALSE
+"School Place",41.355858,-71.962,"east",FALSE
+"School Street",41.35584,-71.961624,"east",FALSE
+"Schooner Drive",41.365112,-71.95752,"east",FALSE
+"Seagull Lane",41.335472,-71.962845,"east",FALSE
+"Skiff Lane",41.329826,-71.96809,"east",FALSE
+"Sloop Lane",41.36308,-71.95582,"east",FALSE
+"Solon Avenue",41.348892,-71.96384,"east",FALSE
+"Stafford Street",41.349438,-71.96378,"east",FALSE
+"Stanton Place",41.353584,-71.96843,"east",FALSE
+"Steamboat Wharf",41.35399,-71.969894,"east",FALSE
+"Stonington Road",41.34768,-71.95532,"east",FALSE
+"Stonington Road, North",41.34768,-71.95532,"east",FALSE
+"Summit Street",41.35347,-71.958755,"east",FALSE
+"Sylvia Avenue",41.348427,-71.96245,"east",FALSE
+"Velvet Lane",41.365063,-71.96262,"east",FALSE
+"Village Farm Road",41.371605,-71.95732,"east",FALSE
+"Washington Street",41.352695,-71.96788,"east",FALSE
+"Wausau Place",41.356655,-71.95763,"east",FALSE
+"Whaler Road",41.36182,-71.95584,"east",FALSE
+"Whitehall Avenue",41.378807,-71.95678,"east",FALSE
+"Williams Avenue",41.349407,-71.958206,"east",FALSE
+"Williams Street",41.35828,-71.96344,"east",FALSE
+"Willow Drive",41.349728,-71.94624,"east",FALSE
+"Willow Street",41.355698,-71.96444,"east",FALSE
+"Yacht Club Road",41.32794,-71.966095,"east",FALSE
+"Academy Lane",41.357292,-71.97182,"west",FALSE
+"Algonquin Drive",41.36671,-71.97833,"west",FALSE
+"Allyn Street",41.35303,-71.97751,"west",FALSE
+"Amherst Court",41.376297,-71.98834,"west",FALSE
+"Ann Avenue",41.384323,-71.97873,"west",FALSE
+"Apple Tree Lane",41.343052,-71.97681,"west",FALSE
+"Ashby Street",41.350197,-71.974014,"west",FALSE
+"Avon Place",41.384377,-71.98006,"west",FALSE
+"Bank Street",41.354614,-71.97188,"west",FALSE
+"Bay View Avenue",41.352966,-71.980705,"west",FALSE
+"Bel Aire Drive",41.354244,-71.998726,"west",FALSE
+"Benjamin Road",41.35638,-71.98137,"west",FALSE
+"Bern Court",41.382927,-71.9813,"west",FALSE
+"Bindloss Road",41.370167,-71.97071,"west",FALSE
+"Boulder Court",41.373425,-71.97202,"west",FALSE
+"Breezy Knoll Road",41.377632,-71.99005,"west",FALSE
+"Burrows Place",41.350895,-71.972725,"west",FALSE
+"Burrows Street",41.355408,-71.97324,"west",FALSE
+"Buttonwood Lane",41.349056,-71.97488,"west",FALSE
+"Canterbury Road",41.377377,-71.982666,"west",FALSE
+"Capstan Avenue",41.351665,-71.98537,"west",FALSE
+"Casino Road",41.34496,-71.976425,"west",FALSE
+"Cedar Road",41.341763,-71.98247,"west",FALSE
+"Charles Street",41.339695,-71.98736,"west",FALSE
+"Chelsea Way",41.35567,-71.99879,"west",FALSE
+"Cindy Lane",41.377594,-71.98141,"west",FALSE
+"Clark Lane",41.33818,-71.98719,"west",FALSE
+"Clift Lane",41.36004,-71.971954,"west",FALSE
+"Clipper Court",41.347313,-71.990875,"west",FALSE
+"Conrad Street",41.357704,-71.98319,"west",FALSE
+"Cow Hill Road",41.36986,-71.97438,"west",FALSE
+"Daniel Brown Drive",41.352947,-71.99803,"west",FALSE
+"Daniel Brown Road",41.352947,-71.99803,"west",FALSE
+"Dartmouth Drive",41.375107,-71.98578,"west",FALSE
+"Edgecomb Street",41.355663,-71.97434,"west",FALSE
+"Elm Street",41.352955,-71.974976,"west",FALSE
+"Ensign Drive",41.357147,-72.007645,"west",FALSE
+"Essex Street",41.341705,-71.977036,"west",FALSE
+"Farmstead Avenue",41.35099,-71.99643,"west",FALSE
+"Fenwick Court",41.376442,-71.98659,"west",FALSE
+"Fishtown Lane",41.340366,-71.99405,"west",FALSE
+"Fishtown Road",41.35172,-71.99829,"west",FALSE
+"Flanders Road",41.35129,-72.00908,"west",FALSE
+"Florence Drive",41.360844,-71.99444,"west",FALSE
+"Forest Road, East",40.759315,-72.83313,"west",FALSE
+"Fort Rachel Place",41.350754,-71.9728,"west",FALSE
+"Garden Court",41.379265,-71.9841,"west",FALSE
+"Godfrey Road",41.38711,-71.99308,"west",FALSE
+"Godfrey Street",41.358055,-71.97347,"west",FALSE
+"Greenbriar Court",41.359047,-71.98221,"west",FALSE
+"Grove Avenue",41.359356,-71.969696,"west",FALSE
+"Hancock Drive",41.373722,-71.97601,"west",FALSE
+"Hancock Street",41.373722,-71.97601,"west",FALSE
+"Harvard Lane",41.37858,-71.98033,"west",FALSE
+"Heath Street",41.354355,-71.98154,"west",FALSE
+"High Lane",41.358463,-71.972,"west",FALSE
+"High Meadow Lane",41.35387,-71.985886,"west",FALSE
+"High Street",41.35137,-71.973076,"west",FALSE
+"Hilltop Road",41.352478,-72.00258,"west",FALSE
+"Holdridge Court",41.34603,-71.983025,"west",FALSE
+"Indigo Street",41.379696,-71.97914,"west",FALSE
+"Irving Street",41.346954,-71.977234,"west",FALSE
+"Island View Avenue",41.349712,-71.97972,"west",FALSE
+"Judson Avenue",41.34619,-71.98308,"west",FALSE
+"Lamphere Road",41.37979,-71.97782,"west",FALSE
+"Lapstrake Court",41.349373,-71.98557,"west",FALSE
+"Latham Street",41.35257,-71.973946,"west",FALSE
+"Ledgeland Drive",41.375114,-71.98373,"west",FALSE
+"Library Street",41.353935,-71.973236,"west",FALSE
+"Little Gull Lane",41.341576,-71.99587,"west",FALSE
+"Maple Avenue",41.34407,-71.97694,"west",FALSE
+"Maple Avenue, South",41.34407,-71.97694,"west",FALSE
+"Mariners Drive",41.35502,-72.00546,"west",FALSE
+"Maxson Street",41.34368,-71.97581,"west",FALSE
+"Meadow Street",41.3795,-71.99025,"west",FALSE
+"Misty View Avenue",41.352192,-71.980835,"west",FALSE
+"Morgan Street",41.35603,-71.982704,"west",FALSE
+"Mystic Meadow Lane",41.36245,-71.994896,"west",FALSE
+"Nantucket Drive",41.380333,-71.980835,"west",FALSE
+"New London Road",41.35272,-71.9723,"west",FALSE
+"Newport Street",41.3792,-71.98313,"west",FALSE
+"Noank Ledyard Road",41.35301,-71.99843,"west",FALSE
+"Noank Road",41.35125,-71.97285,"west",FALSE
+"Oakwood Road",41.352,-72.00534,"west",FALSE
+"Ocean View Avenue",41.35301,-71.98245,"west",FALSE
+"Old Evarts Lane",41.35054,-71.982666,"west",FALSE
+"Oral School Road",41.371773,-71.974365,"west",FALSE
+"Orchard Lane",41.35262,-71.97554,"west",FALSE
+"Oslo Street",41.38077,-71.98197,"west",FALSE
+"Overlook Avenue",41.35136,-71.980804,"west",FALSE
+"Oxford Court",41.366566,-71.97992,"west",FALSE
+"Payer Lane",41.363384,-71.981155,"west",FALSE
+"Pearl Street",41.35494,-71.97091,"west",FALSE
+"Pendleton Farm Lane",41.365105,-72.00681,"west",FALSE
+"Pequot Avenue",41.355637,-71.976395,"west",FALSE
+"Prospect",41.34921,-71.97872,"west",FALSE
+"Prospect Street",41.352978,-71.97894,"west",FALSE
+"Rathbun Place",41.35267,-71.976234,"west",FALSE
+"Raul Court",41.375984,-71.98418,"west",FALSE
+"Rhonda Drive",41.349636,-71.99839,"west",FALSE
+"Ridgewood Drive",41.352722,-71.99895,"west",FALSE
+"River Road",41.36216,-71.96965,"west",FALSE
+"Rowland Street",41.35102,-71.97562,"west",FALSE
+"Russell Street",41.378254,-71.983185,"west",FALSE
+"S Maple Avenue",41.34407,-71.97694,"west",FALSE
+"Sandy Hollow Road",41.368473,-71.974815,"west",FALSE
+"Scott Lane",41.351967,-71.97909,"west",FALSE
+"Sharon Road",41.349606,-71.997246,"west",FALSE
+"Shelby Court",41.35241,-71.99066,"west",FALSE
+"Somersett Drive",41.347862,-71.99421,"west",FALSE
+"Stanton Lane",41.341145,-71.985054,"west",FALSE
+"Starr Lane",41.36181,-71.97193,"west",FALSE
+"Starr Street",41.361797,-71.96912,"west",FALSE
+"Stony Hill Road",41.367794,-71.9818,"west",FALSE
+"Strible Lane",41.353,-71.98361,"west",FALSE
+"Swan Lane",41.3518,-71.99166,"west",FALSE
+"Thomas Street",41.34934,-71.97732,"west",FALSE
+"Topsail Lane",41.34678,-71.98709,"west",FALSE
+"W Mystic Avenue",41.352856,-71.9775,"west",FALSE
+"Walter Fish Avenue",41.347248,-71.98266,"west",FALSE
+"Warren Avenue",41.34079,-71.985855,"west",FALSE
+"Water Street",41.351368,-71.972565,"west",FALSE
+"Waterhouse Lane",41.375927,-71.98106,"west",FALSE
+"Whitehall Lane",41.36034,-71.97954,"west",FALSE
+"Whittle Street",41.377598,-71.9885,"west",FALSE
+"Windwood Way",41.34946,-71.98823,"west",FALSE
+"Wolfe Street",41.350647,-71.97745,"west",FALSE
+"Wyngate Circle",41.374832,-71.98865,"west",FALSE
+"Yetter Road",41.380905,-72.00398,"west",FALSE
+"Campground Road",41.398632,-71.95786,"east",TRUE
+"E Main Street",41.389423,-71.959435,"east",TRUE
+"Laura Avenue",41.411205,-71.951485,"east",TRUE
+"Linda Avenue",41.411938,-71.951775,"east",TRUE
+"Main Street",41.38941,-71.95943,"east",TRUE
+"Main Street, East",41.38941,-71.95943,"east",TRUE
+"Main Street, West",41.38941,-71.95943,"east",TRUE
+"Marjorie Street",41.41015,-71.954834,"east",TRUE
+"Spring Hill Lane",41.39418,-71.95771,"east",TRUE
+"W Main Street",41.389423,-71.959435,"east",TRUE
+"Cheseborough Farm Road",41.38977,-71.98432,"west",TRUE
+"Clairmont Circle",41.394676,-71.98869,"west",TRUE
+"Cold Spring Road",41.38962,-71.995186,"west",TRUE
+"Colonel Ledyard Highway",41.38971,-71.989136,"west",TRUE
+"Curtis Street",41.39087,-71.99893,"west",TRUE
+"Deerfield Ridge Drive",41.391766,-71.98087,"west",TRUE
+"Dogwood Lane",41.391426,-71.99659,"west",TRUE
+"Forest Avenue",41.389027,-72.004456,"west",TRUE
+"Fox Run Lane",41.39565,-71.98558,"west",TRUE
+"Haley Road",41.389725,-71.99876,"west",TRUE
+"Hillside Drive",41.38967,-72.00242,"west",TRUE
+"Hunting Ridge Drive",41.394638,-71.98804,"west",TRUE
+"Hyde Pond Court",41.396553,-71.96485,"west",TRUE
+"Lambtown Road",41.38802,-72.00715,"west",TRUE
+"Larchmont Terrace",41.39,-72.007576,"west",TRUE
+"Marcel Road",41.391808,-71.980545,"west",TRUE
+"Meredyth Hill Road",41.388294,-72.00547,"west",TRUE
+"New London Tpke",41.395,-71.96049,"west",TRUE
+"Packer Lane",41.38949,-71.98905,"west",TRUE
+"Packer Road",41.38949,-71.98905,"west",TRUE
+"Patricks Court",41.392597,-72.00754,"west",TRUE
+"Pons Road",41.389957,-71.97986,"west",TRUE
+"Pumpkin Hill Road",41.390095,-71.979996,"west",TRUE
+"Quaker Farm Road",41.39614,-72.00585,"west",TRUE
+"Quakertown Road",41.390423,-71.989876,"west",TRUE
+"Shewville Road",41.391838,-71.96166,"west",TRUE
+"Spring Valley Road",41.391243,-71.99792,"west",TRUE
+"Watrous Avenue",41.389416,-72.00345,"west",TRUE
+"Welles Road",41.39005,-71.97246,"west",TRUE
+"Whitney Road",41.395092,-71.99901,"west",TRUE
+"Wightman Street",41.391045,-72.00325,"west",TRUE
+"Bradley Lane",NA,NA,NA,NA
+"Cove Lane",NA,NA,NA,NA
+"Cove Road",NA,NA,NA,NA
+"Front Street",NA,NA,NA,NA
+"Gold Star Highway",NA,NA,NA,NA
+"Jerry Brown Road",NA,NA,NA,NA
+"Judson Avenue No 2",NA,NA,NA,NA
+"Lantern Hill Road",NA,NA,NA,NA
+"Mystic Avenue, West",NA,NA,NA,NA
+"Partridge Hollow Road",NA,NA,NA,NA
+"Quiambog Cove Road",NA,NA,NA,NA
+"State Highway 100084",NA,NA,NA,NA
+"State Highway 1084",NA,NA,NA,NA
+"State Highway 184",NA,NA,NA,NA
+"State Highway 210005",NA,NA,NA,NA
+"State Highway 2105",NA,NA,NA,NA
+"State Highway 215",NA,NA,NA,NA
+"State Highway 27",NA,NA,NA,NA
+"State Highway 610004",NA,NA,NA,NA
+"State Highway 6104",NA,NA,NA,NA
+"State Highway 614",NA,NA,NA,NA
+"US Highway 1",NA,NA,NA,NA
+"US Highway 10",NA,NA,NA,NA
+"US Highway 1000",NA,NA,NA,NA
+"Whitford Road",NA,NA,NA,NA
+"Wolf Neck Road",NA,NA,NA,NA
