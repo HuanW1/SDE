@@ -29,9 +29,6 @@ library(zipcodeR)
 library(stringdist)
 library(summarytools)
 
-# set working directory
-# setwd("/Users/KleppingerA/Documents/Nancy Barrett")
-#setwd("/Users/wininger/desktop/docs/CTDPH/Alison")
 
 ######################################################################
 #read only one file (no loops)
