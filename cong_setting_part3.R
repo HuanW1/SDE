@@ -15,11 +15,12 @@ library(stringr)		# str_to_title
 library(tidyr)
 library(tidyverse)
 library(lubridate)
+library(stringdist) 		# amatch, stringdist
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 # declare data file for reading
 if(exists("data")){
-  newGEO <- data %>%  filter(KEEP==1)
+  newGEO <- data #%>%  filter(KEEP==1)
 } else{
   statement <- paste0("SELECT * FROM DPH_COVID_IMPORT.dbo.CONG_DATERAN")
   lastdate <-  DBI::dbGetQuery(conn = con , statement = statement) %>% 
@@ -28,8 +29,8 @@ if(exists("data")){
     arrange(desc(DateRan)) %>% 
     slice(1L) %>% 
     pull(DateRan)
-  newGEO <- data.table::fread(paste0("L:/daily_reporting_figures_rdp/csv/",lastdate, "/",lastdate,"CONG_past14daysdelta.csv"), data.table = FALSE) %>% 
-    filter(KEEP==1)
+  newGEO <- data.table::fread(paste0("L:/daily_reporting_figures_rdp/csv/",lastdate, "/",lastdate,"CONG_past14daysdelta.csv"), data.table = FALSE) #%>% 
+    #filter(KEEP==1)
 }
 
 if(nrow(newGEO)<1){
@@ -62,7 +63,8 @@ RosterDOCALF<- newGEO %>% filter(type == "DOC" | type =="Assisted Living") %>%
 
 ### filter not DOC and ALF
 RosterFLISck<- newGEO %>% filter(type != "DOC" & type !="Assisted Living") %>% 
-  select(eventid, age, dba, name, Street, City, gender, race, hisp,  type,lname, fname, dob)
+  select(eventid, age, dba, name, Street, City, gender, race, hisp,  type,lname, fname, dob) %>% 
+  mutate(dob = lubridate::ymd(dob))
 
 
 #######Need to recode hispanic from H or NH to Yes, No)
@@ -88,7 +90,7 @@ FLIS=subset(FLIS_Raw, (Transferred=="No"))
 
 # step 1: match names
 # 1a. load library
-library(stringdist) 		# amatch, stringdist
+
 RosterFLISck$name = paste(RosterFLISck$fname, RosterFLISck$lname)
 FLIS$name = paste(FLIS$First.Name, FLIS$Last.Name)
 
@@ -102,8 +104,13 @@ names(results)=c("Raw_Name","Match_Name","Raw_DOB","Match_DOB")
 # flag people with multiple
 
 # 1d. enforce classes
-results$Raw_DOB=as.Date(results$Raw_DOB,format="%m/%d/%Y")
-results$Match_DOB=as.Date(results$Match_DOB,format="%m/%d/%Y")
+results <- results %>% 
+  mutate(#Raw_DOB = lubridate::ymd(Raw_DOB),
+         Match_DOB = lubridate::mdy(Match_DOB)
+         )
+# 
+# results$Raw_DOB=as.Date(results$Raw_DOB,format="%m/%d/%Y")
+# results$Match_DOB=as.Date(results$Match_DOB,format="%m/%d/%Y")
 
 # 1d. add string distance
 results$Name_Dist=stringdist(results$Raw_Name,results$Match_Name)
@@ -126,10 +133,10 @@ results$dobMatch_dist=-1
 # for each record in the roster
 for (i in 1:nrow(RosterFLISck)){
   # extract the ith date of birth and name
-  temp_dob=RosterFLISck$DOB[i]
+  temp_dob=RosterFLISck$dob[i]
   temp_name=RosterFLISck$name[i]
   # find all records with same dob
-  match_dobs=which(as.Date(FLIS$DOB)==as.Date(temp_dob,format="%m/%d/%Y"))
+  match_dobs=which(lubridate::mdy(FLIS$DOB)==temp_dob)
   # find all names with same dob
   match_names=FLIS$name[match_dobs]
   # find best-match name to this dob
@@ -155,7 +162,7 @@ RosterFLISck$Match_Name=results$Match_Name
 
 ################################
 TrueFLISmatch=subset(RosterFLISck, MATCH=="TRUE") %>% 
-  select(eventid, age, lname, fname, dob, gender, race, hisp, dba, type, Name)
+  select(eventid, age, lname, fname, dob, gender, race, hisp, dba, type, name)
 
 # make type say LTCF
 TrueFLISmatch$type <-"LTCF"

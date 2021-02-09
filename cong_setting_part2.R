@@ -305,7 +305,7 @@ data <- data %>%
   )
          )
 
-data.table:fwrite(data, "congSetting_review.csv")
+data.table::fwrite(data, "congSetting_review.csv")
 
 ##~ re-ordering for visual proof
 # data$match_name=substr(data$match_name,1,30)
@@ -319,4 +319,4 @@ data.table:fwrite(data, "congSetting_review.csv")
 #print(toc-tic)
 
 odbc::dbDisconnect(con)
-#source("cong_setting_part3.R")
+source("cong_setting_part3.R")

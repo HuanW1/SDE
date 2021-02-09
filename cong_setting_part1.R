@@ -23,8 +23,7 @@ rm(latestcasesdate)
 #selects folks not labeled cong already
 beginofcurmmwr <- MMWRweek2Date(MMWRyear = thisyear, MMWRweek = thisweek, MMWRday = 1)
 cases_14 <- cases_14 %>%
-  mutate(
-         date = ifelse(disease_status == "Confirmed" & !is.na(spec_col_date), spec_col_date, event_date), #account for probs?
+  mutate( date = if_else((disease_status == "Confirmed" |disease_status == "Probable") & !is.na(spec_col_date), spec_col_date, event_date), 
          date = lubridate::ymd(date),   
          week = epiweek(date), 
          year = epiyear(date)

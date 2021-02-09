@@ -3,6 +3,7 @@ library(tidyverse)#, lib.loc = .libPaths()[2])
 library(DBI)
 library(odbc)
 library(readxl)
+library(lubridate)
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 #reading in the town codes csv that the report uses as well as cong setting folks
