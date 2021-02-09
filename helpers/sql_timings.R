@@ -75,7 +75,7 @@ df <-
     outcome = str_to_sentence(outcome),
     fname = str_to_lower(fname),
     lname = str_to_lower(lname),
-    dob = as.Date(mdy(dob)),
+    dob = mdy(dob),
     disease_status = str_to_sentence(disease_status),
     age = floor(time_length(
       difftime(event_date, dob)
