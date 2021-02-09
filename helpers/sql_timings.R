@@ -12,7 +12,7 @@ tock <- Sys.time()
 # dbListFields(con2, SQL("DPH_COVID_IMPORT.dbo.CTEDSS_DAILY_REPORT_ALL_Cases"))
 statement <-
   paste0("SELECT EVENT_ID as eventid, fname, lname, dob, phone,
-          disease_status, age, gender, street, city, county, state,
+          disease_status, age, gender, street, city, state,
           race, hisp, hospitalized, admit_date, discharge_date, icu,
           preg, symptoms, symp_onset_date, fever, fatigue, sob,
           chills, sorethroat, headache, cough, myalgia, new_olfact_taste,
@@ -90,15 +90,11 @@ df <-
     bigID = paste0(fname, lname, dob),
     result = str_to_lower(result),
     hospitalized = str_to_sentence(hospitalized),
-    hospitalized = ifelse(
-      str_detect(hospitalized, "Yes"),
-      "Yes",
-      ifelse(
-        str_detect(hospitalized, "No"),
-        "No",
-        "Unknown"
-      )
-    ),
+    hospitalized = case_when(
+      str_detect(hospitalized) == "Yes" ~ "Yes",
+      str_detect(hospitalized) == "No"  ~ "No",
+      is.na(hospitalized)               ~ "Unknown",
+      TRUE                              ~ "Unknown"),
     source = str_to_lower(source),
     source = case_when(
       source %in% c("nasopharyngeal", "nasopharynx", "nasopharyngeal swab",
@@ -117,8 +113,14 @@ df <-
                     "tracheal aspirate", "respiratory", "sputum",
                     "respiratory sample", "lung") ~ "resp",
       source == "other" ~ "unspecified specimen",
-      TRUE ~ source)
+      is.na(source) ~ "unspecified specimen",
+      TRUE ~ source),
+    race = str_replace_all(race, "_", " "),
+    race = str_to_title(race),
+    hisp = str_to_sentence(hisp),
+    city = str_to_title(city)
   )
+
 
 
 tick <- Sys.time()
