@@ -27,3 +27,6 @@ for (i in 1:(length(benchmarks)-1)){
   write.table(data_segment,write_name,na="",row.names=FALSE,col.names=TRUE,sep=",")
 
 }
+
+# my.df %>% 
+#   group_by(grp = rep(row_number(), length.out = n(), each = 5)) 
