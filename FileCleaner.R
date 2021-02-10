@@ -23,11 +23,11 @@
 #rm(list=ls(all=TRUE))
 
 # load libraries
-library(readxl)			# read_excel
+# library(readxl)			# read_excel
 library(tidyverse)			# filter
 library(zipcodeR)
 library(stringdist)
-library(summarytools)
+# library(summarytools)
 
 
 ######################################################################
@@ -44,10 +44,23 @@ data <- read_csv(read_file)
 # before cleaning counts!
 # look for counts of counties
 
-summarytools::freq(data$Patient_county, order = "freq")
+# summarytools::freq(data$Patient_county, order = "freq")
+data %>%
+  group_by(Patient_county, .drop = FALSE) %>%
+  summarise(Count = n()) %>%
+  mutate(Pct = Count / sum(Count) * 100) %>%
+  arrange(desc(Count)) %>%
+  print(n = Inf)
+
+# summarytools::freq(data$Patient_city, order = "freq")
+data %>%
+  group_by(Patient_city, .drop = FALSE) %>%
+  summarise(Count = n()) %>%
+  mutate(Pct = Count / sum(Count) * 100) %>%
+  arrange(desc(Count)) %>%
+  print(n = Inf)
 
 
-summarytools::freq(data$Patient_city, order = "freq")
 
   # clean city (Nancy Barrett Process 7)
 	source("_CityCleaner3.R")
