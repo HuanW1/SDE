@@ -17,7 +17,11 @@ library(tidyverse)
 library(lubridate)
 library(stringdist) 		# amatch, stringdist
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
+
+##### NAME YOUR CSV #####
 FLISpeopleroster <-  "LTCFDailySubmission_Residents Jan25_2021.csv"
+########################
+
 
 # declare data file for reading
 if(exists("data")){
