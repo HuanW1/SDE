@@ -1,3 +1,7 @@
+
+`%nin%` <- Negate(`%in%`)
+
+
 data %>%
   mutate(Patient_city = str_to_title(Patient_city),
          Patient_county = str_to_title(Patient_county),
