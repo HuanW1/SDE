@@ -83,9 +83,9 @@ FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]
 WHERE ExportDate = '2021-02-10 08:28:30.510'")
 
 con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
-xxx <- DBI::dbGetQuery(conn = con2 , statement = statement)
+data <- DBI::dbGetQuery(conn = con2 , statement = statement)
 odbc::dbDisconnect(con2)
-glimpse(xxx)
+glimpse(data)
 
 
 

@@ -56,6 +56,10 @@ summarytools::freq(data$Patient_city, order = "freq")
 	# process all other elements (Nancy Barrett all-other Processes)
 	#source("_DataProcessor.R")
 
+# for now
+data$Patient_city <- data$City_Match
+
+
 	# split dataset and write to file
   source("_FileSplitter.R")
 
