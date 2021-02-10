@@ -5,9 +5,9 @@
 # file split (FileSplitter.R)
 #
 # draft in progress
-# 1. 12/11/20: wininger - processes 1-3 
+# 1. 12/11/20: wininger - processes 1-3
 # 2. 12/11/20: kleppinger - process 0 and collaborative edits
-# 3. 12/14/20: wininger - processes 4+ 
+# 3. 12/14/20: wininger - processes 4+
 # 4. 12/14/20: wininger - city county cleanup, etcetera
 # 5. 12/15/20: kleppinger- testing code and updated splitting file
 # 6. 12/19/20: wininger - completion of beta city-cleaning
@@ -32,12 +32,12 @@ library(summarytools)
 
 ######################################################################
 #read only one file (no loops)
-read_file = "L:/CELR/SQLOutput/CELR_Jan01-Feb09.csv"
+read_file <- "L:/CELR/SQLOutput/CELR_2_10.csv"
 
 # read-in raw data from file
-#data = read.delim(read_file, header = TRUE, stringsAsFactors = FALSE, quote = "")
+#data <- read.delim(read_file, header = TRUE, stringsAsFactors = FALSE, quote = "")
 #data=read.table(read_file, header = TRUE, sep=".")
-data = read_csv(read_file)
+data <- read_csv(read_file)
 
 ############################################################################
 
