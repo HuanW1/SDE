@@ -17,6 +17,7 @@ library(tidyverse)
 library(lubridate)
 library(stringdist) 		# amatch, stringdist
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
+FLISpeopleroster <-  "LTCFDailySubmission_Residents Jan25_2021.csv"
 
 # declare data file for reading
 if(exists("data")){
@@ -72,7 +73,7 @@ RosterFLISck<- newGEO %>% filter(type != "DOC" & type !="Assisted Living") %>%
 
 ### import the new running geocode
 #hopefully change this to a SQL pull
-read_file="LTCFDailySubmission_Residents Jan25_2021.csv"
+read_file=FLISpeopleroster #"LTCFDailySubmission_Residents Jan25_2021.csv"
 # read-in neFLIS list
 FLIS_Raw=read.csv(read_file)
 
@@ -154,7 +155,7 @@ results = results
 
 # check the names and add matching variables to FLIS check list
 #or statement code
-RosterFLISck$MATCH=results$DOB_Dist<3652 & results$BDay_Match>1 & results$Name_Dist<5
+RosterFLISck$MATCH=results$DOB_Dist<365 & results$BDay_Match>1 & results$Name_Dist<5
 #and statement code
 RosterFLISck$BDay_Match=results$BDay_Match
 RosterFLISck$Match_Name=results$Match_Name
@@ -229,7 +230,7 @@ RosterOver65=subset(RosterFLISck, (age>64) & (MATCH == FALSE))
 
 
 ###Create the file for upload to CTEDSS
-write.table(RosterUnder65,"1_19_RosterUnder65.csv",na="",
+write.table(RosterUnder65,"RosterUnder65.csv",na="",
             row.names=FALSE,col.names=TRUE,sep=",")
 
 
@@ -246,7 +247,7 @@ write.table(RosterUnder65,"1_19_RosterUnder65.csv",na="",
 
 
 
-write.table(RosterOver65,"1_19_RosterOVer65.csv",na="",
+write.table(RosterOver65,"RosterOver65.csv",na="",
             row.names=FALSE,col.names=TRUE,sep=",")
 
 #################################### 
