@@ -123,6 +123,12 @@ SELECT  [csv_file_version_no]
 FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]
 WHERE ExportDate = '2021-02-11 10:09:06.070'")
 
+# DBI::dbGetQuery(con2, statement = "select max(exportdate) FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]")
+# latest_report <-
+#   DBI::dbGetQuery(con2,
+#                   statement = "SELECT MAX(exportdate) FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]")
+
+
 con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
 data <- DBI::dbGetQuery(conn = con2 , statement = statement)
 odbc::dbDisconnect(con2)
@@ -185,7 +191,7 @@ data %>%
 
 
 
-###############################################################
+#### Done csvs are in local directory ####
 
 
 
