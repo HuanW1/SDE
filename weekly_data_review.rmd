@@ -5,7 +5,7 @@ output:
   html_document: default
   pdf_document: default
 author: 'Sydney Jones'
-date: 2/11/2021
+date: `r Sys.Date()`
 created on: 7/29/2020
 ---
 
@@ -184,15 +184,15 @@ subdat14nc <- subdat %>%
 subdat14nc$RateCategory <-factor(subdat14nc$RateCategory, labels = avgratebreaks, levels = avgratebreaks )
   
 
-#avgpal <- c("#d3d3d3", "#ffffb2", "#fd8d3c", "#e31a1c")
-avgpal <- c("#d3d3d3", "#e31a1c")
+avgpal <- c("#d3d3d3", "#ffffb2", "#fd8d3c", "#e31a1c")
+#avgpal <- c("#d3d3d3", "#e31a1c")
 ggplot(subdat14nc)+
   geom_sf(aes(fill = RateCategory))+
   geom_sf_text(aes(label = NAME), col = "black", size = 1.5)+
   #scale_fill_distiller(low="white")+
   #scale_fill_distiller(palette = "Blues", direction = 1, na.value="white")+
   #(palette = "Blues", direction = -1)+
-  scale_fill_manual(values = avgpal)+  #dbl check with sydney
+  scale_fill_manual(values = avgpal, drop = FALSE)+  #dbl check with sydney
   theme_void()+
   labs(
     fill = "Average COVID-19 Cases per 100,000 Population per Day",
@@ -729,7 +729,7 @@ age_labels3 <- c("0-14", "15-19", "20-24", "25-39", "40-64",  "65+")
 age_labels4 <- c("0-14", "15-19", "20-24", "25-39", "40-64",  "65+", "Overall") 
 
 #age population denominators
-age_pop <- read_csv(dir, "population_data/2018_dph_asrh/2018_asrh.csv") %>% 
+age_pop <- read_csv(paste0(dir, "population_data/2018_dph_asrh/2018_asrh.csv")) %>% 
   #select(age_3, pop) %>% 
   #filter(!is.na(age_3)) %>%
   select(age_4, pop_4) %>% 
