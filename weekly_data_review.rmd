@@ -1,12 +1,7 @@
-
 ---
-title: "Connecticut COVID-19 Weekly Data Review"
-output:
-  html_document: default
-  pdf_document: default
+title: "Connecticut COVID-19 Weekly Data Review:`r format(Sys.Date(), format = '%b %d, %Y')`"
+output: html_document
 author: 'Sydney Jones'
-date: `r Sys.Date()`
-created on: 7/29/2020
 ---
 
 ```{r data prep,  echo= FALSE, include = FALSE}
