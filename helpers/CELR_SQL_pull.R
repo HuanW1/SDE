@@ -80,7 +80,7 @@ SELECT  [csv_file_version_no]
 --,[ExportEndDate]
 --,[RecID]
 FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]
-WHERE ExportDate = '2021-02-10 08:28:30.510'")
+WHERE ExportDate = '2021-02-11 10:09:06.070'")
 
 con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
 data <- DBI::dbGetQuery(conn = con2 , statement = statement)
