@@ -15,18 +15,18 @@ require(DBI)
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 ####1 declare data file for reading ####
-if(exists("maybecong")){
+#if(exists("maybecong")){
   read_file <- maybecong
-} else{
-  statement <- paste0("SELECT * FROM DPH_COVID_IMPORT.dbo.CONG_DATERAN")
-  lastdate <-  DBI::dbGetQuery(conn = con , statement = statement) %>% 
-    as_tibble() %>% 
-    mutate(DateRan = lubridate::ymd(DateRan)) %>% 
-    arrange(desc(DateRan)) %>% 
-    slice(1L) %>% 
-    pull(DateRan)
-  read_file <- data.table::fread(paste0("L:/daily_reporting_figures_rdp/csv/",lastdate, "/",lastdate,"CONG_past14daysdelta.csv"), data.table = FALSE)   
-}
+# } else{
+#   statement <- paste0("SELECT * FROM DPH_COVID_IMPORT.dbo.CONG_DATERAN")
+#   lastdate <-  DBI::dbGetQuery(conn = con , statement = statement) %>% 
+#     as_tibble() %>% 
+#     mutate(DateRan = lubridate::ymd(DateRan)) %>% 
+#     arrange(desc(DateRan)) %>% 
+#     slice(1L) %>% 
+#     pull(DateRan)
+#   read_file <- data.table::fread(paste0("L:/daily_reporting_figures_rdp/csv/",lastdate, "/",lastdate,"CONG_past14daysdelta.csv"), data.table = FALSE)   
+# }
 
 ####2 declare dependancy files containing the official lists of ct towns and boroughs ####
 statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[CONG_BOROS_LIST]")
@@ -133,7 +133,7 @@ nursing <- nursing %>%
   )
 
 cong <- bind_rows(nursing, prisons)
-  
+#####  probably just save? send up to SQL  
 
 #extract data from file
 data <- read_file
@@ -329,7 +329,7 @@ data <- data %>%
   geo_cname = str_to_title(geo_cname)
          )
 
-data.table::fwrite(data, "congSetting_review.csv")
+#data.table::fwrite(data, "congSetting_review.csv")
 
 ##~ re-ordering for visual proof
 # data$match_name=substr(data$match_name,1,30)

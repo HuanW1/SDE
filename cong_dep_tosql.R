@@ -27,7 +27,7 @@ addr_prisons <- as_tibble(read_excel("Facility List CTEDSS Entry with Event IDs 
 # DBI::dbWriteTable(conn = con, value = addr_nursing, name = SQL("DPH_COVID_IMPORT.dbo.CONG_NURSING_FACILITIES"), overwrite = TRUE)
 # DBI::dbWriteTable(conn = con, value = addr_prisons, name = SQL("DPH_COVID_IMPORT.dbo.CONG_PRISON_FACILITIES"), overwrite = TRUE)
 
-cong_date <- tibble("DateRan" = ymd("2021-02-02"))   #setting first sql flag for cong running
+cong_date <- tibble("DateRan" = ymd("2021-02-10"))   #setting first sql flag for cong running
 DBI::dbWriteTable(conn = con, value = cong_date, name = SQL("DPH_COVID_IMPORT.dbo.CONG_DATERAN"), overwrite = TRUE)
 
 odbc::dbDisconnect(con)

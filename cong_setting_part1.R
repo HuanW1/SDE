@@ -33,10 +33,8 @@ cases_14 <- cases_14 %>%
     & date < beginofcurmmwr 
     & cong_yn == "No") 
 
-####3. Create list addresses associated with congregate settings among cases not marked as congregate setting cases for past 7 days####
-#read in last file checked (you will have to set the date to last Monday/Wednesday)
+####3. Last Ran ####
 
-####3a Last ran#####
 statement <- paste0("SELECT * FROM DPH_COVID_IMPORT.dbo.CONG_DATERAN")
 lastdate <-  DBI::dbGetQuery(conn = con , statement = statement) %>% 
   as_tibble() %>% 
@@ -117,7 +115,7 @@ maybecong <- maybecong %>%
 ####5 print  #####
 #new cases compared to when this was run last from past 2 complete mmwr weeks                             
 #data.table::fwrite(maybecong, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "CONG_past14daysdelta.csv"))
-data.table::fwrite(maybecong, paste0( Sys.Date(), "CONG_past14daysdelta.csv"))
+#data.table::fwrite(maybecong, paste0( Sys.Date(), "CONG_past14daysdelta.csv"))
 
 ####6 send the new date ran up####
 justran <-tibble("DateRan" = Sys.Date()) 
