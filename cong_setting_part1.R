@@ -68,9 +68,6 @@ tabs <- tibble::as_tibble(tabs) %>%
   select(TABLE_NAME)
 
 statement <- paste0("SELECT [r].[case_id]
-                              ,[r].[X]
-                              ,[r].[Y]
-                              ,[r].[geoid10]
                               ,[r].[Name]
                               ,[r].[License__]
                               ,[r].[DBA]
@@ -84,17 +81,45 @@ maybecong <-  DBI::dbGetQuery(conn = con , statement = statement)%>%
   filter(!is.na(Name) | !is.na(License__) | !is.na(DBA)) %>% 
   rename(name = Name, license = License__, dba = DBA) %>%
   mutate(intoms = 1) %>% 
-  select(eventid, name, license, dba, type, X, Y, geoid10, intoms) %>% 
+  select(eventid, name, license, dba, type,intoms) %>% 
   full_join(check, by = "eventid") %>% 
-  select(eventid, fname, lname, age, dob, gender, race, hisp, street, city, county, state, cong_setting, cong_exposure_type, cong_facility, cong_yn, name, license, dba, type, X, Y, geoid10, intoms) %>% 
   replace_na(list(intoms = 0)) %>% 
-  mutate(KEEP = NA)
+  mutate(KEEP = NA) %>% 
+  rename(geo_name = name,
+         geo_dba = dba,
+         geo_license = license,
+         geo_lof = type
+  )
 rm(statement)
 
-#new cases compared to when this was run last from past 2 complete mmwr weeks                             
-data.table::fwrite(maybecong, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "CONG_past14daysdelta.csv"))
+####4a cleaning/standardizing match vars ####
+maybecong <- maybecong %>% 
+#standardizing LOF  
+  mutate(
+    geo_lof = if_else(geo_lof == "CCNH", "LTCF", geo_lof),
+    geo_lof = if_else(geo_lof == "CCRH", "LTCF", geo_lof),
+    geo_lof = if_else(geo_lof == "RHNS", "LTCF", geo_lof),
+    geo_lof = if_else(geo_lof == "Assisted Living", "ALF", geo_lof),
+    geo_lof = if_else(geo_lof == "Residential Care Facilities", "ALF", geo_lof),
+    geo_lof = na_if(geo_lof, "Other")
+  ) %>% 
+#standardizing names
+ mutate(
+   geo_cname = geo_dba, #initialize the var
+   geo_cname = if_else(geo_dba == geo_name, geo_dba, geo_cname),
+   geo_cname = if_else(is.na(geo_dba) & !is.na(geo_name), geo_name, geo_cname),
+   geo_cname = if_else(!is.na(geo_dba) & is.na(geo_name), geo_dba, geo_cname )
+ ) %>% 
+  select(-c(geo_name, geo_dba)) %>% 
+  select(eventid, fname, lname, age, dob, gender, race, hisp, street, city, county, state, geo_cname, geo_license, geo_lof, intoms)   
 
-####5 send the new date ran up####
+
+####5 print  #####
+#new cases compared to when this was run last from past 2 complete mmwr weeks                             
+#data.table::fwrite(maybecong, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "CONG_past14daysdelta.csv"))
+data.table::fwrite(maybecong, paste0( Sys.Date(), "CONG_past14daysdelta.csv"))
+
+####6 send the new date ran up####
 justran <-tibble("DateRan" = Sys.Date()) 
 DBI::dbWriteTable(conn = con, value = justran, name = SQL("DPH_COVID_IMPORT.dbo.CONG_DATERAN"), overwrite = FALSE, append = TRUE)
 odbc::dbDisconnect(con)
