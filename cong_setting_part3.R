@@ -18,12 +18,12 @@ library(lubridate)
 library(stringdist) 		# amatch, stringdist
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
-##### NAME YOUR CSV #####
-FLISpeopleroster <-  "LTCFDailySubmission_Residents Jan25_2021.csv"
-########################
 
 
-# declare data file for reading
+######################## _02-10-2021_FLIS_Extract.csv
+
+
+#### declare data file for reading ####
 if(exists("data")){
   newGEO <- data #%>%  filter(KEEP==1)
 } else{
@@ -34,7 +34,7 @@ if(exists("data")){
     arrange(desc(DateRan)) %>% 
     slice(1L) %>% 
     pull(DateRan)
-  newGEO <- data.table::fread(paste0("L:/daily_reporting_figures_rdp/csv/",lastdate, "/",lastdate,"CONG_past14daysdelta.csv"), data.table = FALSE) #%>% 
+  newGEO <- data.table::fread(paste0(lastdate,"CONG_past14daysdelta.csv"), data.table = FALSE) #%>% 
     #filter(KEEP==1)
 }
 
@@ -42,49 +42,30 @@ if(nrow(newGEO)<1){
   stop("No data to review. Check past14daysdelta file.")
 }
 
-#########Need to recode race from Black to "Black or African American" / Multiracial to "Other" / and Unknowns to a blank/missing
-
-# for Black in Roster$Race, enforce as "Black or African American"
-black_inds=grep("Black",newGEO$race,ignore.case=TRUE)
-if (length(black_inds)>0){newGEO$race[black_inds]="Black or African American"}
-
-# for Black in Roster$Race, enforce as "Black or African American"
-multi_inds=grep("Multi+",newGEO$race,ignore.case=TRUE)
-if (length(multi_inds)>0){newGEO$race[multi_inds]="Other"}
+#FLIS roster readin
+FLISfiles <- list.files("L:/FLIS")
+maxflisdate <- format(max(lubridate::mdy(str_sub(FLISfiles, 2, 11))), "%m-%d-%Y")
+FLIS <-read_csv(paste0("L:/FLIS/_", maxflisdate, "_FLIS_EXTRACT.csv"))
 
 
-# if hisp includes 'NH', then Ethnicity should be 'No'
-newGEO$hisp=gsub("NH","NO",newGEO$hisp)
-
-# if hisp includes 'H', then Ethnicity should be 'YES'
-newGEO$hisp=gsub("H","YES",newGEO$hisp)
-
+####Race and Ethnicity recoding ####
+newGEO <- newGEO %>% 
+  mutate(
+    race = if_else(race == "Black", "Black or African American", race),
+    race = if_else(race == "Multiracial" , "Other", race),
+    hisp = if_else(hisp == "NH", "NO", "YES")
+  )
 ##############################################################
 
-
-### filter on DOC and ALF
-RosterDOCALF<- newGEO %>% filter(type == "DOC" | type =="Assisted Living") %>% 
-  select(eventid, age, lname, fname, dob, gender, race, hisp, dba, type, name)
-
-### filter not DOC and ALF
-RosterFLISck<- newGEO %>% filter(type != "DOC" & type !="Assisted Living") %>% 
-  select(eventid, age, dba, name, Street, City, gender, race, hisp,  type,lname, fname, dob) %>% 
-  mutate(dob = lubridate::ymd(dob))
-
-
-#######Need to recode hispanic from H or NH to Yes, No)
-#####match the records not DOC and ALF to the FLIS list
-
-### import the new running geocode
-#hopefully change this to a SQL pull
-read_file=FLISpeopleroster #"LTCFDailySubmission_Residents Jan25_2021.csv"
-# read-in neFLIS list
-FLIS_Raw=read.csv(read_file)
+#####
+# we need logic here over what lof to use, we also need to shore it up and collapse it
+#probably create a computed LOF + other vars that we feed into, and if rows are a KEEP then these computed vars are filled in automatically.
+#####
 
 
 
 #######FILTER so only the records in the FLIS list where "Transferred = No" are included in the below matching
-FLIS=subset(FLIS_Raw, (Transferred=="No"))
+#FLIS=subset(FLIS_Raw, (Transferred=="No")) no transferred var in extract for some reason now?
 
 
 
@@ -96,52 +77,49 @@ FLIS=subset(FLIS_Raw, (Transferred=="No"))
 # step 1: match names
 # 1a. load library
 
-RosterFLISck$name = paste(RosterFLISck$fname, RosterFLISck$lname)
-FLIS$name = paste(FLIS$First.Name, FLIS$Last.Name)
+#RosterFLISck$name = paste(RosterFLISck$fname, RosterFLISck$lname)
+newGEO <- newGEO %>% 
+  mutate(name = paste(fname, lname))
+FLIS <- FLIS %>% 
+  mutate(name = paste(FirstName, LastName))
+#FLIS$name = paste(FLIS$First.Name, FLIS$Last.Name)
 
 # 1b. find nearest match in name
-match_inds=amatch(RosterFLISck$name,FLIS$name,maxDist=100)
+match_inds=amatch(newGEO$name,FLIS$name,maxDist=100)
 
 # 1c. construct a results matrix
-results=data.frame(RosterFLISck$name,FLIS$name[match_inds],RosterFLISck$dob, FLIS$DOB[match_inds])
-names(results)=c("Raw_Name","Match_Name","Raw_DOB","Match_DOB")
-
-# flag people with multiple
-
-# 1d. enforce classes
-results <- results %>% 
-  mutate(#Raw_DOB = lubridate::ymd(Raw_DOB),
-         Match_DOB = lubridate::mdy(Match_DOB)
-         )
-# 
-# results$Raw_DOB=as.Date(results$Raw_DOB,format="%m/%d/%Y")
-# results$Match_DOB=as.Date(results$Match_DOB,format="%m/%d/%Y")
-
-# 1d. add string distance
-results$Name_Dist=stringdist(results$Raw_Name,results$Match_Name)
-# 1e. add date distance
-results$DOB_Dist=as.numeric(abs(results$Raw_DOB-results$Match_DOB))
-
-
-year(results$Raw_DOB)
-month(results$Raw_DOB)
-day(results$Raw_DOB)
-
-results$BDay_Match=month(results$Raw_DOB)==month(results$Match_DOB)
-results$BDay_Match=results$BDay_Match+(day(results$Raw_DOB)==day(results$Match_DOB))
-results$BDay_Match=results$BDay_Match+(year(results$Raw_DOB)==year(results$Match_DOB))
+results <- tibble(
+  eventid = newGEO$eventid,
+  Raw_Name = newGEO$name,
+  Match_Name = FLIS$name[match_inds],
+  Raw_DOB = newGEO$dob, 
+  Match_DOB = FLIS$DOB[match_inds]
+) %>% 
+  mutate(
+    Match_DOB = lubridate::ymd(Match_DOB),
+    Raw_DOB = lubridate::ymd(Raw_DOB),
+# add string distance
+    Name_Dist = stringdist(Raw_Name,Match_Name),
+# add date distance
+    DOB_Dist = as.numeric(abs(Raw_DOB-Match_DOB)),
+    BDay_Match = month(Raw_DOB) == month(Match_DOB),
+    BDay_Match = BDay_Match + (day(Raw_DOB)==day(Match_DOB)),
+    BDay_Match = BDay_Match+(year(Raw_DOB)==year(Match_DOB)),
+    dobMatch_name = "",
+    dobMatch_dist = -1
+  )
 
 #results$EventID=AllCases$eventid[match_inds]
 # initialize results
-results$dobMatch_name=""
-results$dobMatch_dist=-1
+# results$dobMatch_name=""
+# results$dobMatch_dist=-1
 # for each record in the roster
-for (i in 1:nrow(RosterFLISck)){
+for (i in 1:nrow(newGEO)){
   # extract the ith date of birth and name
-  temp_dob=RosterFLISck$dob[i]
-  temp_name=RosterFLISck$name[i]
+  temp_dob=newGEO$dob[i]
+  temp_name=newGEO$name[i]
   # find all records with same dob
-  match_dobs=which(lubridate::mdy(FLIS$DOB)==temp_dob)
+  match_dobs=which(lubridate::ymd(FLIS$DOB)==temp_dob)
   # find all names with same dob
   match_names=FLIS$name[match_dobs]
   # find best-match name to this dob
@@ -159,120 +137,10 @@ results = results
 
 # check the names and add matching variables to FLIS check list
 #or statement code
-RosterFLISck$MATCH=results$DOB_Dist<365 & results$BDay_Match>1 & results$Name_Dist<5
+newGEO$MATCH=results$DOB_Dist<365 & results$BDay_Match>1 & results$Name_Dist<5
 #and statement code
-RosterFLISck$BDay_Match=results$BDay_Match
-RosterFLISck$Match_Name=results$Match_Name
-
-
-################################
-TrueFLISmatch=subset(RosterFLISck, MATCH=="TRUE") %>% 
-  select(eventid, age, lname, fname, dob, gender, race, hisp, dba, type, name)
-
-# make type say LTCF
-TrueFLISmatch$type <-"LTCF"
-
-#make temp of DOCALF
-temp_DOCALF=RosterDOCALF
-
-# rename dba
-TrueFLISmatch = rename(TrueFLISmatch, 'Facility Name' ="dba")
-TrueFLISmatch = rename(TrueFLISmatch, 'Race' = "race")
-TrueFLISmatch = rename(TrueFLISmatch, 'Hispanic' ="hisp")
-TrueFLISmatch = rename(TrueFLISmatch, 'Gender' ="gender")
-TrueFLISmatch = rename(TrueFLISmatch, 'Type of congregate setting' ="type")
-TrueFLISmatch = rename(TrueFLISmatch, 'Event ID' ="eventid")
-temp_DOCALF = rename(temp_DOCALF, 'Facility Name' ="dba")
-temp_DOCALF = rename(temp_DOCALF, 'Type of congregate setting' ="type")
-temp_DOCALF = rename(temp_DOCALF, 'Race' = "race")
-temp_DOCALF = rename(temp_DOCALF, 'Hispanic' ="hisp")
-temp_DOCALF = rename(temp_DOCALF, 'Gender' ="gender")
-temp_DOCALF = rename(temp_DOCALF, 'Event ID' ="eventid")
-
-# stack Rosters together
-FinalRosterMerge <- rbind(TrueFLISmatch, temp_DOCALF)
-
-# change lower case to all capitals for Roster
-FinalRosterMerge$`Facility Name` = str_to_title(FinalRosterMerge$`Facility Name`)
-
-# for remaining blank elements in Facility, enforce as Name variable info
-empt_inds=which(is.na(FinalRosterMerge$`Facility Name`))
-if (length(empt_inds)>0){FinalRosterMerge$`Facility Name`[empt_inds]=FinalRosterMerge$name[empt_inds]}
-
-# if type of cong setting includes 'AL', then it should be 'ALF'
-doc_inds=grep("Assisted Living",FinalRosterMerge$`Type of congregate setting`,ignore.case=TRUE)
-if (length(doc_inds)>0){FinalRosterMerge$`Type of congregate setting`[doc_inds]="ALF"}
-
-##### add new variables that repeat in roster
-
-## add new columns to the roster
-FinalRosterMerge$'Congregate Setting'<-"YES"
-FinalRosterMerge$'Facility Number'<-NA
-FinalRosterMerge$Product <-"CORONA"
-FinalRosterMerge$'Type of CoV' <- "2019_NCOV"
-FinalRosterMerge$NMI<-"YES"
-FinalRosterMerge$State<-"CT"
-
-# put the variables in this order
-
-#FinalRosterMergeforCTEDSS <- FinalRosterMerge[ ,c(1,13,7,8,6,9,17,12,10,14,15,16)]
-FinalRosterMergeforCTEDSS <- FinalRosterMerge %>% 
-  select(`Event ID`, `Facility Number`, Race, Hispanic, Gender, `Facility Name`, State, `Congregate Setting`, `Type of congregate setting`, Product, `Type of CoV`, NMI)
-
-write.table(FinalRosterMergeforCTEDSS,"FinalRosterMergeforCTEDSS.csv",na="",
-            row.names=FALSE,col.names=TRUE,sep=",")
-
-
-##########################
-
-# filter people over 65 years old
-RosterUnder65=subset(RosterFLISck, (age<65) & (MATCH==FALSE))
-# filter people 64 and under and FALSE MATCHES = manually review to find location
-RosterOver65=subset(RosterFLISck, (age>64) & (MATCH == FALSE))
-
-####################################  create the NEW file for staff manual review rostering into CTEDSS
-
-
-###Create the file for upload to CTEDSS
-write.table(RosterUnder65,"RosterUnder65.csv",na="",
-            row.names=FALSE,col.names=TRUE,sep=",")
-
-
-#################################### 
-
-
-#####For the Falses on the RosterOver65 I need to check which congregate type they belong to ALF or LTCF
-
-
-
-
-
-
-
-
-
-write.table(RosterOver65,"RosterOver65.csv",na="",
-            row.names=FALSE,col.names=TRUE,sep=",")
-
-#################################### 
-
-
-
-
-
-
-
-
-
-##########Need to reorder and complete the roster file fields
-
-
-
-#########################################
-
-
-
-
+newGEO$BDay_Match=results$BDay_Match
+newGEO$Match_Name=results$Match_Name
 
 
 
