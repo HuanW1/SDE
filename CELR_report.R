@@ -145,7 +145,7 @@ data$Patient_city <- data$City_Match
 
 #### Capture after info ####
 after_city <- summarise_column(data, Patient_city)
-after_county <- summarise_column(data, )Patient_county
+after_county <- summarise_column(data, Patient_county)
 
 #### needs fixing in city_cleaner but for now
 after_city$Patient_city <- str_to_upper(after_city$Patient_city)
@@ -171,6 +171,7 @@ data <-
              TRUE                                          ~ Test_date)
   )
 
+table(data$Test_date)
 
 #### write csv's 25,000 lines at a time ####
 # source("_FileSplitter.R")
