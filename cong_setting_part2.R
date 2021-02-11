@@ -1,21 +1,7 @@
-################################################################
-# Congregrate_Setting.R
-#
-# script to flag patients as to their likelihood of habiting a
-# congregate setting
-#
-# release version for ctdph view
-# 1. 1/18/21: transmission yale to dph
-# 2. 2/3/21 Edited by DPH
-#
-# notes: 
-# -1. this routine expects that all data has been conditioned for city
-# -2. will need to reconfigure section 1g to reflect true dataset
-################################################################
 if(!dir.exists("L:/")) message("You need to have L drive mapped")
 .libPaths(c("L:/library", .libPaths()))
 
-# load libraries and connection
+####0 load packages and create connection ####
 library(stringr)			# str_trim
 library(stringdist)		# amatch, stringdist
 library(readxl)			# read_excel
@@ -28,7 +14,7 @@ require(lubridate)
 require(DBI)
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
-# declare data file for reading
+####1 declare data file for reading ####
 if(exists("maybecong")){
   read_file <- maybecong
 } else{
@@ -42,20 +28,23 @@ if(exists("maybecong")){
   read_file <- data.table::fread(paste0("L:/daily_reporting_figures_rdp/csv/",lastdate, "/",lastdate,"CONG_past14daysdelta.csv"), data.table = FALSE)   
 }
 
-# declare files containing the official lists of ct towns and boros
+####2 declare dependancy files containing the official lists of ct towns and boroughs ####
 statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[CONG_BOROS_LIST]")
 boros_list <-  DBI::dbGetQuery(conn = con , statement = statement)
 
 statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[RPT_TOWN_CODES]")
 city_file <-  DBI::dbGetQuery(conn = con , statement = statement)
 
+statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[RPT_MYSTIC]")
+mystic <-  DBI::dbGetQuery(conn = con , statement = statement)
+
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-### 1. data set construction ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+### 3. data set construction ~~~~~~~~~~~~~~~~~~~~~~~~~~~~####
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ### creates two data-frames: raw data, and the curated list of 
 ### congregate settings
 
-#~ 1a. obtain addresses from curated listed of congregate facilities
+#btain addresses from curated listed of congregate facilities
 statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[CONG_NURSING_FACILITIES]")
 addr_nursing <-  DBI::dbGetQuery(conn = con , statement = statement)
 
@@ -63,79 +52,110 @@ statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[CONG_PRISON_FACILIT
 addr_prisons <-  DBI::dbGetQuery(conn = con , statement = statement)
 #list_addr <- c(addr_nursing$Address,addr_prisons$Address)
 
+ct_boros <- city_file %>% 
+  select(TOWN_LC) %>% 
+  rename(Town = TOWN_LC) %>% 
+  mutate(Boro = Town) %>% 
+  bind_rows(rev(boros_list)) %>% 
+  unique()
 
-#~ 1b. create a crosswalk between boros and towns
-ct_cities=city_file$TOWN_LC
-ct_cities=str_to_title(ct_cities)
-ct_cities=data.frame(ct_cities,ct_cities)
-names(ct_cities)=c("Boro","Town")
-ct_boros=rbind(ct_cities,boros_list)
-
-#~ 1c. prisons need city to be split off and mapped from Boro to City
-boros_patt=paste(ct_boros$Boro,collapse="|")
-prison_cities=str_extract_all(addr_prisons$City,boros_patt)
-prison_cities=paste(prison_cities,sep=", ",collapse="; ")
-prison_cities=gsub("c\\(|\\\\|\\\"|\\)|\\(","",prison_cities)
-prison_cities=unlist(str_split(prison_cities,";"))
-start_locns=regexpr(",.[^,]*$", prison_cities)
-start_locns[which(start_locns==-1)]=0
-prison_cities=substr(prison_cities,start_locns+1,nchar(prison_cities))
-prison_cities=str_trim(prison_cities)
-prisons=data.frame(prison_cities)
-names(prisons)="City"
-match_inds=match(prisons$City,ct_boros$Boro)
-prisons$City <- as.character(ct_boros$Town[match_inds])
-
-#not mapping addr_prisons city (and any boro listed there) to offical city as intended
+#prisons
+prisons <- addr_prisons %>% 
+  left_join(ct_boros, by = c("City" = "Boro")) %>% 
+  select(-c(City, `CTEDSS Entry Name`)) %>% 
+  rename(City = Town,
+         Level_of_Care = `Level of Care`,
+         Street = Address,
+         Name = `Facility Name`
+         ) %>% 
+  select(c(City, Street, Name, Level_of_Care))
 
 
-#~ 1d. prisons now need address to be cleaned
-# comma_locns=str_locate(addr_prisons$Address,",")[,1]
-# prisons$Street=substr(addr_prisons$Address,1,comma_locns-1)
-prisons$Street <-  addr_prisons$Address
+#nursing facilities
+nursing <- addr_nursing %>% 
+  mutate(`Facility City` = str_to_title(`Facility City`),
+         `Facility City` =  str_trim(str_remove(`Facility City`, "\\(.*")),
+         Address = str_to_title(Address)
+         ) %>% 
+  left_join(ct_boros, by = c("Facility City" = "Boro")) %>% 
+  select(-c(`Facility City`, `CTEDSS Entry Name`)) %>% 
+  rename(City = Town,
+         Level_of_Care = `Level of Care`,
+         Street = Address,
+         Name = `Facility Name`
+  ) %>% 
+  select(c(City, Street, Name, Level_of_Care))
 
-#~ 1e. extract prison name, omit blanks (probably a file error)
-prisons$Name=addr_prisons$"Facility Name"
-prisons$Level_of_Care=addr_prisons$"Level of Care"   # no level of care in look up!? had to add it
-#prisons=na.omit(prisons)
+#subset dataset for mystic items
+mystic_inds=which(nursing$City=="Mystic")
 
-#~ 1f. merge nursing homes and prisons into a single congregate list
-list_strt=c(addr_nursing$Address,prisons$Address)
-list_city=c(addr_nursing$"Facility City",prisons$City)
-list_name=c(addr_nursing$"CTEDSS Entry Name",prisons$Name)
+#obtain addresses within mystic
+mystic_addr=nursing$Street[mystic_inds]
 
-#categorize level of care
-list_LevelofCare=c(addr_nursing$"Level of Care",prisons$"Level_of_Care")
-list_LevelofCare=mgsub(list_LevelofCare,"Residential Care Facilities","LTCF")
-list_LevelofCare=mgsub(list_LevelofCare,"Nursing Home","LTCF")
-list_LevelofCare=mgsub(list_LevelofCare,"Assisted Living","ALF")
-list_LevelofCare=mgsub(list_LevelofCare,"Senior Independent Living","ALF")
+#remove street number
+mystic_streets=gsub("^\\S+\\s+","",mystic_addr)
 
-#make cong parts same length up to maximum ( really should've been a join on a name vector)
+#remove apartment number and unit number
+mystic_streets=gsub("Apt\\s*\\d*","",mystic_streets)
+mystic_streets=gsub("Unit\\s*\\d*","",mystic_streets)
 
-cong <- suppressWarnings(as_tibble(cbind(list_strt,list_city,list_name,list_LevelofCare)))
-#cong=data.frame(list_strt,list_city,list_name,list_LevelofCare)
-names(cong)=c("Street","City","Name","Level of Care")
+#elongate format end-of-address short-hands
+last_words=word(mystic_streets,-1)
+short_words=c("Ln","Dr","St","Rd","Ave","Ct")
+long_words=c("Lane","Drive","Street","Road","Avenue","Court")
+repl_words=match(last_words,short_words)
+last_words[which(!is.na(repl_words))]=long_words[repl_words[which(!is.na(repl_words))]]
+mystic_noLast=gsub("\\s*\\w*$", "", mystic_streets)
+mystic_streets=paste(mystic_noLast,last_words)
 
-#~ 1g. extract data from file
+#recondition capitalization
+mystic_streets=str_to_title(mystic_streets)
+
+#determine finally as groton versus stonington
+match_inds=amatch(mystic_streets,mystic$Street,maxDist=10)
+eastwest=mystic$eastwest[match_inds]
+mystic_final=rep("Mystic",length(eastwest))
+mystic_final[which(eastwest=="east")]="Stonington"
+mystic_final[which(eastwest=="west")]="Groton"
+nursing$City[mystic_inds]=mystic_final
+
+# clear garbage
+rm(mystic,mystic_inds,mystic_addr,last_words,short_words,long_words,repl_words)
+rm(mystic_noLast,mystic_streets,match_inds,eastwest,mystic_final)
+
+nursing <- nursing %>% 
+  mutate(
+    Level_of_Care = if_else(Level_of_Care == "Residential Care Facilities", "LTCF", Level_of_Care),
+    Level_of_Care = if_else(Level_of_Care == "Nursing Home", "LTCF", Level_of_Care),
+    Level_of_Care = if_else(Level_of_Care == "Assisted Living","ALF", Level_of_Care),
+    Level_of_Care = if_else(Level_of_Care == "Senior Independent Living","ALF", Level_of_Care),
+    Level_of_Care = if_else(Level_of_Care == "MRC/ALSA","ALF", Level_of_Care)
+  )
+
+cong <- bind_rows(nursing, prisons)
+  
+
+#extract data from file
 data <- read_file
 
 # clear garbage
-rm(city_file,read_file,addr_nursing,addr_prisons)#,boro_file
-rm(ct_cities,ct_boros,boros_patt,prison_cities)#list_addr,
-rm(start_locns,prisons,list_strt,list_city,list_name) #comma_locns,
-rm(statement)
+rm(city_file,read_file,addr_nursing,addr_prisons, prisons, nursing,statement, ct_boros, boros_list)
 
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-### 2. dataset conditioning ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+### 4. dataset conditioning ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ### string operations to facilitate text-comparisons
-data <- data %>% rename(Street = street, City = city)
-#~ 2a. condition strings
-cong$Street=tolower(cong$Street)
-cong$City=tolower(cong$City)
-data$City=tolower(data$City)
-data$Street=tolower(data$Street)
+data <- data %>% 
+  rename(Street = street, 
+         City = city) %>% 
+  mutate(City = str_to_lower(City),
+         Street = str_to_lower(Street)
+         )
+cong <- cong %>% 
+  mutate(City = str_to_lower(City),
+         Street = str_to_lower(Street)
+  ) %>% 
+  unique()
 
 #~ 2b. homogenize street designations
 desigs_long=c("avenue","road","lane","street","drive",
@@ -146,13 +166,13 @@ desigs_short=c("ave","rd","ln","st","dr","ct","pl","plz",
 data$Street=mgsub(data$Street,paste("\\s+",desigs_long,sep=""),paste(" ",desigs_short,sep=""))
 cong$Street=mgsub(cong$Street,paste("\\s+",desigs_long,sep=""),paste(" ",desigs_short,sep=""))
 
-#~ 2c. remove content after street designations
+#remove content after street designations
 patt=paste("(",desigs_short,").*")
 repl=rep("\\1",length(patt))
 data$Street=mgsub(data$Street,patt,repl)
 cong$Street=mgsub(cong$Street,patt,repl)
 
-#~ 2d. miscellaneous formatting
+#miscellaneous formatting
 # remove commas, and shrink multi-spaces
 errd_patterns=c(", ","\\s\\s+")
 #repl_strings=c(""," ")
@@ -201,20 +221,21 @@ for (i in 1:length(unique_cities)){
 	cong_inds=which(cong$City==unique_cities[i])
 	cong_streets=cong$Street[cong_inds]
 	cong_facname=cong$Name[cong_inds]
-	cong_LOC=cong$`Level of Care`[cong_inds]
+	cong_LOC=cong$Level_of_Care[cong_inds]
 
 	# match raw addresses to government addresses
 	match_inds=amatch(data_streets,cong_streets,maxDist=100)
 
 	# merge results for this city
-	city_results <- as_tibble(cbind(data_streets,unique_cities[i],cong_streets[match_inds]),.name_repair = "unique")
+	city_results <- as_tibble(cbind(data_streets,unique_cities[i],cong_streets[match_inds]),.name_repair = "unique") %>% 
+	  rename(match_city = ...2,
+	         match_street = ...3
+	         )%>% 
+	  mutate(dist_street = stringdist(data_streets, match_street))
+	
 	# note the string distance
 	#city_results=cbind(city_results,stringdist(city_results[,1],city_results[,3]))
-	city_results <- city_results %>% 
-	  mutate(dist_street = stringdist(...2, ...3))
-	
-	# rename for clarity
-	names(city_results)=c("data_street","match_city","match_street","dist_street")
+
  
 	# populate match information
 	data$match_city[data_inds]=city_results$match_city
@@ -298,11 +319,14 @@ rm(maybe_diff,maybe_dist,same_side,maybe_diffs,maybe_dists,maybe_inds,yes_inds, 
 #~ condition disposition as factor
 data$disposition=factor(data$disposition,levels=c("Yes","Maybe","Unlikely","No"))
 data <- data %>% 
-  select(eventid, fname, lname, age, dob, gender, race, hisp, cong_setting, cong_exposure_type, cong_facility, Street, match_street, City, match_city,name, match_name,dba, match_LOF,type,license, match_dist, dist_StreetNumber,dist_StreetName,dist_Characters, intoms,disposition, KEEP) %>%  # X, Y, geoid10,county, state, cong_yn,
-  filter(intoms ==1 | disposition %in% c("Yes", "Maybe")) %>% 
-  mutate(KEEP = ifelse(
+  select(eventid, fname, lname, age, dob, gender, race, hisp, Street, match_street, City, match_city,geo_cname, match_name,match_LOF, geo_lof, geo_license, match_dist, dist_StreetNumber, dist_StreetName, dist_Characters, intoms, disposition) %>% 
+#  filter(intoms ==1 | disposition %in% c("Yes", "Maybe")) %>% 
+  mutate(
+    KEEP = NA,
+    KEEP = ifelse(
     intoms == 1 & disposition == "Yes", 1, KEEP
-  )
+  ),
+  geo_cname = str_to_title(geo_cname)
          )
 
 data.table::fwrite(data, "congSetting_review.csv")
