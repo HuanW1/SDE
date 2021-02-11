@@ -136,8 +136,8 @@ communitytest <- testgeo2 %>%
 town_alert <- read_csv(paste0(dir, "tables/", Sys.Date(), "/TownAlertLevelsTable.csv"))
 
 #8. CHA data
-cha_file <- list.files("CHA_data_here", pattern = ".csv")
-cha <-  read_csv(paste0(dir,"/CHA_data_here/",cha_file))
+cha_file <- list.files(paste0(dir,"CHA_data_here"), pattern = ".csv")
+cha <-  read_csv(paste0(dir,"CHA_data_here/",cha_file))
 chalong <- cha %>%
   gather(key="date", value="value", -c("Type", "State", "County")) %>%
   mutate(date=as.Date(date, format = "%m/%d/%Y"),
