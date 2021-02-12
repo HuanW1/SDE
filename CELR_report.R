@@ -121,7 +121,7 @@ SELECT  [csv_file_version_no]
 --,[ExportEndDate]
 --,[RecID]
 FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]
-WHERE ExportDate = '2021-02-11 10:09:06.070'")
+WHERE ExportDate = '2021-02-12 07:19:36.797'")
 
 # DBI::dbGetQuery(con2, statement = "select max(exportdate) FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]")
 # latest_report <-
@@ -189,6 +189,12 @@ data %>%
   group_by(grp = rep(row_number(), length.out = n(), each = 25000)) %>%
   group_walk(~ write_csv(.x, paste0(zero_pad, .y$grp, ".csv"), na=""))
 
+# data %>%
+#   select(csv_file_version_no:Submitter_unique_sample_ID) %>%
+#   filter(Test_date == "20210211") %>%
+#   group_by(grp = rep(row_number(), length.out = n(), each = 25000)) %>%
+#   group_walk(~ write_csv(.x, paste0(zero_pad, .y$grp, ".csv"), na=""))
+#
 
 
 #### Done csvs are in local directory ####
