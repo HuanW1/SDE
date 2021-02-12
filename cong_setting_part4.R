@@ -25,7 +25,7 @@ if(nrow(newGEO)<1){
 
 
 
-### makeshift roster for now
+#### makeshift roster for now#####
 sub1 <- newGEO %>%
   filter(!is.na(geo_lof) | Roster_Match == TRUE)
 
@@ -46,7 +46,7 @@ write_csv(sub1, "roster_FLIS_match.csv")
 write_csv(sub3, "nancy_doc.csv")
 write_csv(sub4, "loc_determination.csv")
 write_csv(sub5, "manual_review.csv")
-write_csv(newGEO, "biglist.csv")
+write_csv(newGEO, "cong_review.csv")
 
 
 

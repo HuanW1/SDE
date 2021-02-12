@@ -162,4 +162,4 @@ newGEO <- newGEO %>%
 odbc::dbDisconnect(con)
 
 
-
+source("cong_setting_part4.csv")
