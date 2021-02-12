@@ -366,6 +366,9 @@ df <-
                     labels = age_labels)
   )
 
+df <- df %>% 
+  left_join(cc_map %>% rename(county=COUNTY), by = c("city" = "CITY"))
+
 ```
 
 
