@@ -121,7 +121,7 @@ SELECT  [csv_file_version_no]
 --,[ExportEndDate]
 --,[RecID]
 FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]
-WHERE ExportDate = '2021-02-11 10:09:06.070'")
+WHERE ExportDate = '2021-02-12 07:19:36.797'")
 
 # DBI::dbGetQuery(con2, statement = "select max(exportdate) FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]")
 # latest_report <-
