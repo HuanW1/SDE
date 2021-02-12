@@ -38,6 +38,68 @@ require(DBI)
 options(kableExtra.auto_format = FALSE)
 graphdate <- Sys.Date() - 1
 
+#### setting report dow options ####
+# change for thanksgiving
+thursday <- wday(Sys.Date()) == 5
+wedthurs <- wday(Sys.Date()) %in% c(5) # makes no sense this is the same as previous line
+not_thursday <- wday(Sys.Date()) != 5
+
+thursday_range_start <- floor_date(Sys.Date() - 12, unit = "week")
+thursday_range_end <- thursday_range_start + 13
+monthsame <- month(thursday_range_start) == month(thursday_range_end)
+
+if (monthsame) {
+  thursday_range <- paste0(
+    month(thursday_range_start, label = TRUE, abbr = FALSE), " ",
+    format(thursday_range_start, "%d"), '-',
+    format(thursday_range_end, "%d")
+  )
+} else {
+  thursday_range <- paste0(
+    lubridate::month(thursday_range_start, label = TRUE, abbr = FALSE), " ",
+    format(thursday_range_start, "%d"), '-', lubridate::month(thursday_range_end, label= TRUE, abbr = FALSE),
+    " ",
+    format(thursday_range_end, "%d")
+  )
+}
+
+#### setting what we write out ####
+csv_write <- TRUE
+SQL_write <- TRUE
+
+```
+
+```{r declare_functions, include=FALSE}
+df_to_table <- 
+  function(df_name, 
+           table_name = NULL,
+           overwrite = FALSE, 
+           append = TRUE) {
+    
+    ### error checking
+    if(overwrite == append)  stop("You can not append and overwrite at the same time")
+    if(missing(df_name)) stop("You must specify a dataframe")
+    if(!exists(deparse(substitute(df_name))))  stop("Can not find that dataframe")
+    if(is.null(table_name)) stop("You must specify a table in the database")
+    
+    ### main code
+    epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
+    
+    # build the SQL string
+    fqdbn <- paste0("DPH_COVID_IMPORT.dbo.", table_name)
+    
+    DBI::dbWriteTable(epi_connect, 
+                      SQL(fqdbn), 
+                      df_name, 
+                      append = append, 
+                      overwrite = overwrite)
+    
+    odbc::dbDisconnect(epi_connect)
+  }
+
+```
+
+```{r test_pops_etc, include=FALSE}
 #### list of PCR tests #### 
 pcrtests <- c('SARS CoV 2 ORF1 resp', 
               'SARS CoV 2 RNA nasopharynx', 
@@ -71,66 +133,6 @@ agtests <- c('SARS CoV 2 Ag rapid IA',
              'SARS CoV 2 Ag rapid IA (BD Veritor/BinaxNOW)'
 )
 
-#### setting report dow options ####
-# change for thanksgiving
-thursday <- wday(Sys.Date()) == 5
-wedthurs <- wday(Sys.Date()) %in% c(5) # makes no sense this is the same as previous line
-not_thursday <- wday(Sys.Date()) != 5
-
-thursday_range_start <- floor_date(Sys.Date() - 12, unit = "week")
-thursday_range_end <- thursday_range_start + 13
-monthsame <- month(thursday_range_start) == month(thursday_range_end)
-
-if (monthsame) {
-  thursday_range <- paste0(
-    month(thursday_range_start, label = TRUE, abbr = FALSE), " ",
-    format(thursday_range_start, "%d"), '-',
-    format(thursday_range_end, "%d")
-  )
-} else {
-  thursday_range <- paste0(
-    lubridate::month(thursday_range_start, label = TRUE, abbr = FALSE), " ",
-    format(thursday_range_start, "%d"), '-', lubridate::month(thursday_range_end, label= TRUE, abbr = FALSE),
-    " ",
-    format(thursday_range_end, "%d")
-  )
-}
-
-csv_write <- TRUE
-SQL_write <- TRUE
-
-# Put this function in here for now
-
-df_to_table <- 
-  function(df_name, 
-           table_name = NULL,
-           overwrite = FALSE, 
-           append = TRUE) {
-    
-    ### error checking
-    if(overwrite == append)  stop("You can not append and overwrite at the same time")
-    if(missing(df_name)) stop("You must specify a dataframe")
-    if(!exists(deparse(substitute(df_name))))  stop("Can not find that dataframe")
-    if(is.null(table_name)) stop("You must specify a table in the database")
-    
-    ### main code
-    epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
-    
-    # build the SQL string
-    fqdbn <- paste0("DPH_COVID_IMPORT.dbo.", table_name)
-    
-    DBI::dbWriteTable(epi_connect, 
-                      SQL(fqdbn), 
-                      df_name, 
-                      append = append, 
-                      overwrite = overwrite)
-    
-    odbc::dbDisconnect(epi_connect)
-  }
-
-```
-
-```{r dependancies, include=FALSE}
 age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
 
 pop <- read_csv("L:/daily_reporting_figures_rdp/population_data/2018_dph_asrh/2018_asrh.csv") %>% 
@@ -141,7 +143,19 @@ town_pop18 <- read_csv("L:/daily_reporting_figures_rdp/population_data/pop_towns
   rename(city = Town,
          pop = `Est. Pop.`)
 
+#county city mapping
+cc_map <- read_csv(
+  paste0("L:/daily_reporting_figures_rdp/dependancies/City County Mapping.csv")) %>% 
+  mutate(COUNTY = paste0(COUNTY," County"))
+#county populations
+county_pop <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv") %>% 
+  mutate(County = paste0(County, " County"))
+
+
 #genders <- read_csv("L:/daily_reporting_figures_rdp/population_data/2018_dph_asrh/2018_asrh.csv")
+```
+
+```{r read_cha, include=FALSE}
 
 cha_file <- list.files("L:/daily_reporting_figures_rdp/CHA_data_here", pattern = ".csv", full.names = TRUE)
 cha <-  read_csv(cha_file)
@@ -151,28 +165,9 @@ newcha <- cha %>%
   pivot_longer(-Type, names_to = "admit_date", values_to = "admissions") %>% 
   select(-Type) %>% 
   mutate(admit_date = as.Date(admit_date, format = "%m/%d/%Y"))
+```
 
-#county city mapping
-cc_map <- read_csv(
-  paste0("L:/daily_reporting_figures_rdp/dependancies/City County Mapping.csv")) %>% 
-  mutate(COUNTY = paste0(COUNTY," County"))
-#county populations
-county_pop <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv") %>% 
-  mutate(County = paste0(County, " County"))
-
-####SQL READ-in#####
-
-con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
-statement <- paste0("SELECT *
-                    FROM [DPH_COVID_IMPORT].[dbo].[CTEDSS_DAILY_REPORT_ALL_Cases]")
-backend <- DBI::dbGetQuery(conn = con2 , statement = statement)
-
-statement <- paste0("SELECT *
-                    FROM [DPH_COVID_IMPORT].[dbo].[DAILY_Reports_ALL_COVID_TESTS]")
-backend_tests<-  DBI::dbGetQuery(conn = con2 , statement = statement)
-odbc::dbDisconnect(con2)
-rm(statement)
-
+```{r yesterday_summary, include=FALSE}
 #### Check for yesterday data otherwise create fake ####
 if(file.exists(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1))) {
   yesterday_file <- list.files(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1), 
@@ -195,25 +190,6 @@ if(file.exists(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 
   ## This is circular shouldn't it be yesterday_file <- fake_yesterday
   yesterday_file <- list.files(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1), pattern = ".csv")
 }
-
-
-```
-
-```{r SQL_cleanup, include = FALSE, message= FALSE}
-names(backend) <- str_to_lower(names(backend))
-names(backend_tests) <- str_to_lower(names(backend_tests))
-
-####cases cleanup####
-
-backend <- backend %>% 
-  select(-c("case_unid", "participant_unid", "hisp_race", "racecount", "lboname", "case_status", "mmwrweek", "spec_col_date", "result","test" , "lab_name"))
-# backend[backend == "NA"] <- NA
-# backend[backend == ""] <- NA
-
-#####tests cleanup######
-backend_tests <- backend_tests %>% 
-  select(-c("rec_id", "participant_id", "party_id", "test_investigation_id", "investigation_result_id", 'test_loinc', "result_snomed", "notes", "case_create_date")) %>% 
-  rename(spec_col_date = spec_coll_date)
 
 ```
 
@@ -246,7 +222,41 @@ subdat3 <- subdat2
 
 ```
 
-```{r df_manipulation1}
+
+
+```{r SQL_pull_cleanup, include = FALSE, message= FALSE}
+####SQL READ-in#####
+
+con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
+statement <- paste0("SELECT *
+                    FROM [DPH_COVID_IMPORT].[dbo].[CTEDSS_DAILY_REPORT_ALL_Cases]")
+backend <- DBI::dbGetQuery(conn = con2 , statement = statement)
+
+statement <- paste0("SELECT *
+                    FROM [DPH_COVID_IMPORT].[dbo].[DAILY_Reports_ALL_COVID_TESTS]")
+backend_tests <- DBI::dbGetQuery(conn = con2 , statement = statement)
+odbc::dbDisconnect(con2)
+rm(statement)
+
+names(backend) <- str_to_lower(names(backend))
+names(backend_tests) <- str_to_lower(names(backend_tests))
+
+####cases cleanup####
+
+backend <- backend %>% 
+  select(-c("case_unid", "participant_unid", "hisp_race", "racecount", "lboname", "case_status", "mmwrweek", "spec_col_date", "result","test" , "lab_name"))
+# backend[backend == "NA"] <- NA
+# backend[backend == ""] <- NA
+
+#####tests cleanup######
+backend_tests <- backend_tests %>% 
+  select(-c("rec_id", "participant_id", "party_id", "test_investigation_id", "investigation_result_id", 'test_loinc', "result_snomed", "notes", "case_create_date")) %>% 
+  rename(spec_col_date = spec_coll_date)
+
+```
+
+
+```{r df_creation}
 df <- backend %>% 
   left_join(backend_tests, by = c("event_id"))
 
@@ -397,8 +407,13 @@ hisp_race = paste0(hisp," ", race)
 )
 df$hisp_race[df$hisp == "H"] <- "Hispanic"
 df$hisp_race[df$hisp_race == "NH Unknown"] <-  "Unknown"
+```
 
-####multioutcome
+
+
+```{r multi_and_beyond}
+
+#### multioutcome ####
 multioutcome <- df %>% 
   select(bigID, outcome) %>% 
   distinct(bigID, outcome) %>% 
