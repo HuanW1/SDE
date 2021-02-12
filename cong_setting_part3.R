@@ -141,7 +141,7 @@ newGEO <- newGEO %>%
   left_join(results, by = "eventid") %>% 
   select(c(1:21, name, Roster_Name, BDay_Check, intoms, disposition, Roster_Match, KEEP))
 
-
+#
 
 # join on eventid
 # newGEO <- newGEO %>% 
