@@ -1202,10 +1202,10 @@ elr9med <- elr %>%
 
 ggplot(elr9med, aes(x =spec_col_date))+
   geom_line(aes(y = medtat), size =1)+
-  geom_ribbon(aes(ymin = lower, ymax = upper), fill = "grey70", alpha = 0.5)+
+  geom_ribbon(aes(ymin = elr9med$lower, ymax = elr9med$upper), fill = "grey70", alpha = 0.5)+
   scale_x_date(breaks = "2 days", date_labels = "%b-%d")+
   theme_classic()+
-  ylim(0, (max(upper)+1))+
+  ylim(0, (max(elr9med$upper)+1))+
   labs(
     title = "Median Test Turn Around Time in Days",
     subtitle = "with Interquartile Range",
