@@ -15,6 +15,7 @@
 ################################################################
 
 #### load libraries ####
+.libPaths(c("L:/library", .libPaths()))
 
 library(tidyverse)			# filter
 library(zipcodeR)
@@ -121,7 +122,7 @@ SELECT  [csv_file_version_no]
 --,[ExportEndDate]
 --,[RecID]
 FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]
-WHERE ExportDate = '2021-02-12 07:19:36.797'")
+WHERE ExportDate = '2021-02-15 11:46:30.490'")
 
 # DBI::dbGetQuery(con2, statement = "select max(exportdate) FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]")
 # latest_report <-
@@ -182,24 +183,29 @@ table(data$Test_date)
 #### write csv's 25,000 lines at a time ####
 # source("_FileSplitter.R")
 
-zero_pad <- paste("InterPartner~CELR~CT~AIMSPlatform~Prod~Prod~2021020218050000~STOP~COVID")
+which_test_date <- "20210212" # YMD
 
-data %>%
-  select(csv_file_version_no:Submitter_unique_sample_ID) %>%
-  group_by(grp = rep(row_number(), length.out = n(), each = 25000)) %>%
-  group_walk(~ write_csv(.x, paste0(zero_pad, .y$grp, ".csv"), na=""))
+#### automate writing file name by test date
+zero_pad <- paste0("InterPartner~CELR~CT~AIMSPlatform~Prod~Prod~",
+                   which_test_date,
+                   "18050000~STOP~COVID")
 
 # data %>%
 #   select(csv_file_version_no:Submitter_unique_sample_ID) %>%
-#   filter(Test_date == "20210211") %>%
 #   group_by(grp = rep(row_number(), length.out = n(), each = 25000)) %>%
 #   group_walk(~ write_csv(.x, paste0(zero_pad, .y$grp, ".csv"), na=""))
-#
+
+data %>%
+  select(csv_file_version_no:Submitter_unique_sample_ID) %>%
+  filter(Test_date == which_test_date) %>%
+  group_by(grp = rep(row_number(), length.out = n(), each = 25000)) %>%
+  group_walk(~ write_csv(.x, paste0(zero_pad, .y$grp, ".csv"), na=""))
+
 
 
 #### Done csvs are in local directory ####
 
-
+# "w:\Electronic Laboratory Reporting\Output\CTEDSS\MIF-PROD\CoV testing\CDC related\CELR\Output\Feb 15"
 
 
 
