@@ -90,7 +90,7 @@ maybecong <-  DBI::dbGetQuery(conn = con , statement = statement)%>%
   )
 rm(statement)
 
-####4a cleaning/standardizing match vars ####
+#### cleaning/standardizing match vars ####
 maybecong <- maybecong %>% 
 #standardizing LOF  
   mutate(
@@ -112,12 +112,7 @@ maybecong <- maybecong %>%
   select(eventid, fname, lname, age, dob, gender, race, hisp, street, city, county, state, geo_cname, geo_license, geo_lof, intoms)   
 
 
-####5 print  #####
-#new cases compared to when this was run last from past 2 complete mmwr weeks                             
-#data.table::fwrite(maybecong, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/", Sys.Date(), "CONG_past14daysdelta.csv"))
-#data.table::fwrite(maybecong, paste0( Sys.Date(), "CONG_past14daysdelta.csv"))
-
-####6 send the new date ran up####
+####5 send the new date ran up####
 justran <-tibble("DateRan" = Sys.Date()) 
 DBI::dbWriteTable(conn = con, value = justran, name = SQL("DPH_COVID_IMPORT.dbo.CONG_DATERAN"), overwrite = FALSE, append = TRUE)
 odbc::dbDisconnect(con)

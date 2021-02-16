@@ -1,11 +1,4 @@
-
-#####created jan 9 2021 AK
-#####modified Jan 14 2021 PG
-#####modified Jan 20 2021 AK, PG
-######FLIS Filter added Jan  2021 PG
-
-####Working script for congregate setting data review and updates
-
+####0 loading libraries ####
 if(!dir.exists("L:/")) message("You need to have L drive mapped")
 .libPaths(c("L:/library", .libPaths()))
 # load libraries
@@ -19,37 +12,22 @@ library(stringdist) 		# amatch, stringdist
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 
-
-######################## _02-10-2021_FLIS_Extract.csv
-
-
-#### declare data file for reading ####
-#if(exists("data")){
-  newGEO <- data #%>%  filter(KEEP==1)
-# } else{
-#   statement <- paste0("SELECT * FROM DPH_COVID_IMPORT.dbo.CONG_DATERAN")
-#   lastdate <-  DBI::dbGetQuery(conn = con , statement = statement) %>% 
-#     as_tibble() %>% 
-#     mutate(DateRan = lubridate::ymd(DateRan)) %>% 
-#     arrange(desc(DateRan)) %>% 
-#     slice(1L) %>% 
-#     pull(DateRan)
-#   newGEO <- data.table::fread(paste0(lastdate,"CONG_past14daysdelta.csv"), data.table = FALSE) #%>% 
-#     #filter(KEEP==1)
-# }
+####1 data read-in####
+newGEO <- data 
 
 if(nrow(newGEO)<1){
-  stop("No data to review. Check past14daysdelta file.")
+  stop("No data to review.")
 }
 
-#FLIS roster readin
+#FLIS roster read-in
 FLISfiles <- list.files("L:/FLIS")
 maxflisdate <- format(max(lubridate::mdy(str_sub(FLISfiles, 2, 11)), na.rm = TRUE), "%m-%d-%Y")
 FLIS <-read_csv(paste0("L:/FLIS/_", maxflisdate, "_FLIS_EXTRACT.csv")) %>% 
   mutate(name = paste(FirstName, LastName))
+# FLIS <-  read_csv("L:/FLIS/testing/_02-12-2021_FLIS_Extract.csv")%>%
+# mutate(name = paste(FirstName, LastName))
 
-
-####Race and Ethnicity recoding ####
+####2 Race and Ethnicity recoding ####
 newGEO <- newGEO %>% 
   mutate(
     race = if_else(race == "Black", "Black or African American", race),
@@ -57,37 +35,14 @@ newGEO <- newGEO %>%
     hisp = if_else(hisp == "NH", "NO", "YES")
   ) %>% 
   mutate(name = paste(fname, lname))
-##############################################################
 
-#####
-# we need logic here over what lof to use, we also need to shore it up and collapse it
-#probably create a computed LOF + other vars that we feed into, and if rows are a KEEP then these computed vars are filled in automatically.
-#####
+#####3 Matching ####
 
-
-
-#######FILTER so only the records in the FLIS list where "Transferred = No" are included in the below matching
-#FLIS=subset(FLIS_Raw, (Transferred=="No")) no transferred var in extract for some reason now?
-
-
-
-
-
-#############################################
-#
-
-# step 1: match names
-# 1a. load library
-
-#RosterFLISck$name = paste(RosterFLISck$fname, RosterFLISck$lname)
-
-
-#FLIS$name = paste(FLIS$First.Name, FLIS$Last.Name)
-
-# 1b. find nearest match in name
+#  find nearest match in name
 match_inds=amatch(newGEO$name,FLIS$name,maxDist=100)
 
-# 1c. construct a results dataframe
+#first part matches on name then double checks their dob
+# construct a results dataframe
 results <- tibble(
   eventid = newGEO$eventid,
   Raw_Name = newGEO$name,
@@ -109,10 +64,7 @@ results <- tibble(
     dobRoster_dist = -1
   )
 
-#results$EventID=AllCases$eventid[match_inds]
-# initialize results
-# results$dobMatch_name=""
-# results$dobMatch_dist=-1
+#this part matches on DOB then checks the matches names with the raw name + dob combo
 # for each record in the roster
 for (i in 1:nrow(newGEO)){
   # extract the ith date of birth and name
@@ -141,25 +93,6 @@ newGEO <- newGEO %>%
   left_join(results, by = "eventid") %>% 
   select(c(1:21, name, Roster_Name, BDay_Check, intoms, disposition, Roster_Match, KEEP))
 
-#
-
-# join on eventid
-# newGEO <- newGEO %>% 
-#   mutate(
-#     Roster_Match = results$DOB_Dist<365 & results$BDay_Check>1 & results$Name_Dist<5,
-#     BDay_Check = results$BDay_Check
-#   )
-
-# newGEO$Roster_Match=results$DOB_Dist<365 & results$BDay_Check>1 & results$Name_Dist<5
-# #and statement code
-# newGEO$BDay_Match=results$BDay_Match
-# newGEO$Match_Name=results$Match_Name
-
-
-
-
 
 odbc::dbDisconnect(con)
-
-
 source("cong_setting_part4.csv")

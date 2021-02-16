@@ -15,6 +15,9 @@ require(DBI)
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 ####1 declare data file for reading ####
+if(nrow(maybecong)<1){
+  stop("No data to review.")
+}
 read_file <- maybecong
 
 ####2 declare dependency files containing the official lists of ct towns and boroughs ####
@@ -299,27 +302,17 @@ data$disposition[no_inds]="No"
 # clear garbage
 rm(maybe_diff,maybe_dist,same_side,maybe_diffs,maybe_dists,maybe_inds,yes_inds,  check, boros_list)#maybecong,
 
-#~ reduce and reorder variables to streamline output
-#data=subset(data,select=c("eventID","Street","City","disposition","match_street","match_city","match_name","match_LOF","match_dist"))
-# data <- data %>% 
-#   select(
-#     c("eventid","intoms", "Street","City","disposition","match_street","match_city","match_name","match_LOF","match_dist")
-#   )
-
 #~ condition disposition as factor
 data$disposition=factor(data$disposition,levels=c("Yes","Maybe","Unlikely","No"))
 data <- data %>% 
   select(eventid, fname, lname, age, dob, gender, race, hisp, Street, match_street, City, match_city,geo_cname, match_name,match_LOF, geo_lof, geo_license, match_dist, dist_StreetNumber, dist_StreetName, dist_Characters, intoms, disposition) %>% 
-#  filter(intoms ==1 | disposition %in% c("Yes", "Maybe")) %>% 
   mutate(
     KEEP = NA,
-    KEEP = ifelse(
-    intoms == 1 & disposition == "Yes", 1, KEEP
-  ),
+    #KEEP = ifelse(
+    #intoms == 1 & disposition == "Yes", 1, KEEP
+  #),
   geo_cname = str_to_title(geo_cname)
          )
-
-#data.table::fwrite(data, "congSetting_review.csv")
 
 odbc::dbDisconnect(con)
 source("cong_setting_part3.R")
