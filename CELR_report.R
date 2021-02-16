@@ -122,7 +122,7 @@ SELECT  [csv_file_version_no]
 --,[ExportEndDate]
 --,[RecID]
 FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]
-WHERE ExportDate = '2021-02-15 11:46:30.490'")
+WHERE ExportDate = '2021-02-16 12:42:00'")
 
 # DBI::dbGetQuery(con2, statement = "select max(exportdate) FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]")
 # latest_report <-
@@ -183,7 +183,7 @@ table(data$Test_date)
 #### write csv's 25,000 lines at a time ####
 # source("_FileSplitter.R")
 
-which_test_date <- "20210212" # YMD
+which_test_date <- "20210214" # YMD
 
 #### automate writing file name by test date
 zero_pad <- paste0("InterPartner~CELR~CT~AIMSPlatform~Prod~Prod~",
