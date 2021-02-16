@@ -488,7 +488,7 @@ rm(ct_counties,ct_cities,ct_boros,empty_inds,fn_cityMatch)
 #rm(match_info,thresh_vals)
 
 
-write.table(match_info, "MatchInfo.csv",sep=",",row.names=FALSE,col.names=TRUE)
+# write.table(match_info, "MatchInfo.csv",sep=",",row.names=FALSE,col.names=TRUE)
 
 
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
