@@ -308,7 +308,7 @@ df <-
       "Reside",
       cong_exposure_type
     ),
-    bigID = paste0(fname, lname, dob),
+    bigID = str_squish(paste0(fname, lname, dob)),
     result = str_to_lower(result),
     hospitalized = str_to_sentence(hospitalized),
     hospitalized = case_when(
@@ -376,19 +376,27 @@ df <- df %>%
 ```{r multi_and_beyond}
 
 #### multioutcome ####
-multioutcome <- df %>% 
-  select(bigID, outcome) %>% 
-  distinct(bigID, outcome) %>% 
-  group_by(bigID) %>% 
-  tally() %>% 
-  filter(n >=2) %>%
-  ungroup() %>% 
-  left_join(df, by =c("bigID" = "bigID")) %>% 
-  select(eventid, bigID, outcome, death_date) %>% 
-  unique()%>% 
-  filter(outcome == "Died" & !is.na(death_date))
-df <- df %>% 
-  mutate(outcome = ifelse(bigID %in% multioutcome$bigID, "Died", outcome)) 
+# multioutcome <- df %>% 
+#   select(bigID, outcome) %>% 
+#   distinct(bigID, outcome) %>% 
+#   group_by(bigID) %>% 
+#   tally() %>% 
+#   filter(n >=2) %>%
+#   ungroup() %>% 
+#   left_join(df, by =c("bigID" = "bigID")) %>% 
+#   select(eventid, bigID, outcome, death_date) %>% 
+#   unique()%>% 
+#   filter(outcome == "Died" & !is.na(death_date))
+# df <- df %>% 
+#   mutate(outcome = ifelse(bigID %in% multioutcome$bigID, "Died", outcome)) 
+
+df <-
+  df %>%
+  group_by(bigID) %>%
+  mutate(outcome = ifelse(any(outcome == "Died"),
+                           "Died",
+                           outcome)) %>%
+  ungroup()
 
 ##########  Death Cleanup     #############
 
