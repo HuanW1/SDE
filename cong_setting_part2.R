@@ -15,20 +15,9 @@ require(DBI)
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 ####1 declare data file for reading ####
-#if(exists("maybecong")){
-  read_file <- maybecong
-# } else{
-#   statement <- paste0("SELECT * FROM DPH_COVID_IMPORT.dbo.CONG_DATERAN")
-#   lastdate <-  DBI::dbGetQuery(conn = con , statement = statement) %>% 
-#     as_tibble() %>% 
-#     mutate(DateRan = lubridate::ymd(DateRan)) %>% 
-#     arrange(desc(DateRan)) %>% 
-#     slice(1L) %>% 
-#     pull(DateRan)
-#   read_file <- data.table::fread(paste0("L:/daily_reporting_figures_rdp/csv/",lastdate, "/",lastdate,"CONG_past14daysdelta.csv"), data.table = FALSE)   
-# }
+read_file <- maybecong
 
-####2 declare dependancy files containing the official lists of ct towns and boroughs ####
+####2 declare dependency files containing the official lists of ct towns and boroughs ####
 statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[CONG_BOROS_LIST]")
 boros_list <-  DBI::dbGetQuery(conn = con , statement = statement)
 
@@ -39,12 +28,12 @@ statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[RPT_MYSTIC]")
 mystic <-  DBI::dbGetQuery(conn = con , statement = statement)
 
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-### 3. data set construction ~~~~~~~~~~~~~~~~~~~~~~~~~~~~####
+### 3. Cong Lookup data set construction ####
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-### creates two data-frames: raw data, and the curated list of 
-### congregate settings
 
-#btain addresses from curated listed of congregate facilities
+#can almost certainly just save the final product as a lookup in the future when we're sure we have the lists final and clean and no more additions
+
+#read in lookup tables
 statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[CONG_NURSING_FACILITIES]")
 addr_nursing <-  DBI::dbGetQuery(conn = con , statement = statement)
 
@@ -52,6 +41,7 @@ statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[CONG_PRISON_FACILIT
 addr_prisons <-  DBI::dbGetQuery(conn = con , statement = statement)
 #list_addr <- c(addr_nursing$Address,addr_prisons$Address)
 
+#CT boroughs
 ct_boros <- city_file %>% 
   select(TOWN_LC) %>% 
   rename(Town = TOWN_LC) %>% 
@@ -142,7 +132,7 @@ data <- read_file
 rm(city_file,read_file,addr_nursing,addr_prisons, prisons, nursing,statement, ct_boros, boros_list)
 
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-### 4. dataset conditioning ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+### 4. dataset conditioning ####
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ### string operations to facilitate text-comparisons
 data <- data %>% 
@@ -196,22 +186,22 @@ rm(desigs_long,desigs_short,patt,repl,errd_patterns,repl_strings,last_chars,edit
 
 
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-### 3. matching ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+### 5. matching ####
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ### match each address to its nearest match within the congregate
 ### settings list, and also some match-meta-information
 
-#~ 3a. extract unique towns in user data for iterating matches
+#~ extract unique towns in user data for iterating matches
 unique_cities=unique(data$City)
 
-#~ 3b. initialize match information
+#~ initialize match information
 data$match_city=NA
 data$match_street=NA
 data$match_dist=-1
 data$match_name=NA
 data$match_LOF=NA
 
-#~ 3c. match within batches by city
+#~ match within batches by city
 # for each city in the datasets
 for (i in 1:length(unique_cities)){
 
@@ -245,18 +235,18 @@ for (i in 1:length(unique_cities)){
 	data$match_LOF[data_inds]=cong_LOC[match_inds]
 }
 
-#~ 3d. flag data that does not match to a town with a congregate setting
+#~ flag data that does not match to a town with a congregate setting
 data_noCong=setdiff(1:nrow(data),which(data$City %in% unique(cong$City)))
 data$TownFlag=TRUE
 data$TownFlag[data_noCong]=FALSE
 
-#~ 3e. determine distance on street numbers
+#~ determine distance on street numbers
 # distance ranges 0 to infinity; smaller value = increasingly likely match
 raw_number=suppressWarnings(as.numeric(word(data$Street,1)))
 match_number=suppressWarnings(as.numeric(word(data$match_street,1)))
 data$dist_StreetNumber=abs(raw_number-match_number)
 
-#~ 3f. determine distance on street names
+#~ determine distance on street names
 # distance ranges 0 to 1; smaller value = increasingly likely match
 raw_name=word(data$Street,2,-1)
 match_name=word(data$match_street,2,-1)
@@ -271,23 +261,23 @@ rm(match_inds,city_results,data_noCong,raw_number,match_number,raw_name,match_na
 
 
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-### 4. decisioning ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+### 6. decisioning ####
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ### post-match analytics to support decision-making
 
-#~ 4a. threshold difference in house-number that should be flagged as possible match (suggest: 6)
+#~ threshold difference in house-number that should be flagged as possible match (suggest: 6)
 maybe_diff=6
 
-#~ 4b. threshold difference in streetname that should be flagged as possible match (suggest: 0.1)
+#~ threshold difference in streetname that should be flagged as possible match (suggest: 0.1)
 maybe_dist=0.1
 
-#~ 4b. threshold difference in streetname characters that should be flagged as possible match (suggest: 1)
+#~ threshold difference in streetname characters that should be flagged as possible match (suggest: 1)
 maybe_char=1
 
-#~ 4c. determine if house is on correct side of street (even/odd)
+#~ determine if house is on correct side of street (even/odd)
 same_side=which(data$dist_StreetNumber%%2==0)
 
-#~ 4d. maybe-designation for same side + close in number + close in street
+#~ maybe-designation for same side + close in number + close in street
 maybe_diffs=intersect(which(data$dist_StreetNumber<=maybe_diff),same_side)
 maybe_chars=which(data$dist_Characters<=maybe_char)
 maybe_dists=which(data$dist_StreetName<=maybe_dist)
@@ -295,12 +285,12 @@ maybe_dists=intersect(maybe_diffs,maybe_dists)
 maybe_chars=intersect(maybe_diffs,maybe_chars)
 maybe_inds=unique(c(maybe_dists,maybe_chars))
 
-#~ 4e. exact matches are firm Yes; out-of-towners are firm No
+#~ exact matches are firm Yes; out-of-towners are firm No
 yes_inds=intersect(which(data$dist_StreetNumber==0),which(data$dist_StreetName==0))
-#~ 4e. definite congregate settings requires exact matches on street name and number
+#~ definite congregate settings requires exact matches on street name and number
 no_inds=which(!data$TownFlag)
 
-#~ 4f. decisioning
+#~ decisioning
 data$disposition="Unlikely"
 data$disposition[maybe_inds]="Maybe"
 data$disposition[yes_inds]="Yes"
@@ -330,17 +320,6 @@ data <- data %>%
          )
 
 #data.table::fwrite(data, "congSetting_review.csv")
-
-##~ re-ordering for visual proof
-# data$match_name=substr(data$match_name,1,30)
-# data[order(data$disposition,data$match_dist),][c(1:500,8800:8850),]
-
-
-#~ write out analysis file for offline review
-#write.table(data,"congSetting_review.csv",sep=",",row.names=FALSE,col.names=TRUE)
-
-#toc=Sys.time()
-#print(toc-tic)
 
 odbc::dbDisconnect(con)
 source("cong_setting_part3.R")
