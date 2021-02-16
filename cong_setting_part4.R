@@ -22,7 +22,17 @@ if(nrow(newGEO)<1){
 
 
 
+statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[CONG_NURSING_FACILITIES]")
+nursing_sub <-  DBI::dbGetQuery(conn = con , statement = statement) %>% 
+  select(`Facility Name`, `CTEDSS Entry Name`)%>% 
+  rename(nickname = `CTEDSS Entry Name`)
 
+statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[CONG_PRISON_FACILITIES]")
+prison_sub <-  DBI::dbGetQuery(conn = con , statement = statement)%>% 
+  select(`Facility Name`, `CTEDSS Entry Name`)%>% 
+  rename(nickname = `CTEDSS Entry Name`)
+
+nicknames <- bind_rows(prison_sub, nursing_sub)
 
 
 #### makeshift roster for now#####
@@ -48,6 +58,27 @@ write_csv(sub4, "loc_determination.csv")
 write_csv(sub5, "manual_review.csv")
 write_csv(newGEO, "cong_review.csv")
 
+
+sub1_roster <- sub1 %>% 
+  select(eventid, race, hisp, gender, geo_lof, match_name) %>% 
+  mutate(`Facility Number` = NA,
+         State = "CT",
+         `Congregate Setting` = "YES",
+         Product = "CORONA",
+         `Type of CoV` = "2019_NCOV",
+         NMI = "YES",
+         hisp = str_to_title(hisp),
+         race = na_if(race, "Unknown")
+         ) %>%
+  left_join(nicknames, by = c("match_name" = "Facility Name")) %>% 
+  select(eventid, `Facility Number`, race, hisp, gender, nickname, State, `Congregate Setting`, geo_lof, Product, `Type of CoV`, NMI) %>% 
+  rename(`Type of congregate setting` = geo_lof,
+         `Event ID` =  eventid,
+         Race = race,
+         Gender = gender,
+         Hispanic = hisp,
+         `Facility Name` = nickname
+         ) 
 
 
 
