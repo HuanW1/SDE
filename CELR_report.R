@@ -36,7 +36,9 @@ make_comp_table <- function(before_df, after_df, by_what) {
             by = by_what,
             suffix = c(".before", ".after")) %>%
     select(-Pct.before, -Pct.after) %>%
-    mutate(Change = Count.after - Count.before) %>%
+    mutate(Count.after = replace_na(Count.after, 0),
+           Count.before = replace_na(Count.before, 0),
+           Change = Count.after - Count.before) %>%
     arrange(desc(Count.after))
 }
 
