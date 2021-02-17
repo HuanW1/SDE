@@ -29,7 +29,9 @@ vm_clean <- vaccine_master %>%
          ) %>% 
   ungroup() %>% 
   mutate(hisp = 0,
-         hisp_race = ""
+         hisp_race = "",
+         range_age = if_else(Age <=15, "15 or below", range_age),
+         range_age = if_else(Age >15 & Age <25, "16-24", range_age)
          )
 
 #hisp creation
@@ -84,15 +86,40 @@ vm_clean2 <- vaccine_master %>%
   ) %>% 
   ungroup()
 
-vm_gender2<- vm_clean2 %>% #age_ranges need tweaking, probs just create a raw one
+vm_gender2 <- vm_clean2 %>% 
   group_by(bigID, gender, fp_vac) %>% 
   tally() %>% 
   group_by(gender, fp_vac) %>%
   tally()
 
 ####5 Numbers by race/ethnicity ####
-vm_hisprace<- vm_clean %>% #age_ranges need tweaking, probs just create a raw one
+vm_hisprace <- vm_clean %>% 
   group_by(bigID, hisp_race, fp_vac) %>% 
   tally() %>% 
   group_by(hisp_race, fp_vac) %>%
+  tally()
+
+
+####6 Numbers by race/ethnicity ages 65-74 ####
+vm_hisprace65_75 <- vm_clean %>% 
+  filter(range_age == "65-74") %>% 
+  group_by(bigID, hisp_race, fp_vac) %>% 
+  tally() %>% 
+  group_by(hisp_race, fp_vac) %>%
+  tally()
+
+####7 Numbers by county ####
+vm_county <- vm_clean %>% 
+  group_by(bigID, county, fp_vac) %>% 
+  tally() %>% 
+  group_by(county, fp_vac) %>%
+  tally()
+
+####8 Numbers by city####
+#great place to add the Borough crosswalk to official city, if they want it
+vm_city <- vm_clean %>% 
+  filter(patient_state == "CT") %>% 
+  group_by(bigID, patient_city, fp_vac) %>% 
+  tally() %>% 
+  group_by(patient_city, fp_vac) %>%
   tally()
