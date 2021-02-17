@@ -51,7 +51,7 @@ results <- tibble(
   Roster_DOB = FLIS$DOB[match_inds]
 ) %>% 
   mutate(
-    Roster_DOB = lubridate::mdy(Roster_DOB),
+    Roster_DOB = lubridate::ymd(Roster_DOB),
     Raw_DOB = lubridate::ymd(Raw_DOB),
 # add string distance
     Name_Dist = stringdist(Raw_Name,Roster_Name),
@@ -95,4 +95,4 @@ newGEO <- newGEO %>%
 
 
 odbc::dbDisconnect(con)
-source("cong_setting_part4.csv")
+source("cong_setting_part4.R")

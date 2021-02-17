@@ -300,7 +300,7 @@ data$disposition[yes_inds]="Yes"
 data$disposition[no_inds]="No"
 
 # clear garbage
-rm(maybe_diff,maybe_dist,same_side,maybe_diffs,maybe_dists,maybe_inds,yes_inds,  check, boros_list)#maybecong,
+rm(maybe_diff,maybe_dist,same_side,maybe_diffs,maybe_dists,maybe_inds,yes_inds)#maybecong,
 
 #~ condition disposition as factor
 data$disposition=factor(data$disposition,levels=c("Yes","Maybe","Unlikely","No"))

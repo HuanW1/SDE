@@ -1,5 +1,7 @@
 #creation of cong setting depandancies and sending on up to sql
-library(tidyverse)#, lib.loc = .libPaths()[2])
+if(!dir.exists("L:/")) message("You need to have L drive mapped")
+.libPaths(c("L:/library", .libPaths()))
+library(tidyverse)
 library(DBI)
 library(odbc)
 library(readxl)
@@ -29,5 +31,4 @@ addr_prisons <- as_tibble(read_excel("Facility List CTEDSS Entry with Event IDs 
 
 cong_date <- tibble("DateRan" = ymd("2021-02-10"))   #setting first sql flag for cong running
 DBI::dbWriteTable(conn = con, value = cong_date, name = SQL("DPH_COVID_IMPORT.dbo.CONG_DATERAN"), overwrite = TRUE)
-
 odbc::dbDisconnect(con)
