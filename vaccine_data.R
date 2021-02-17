@@ -9,10 +9,11 @@ require(stringr)
 ####1 data read-in ####
 vaccine_master <- readxl::read_xlsx("Master_COVID_Weekly_Report_1.xlsx")
 
-
-
 ####2 data cleanup and standardization ####
+#dedupe numbers are really close to theirs with out of state-rs, not close when we take them out
+
 vm_clean <- vaccine_master %>%
+  filter(patient_state == "CT" | is.na(patient_state)) %>% 
   mutate_if(is.character, list(~na_if(., "NULL"))) %>%  #replace text NULLS with NA
   mutate(
     patient_first_name = str_squish(str_to_lower(patient_first_name)),
@@ -118,7 +119,6 @@ vm_county <- vm_clean %>%
 ####8 Numbers by city####
 #great place to add the Borough crosswalk to official city, if they want it
 vm_city <- vm_clean %>% 
-  filter(patient_state == "CT") %>% 
   group_by(bigID, patient_city, fp_vac) %>% 
   tally() %>% 
   group_by(patient_city, fp_vac) %>%
