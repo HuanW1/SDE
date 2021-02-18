@@ -1,5 +1,5 @@
 ---
-title: "Connecticut COVID-19 Weekly Data Review:`r format(Sys.Date(), format = '%b %d, %Y')`"
+title: "Connecticut COVID-19 Weekly Data Review: `r format(Sys.Date(), format = '%b %d, %Y')`"
 output: html_document
 author: 'Sydney Jones'
 ---
@@ -161,7 +161,8 @@ if(monthsame){
 
 ```{r slide 1, echo = FALSE}
 ########################################### 2. SLIDE CREATION ######################
-##Slide 1 - town alert map and % of population by alert level
+
+#1. Average Daily Rate of COVID-19 Cases among People Living in Community Settings - town alert map and % of population by alert level
 
 #rate categories
 avgratebreaks <-  c(
@@ -203,7 +204,7 @@ ggplot(subdat14nc)+
   )
 
 
-#calculate % of pop in each category
+#Table for calculating % of pop in each category
 popbycat <-town_alert %>% 
   group_by(RateCategory) %>% 
   summarise(pop=sum(Population)) %>% 
@@ -214,8 +215,9 @@ arrange(popbycat, desc(RateCategory))
 
 ```
 
-## NEW continuous scale, 14-day average case rates by town:
+## New continuous scale, 14-day average case rates by town:
 ```{r, echo=FALSE, message=FALSE, fig.width=16, fig.height=4}
+#2. 14-day average on map
 case_dat <- read_csv(paste0(dir, "gary_csv/", Sys.Date(), "/", "CTTown_Alert.csv"))
 case_dat1 <- read_csv(paste0(dir, "gary_csv/", Sys.Date()-7, "/", "CTTown_Alert.csv"))
 case_dat2 <- read_csv(paste0(dir, "gary_csv/", Sys.Date()-14, "/", "CTTown_Alert.csv"))
@@ -226,8 +228,6 @@ case_dat <- bind_rows(case_dat, case_dat1) %>% bind_rows(case_dat2)
 case_dat$date1 = case_dat$ReportPeriodStartDate
 case_dat$date2 = case_dat$ReportPeriodEndDate
 case_dat$range = paste(format(case_dat$date1, "%b %d"), "-", format(case_dat$date2, "%b %d"))
-
-
 
 # sensible column name
 case_dat$caserate = case_dat$CaseRate
@@ -271,10 +271,11 @@ ggplot(case_dat1)+
 
 ```
 
-##Slide 2 - overall state snapshot
-
+#Overall State Snapshot for Number of cases
 
 ```{r slide 2, echo = FALSE}
+#3.a.  Overall State Snapshot
+
 #a. graph of cases by day over time 
 case_ct <- casenew %>%
   group_by(date) %>% 
@@ -297,7 +298,7 @@ ggplot(caseavg)+
     y = "Number of COVID-19 Cases",
     x="Specimen Collection/Onset Date")
 
-#counts of cases for table
+#3.b. counts of cases for table
 totalcases <- count(casenew)
 weeklycases <- casenew %>%
   #### THIS NEEDS TO CHANGE for beginning of year (must incorporate correct weeks and years!!):####
@@ -347,7 +348,7 @@ filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) |
 kable(twoweekcommcases) %>% 
   kable_styling()
 
-#b. graph of new hospitalizations by day over time
+#4. Graph of new hospital admissions by day over time
 #set up CHA data 
 #manually set new admits on days where data definitions changed
 chanewadmit <- chalong %>%
@@ -386,7 +387,7 @@ filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) |
 
 kable(chaavgadmit)  
 
-#c. graph of COVID-19 hospital census by day over time 
+#5. graph of COVID-19 Hospital Census by day over time 
 chaadmit <- chalong %>%
   filter(Type =="Admit" & County == "Connecticut") %>%
   mutate(count = replace_na(value, 0), 
@@ -419,7 +420,7 @@ filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) |
 
 kable(chaavgcensus )
 
-#d. graph of deaths by day over time 
+#6. graph of COVID-19 deaths by day over time 
 death_ct <- casenew %>%
   filter(covid_death=="YES") %>% 
   group_by(death_date) %>% 
@@ -460,8 +461,10 @@ filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) |
 kable(weeklydeaths)
 ```
 
-##Slide 3 - Recent cases in the past 12 weeks
+##Recent cases in the past 12 weeks
 ```{r slide 3, echo = FALSE}
+#7. Graph for Recent cases in the past 12 weeks
+
 #epicurve of cases by day and week for the last 12 weeks
 caserecent <- caseavg %>% 
 ###### THIS NEEDS TO CHANGE ######  
@@ -520,6 +523,7 @@ arrange(year,week) %>%
          date = format(date, "%b-%d"),
          date = factor(date, levels=date, labels=date))
   
+#8. Graph for Number of COVID-19 Cases who reside in Congregate Setting
 
 ggplot(case_ct_week)+
   geom_col(aes(x=date, y=n, fill=cong_yn))+
@@ -534,7 +538,7 @@ ggplot(case_ct_week)+
 
 ```
 
-##Slide 4 - Community test volume and positivity
+## Community test volume and positivity
 ```{r slide 4, echo = FALSE}
 #calculate 7 day rolling averages
 test_ct <- communitytest %>%
@@ -573,7 +577,7 @@ filter((epiweek(date) == epiweek(Sys.Date()) & epiyear(date) == epiyear(Sys.Date
     (epiweek(date) == epiweek(Sys.Date()-84) & epiyear(date) == epiyear(Sys.Date()-84)) #thisweek-12
     )
 
-#a. test volume plot
+#9. Community test volume plot
 ggplot(testavg8)+
   geom_col(aes(x=date, y=tot), fill="lightgrey")+
   geom_line(aes(x=date, y=avgtot7), size=2)+
@@ -583,7 +587,7 @@ ggplot(testavg8)+
     x="Specimen Collection Date"
     )
 
-#b. test positivity plot
+#10. Community test positivity plot
 ggplot(testavg8, aes(x=date, y=pctpos), color="black")+
   geom_line(size=2)+
   theme_classic()+
@@ -621,7 +625,7 @@ kable(weeklytest )
 ```
 
 ```{r slide 4 pcr only, echo = FALSE}
-#community testing for pcr only
+#11. community testing for pcr only
 
 #calculate 7 day rolling averages
 test_ct_pcr <- communitytest %>%
@@ -662,7 +666,7 @@ filter((epiweek(date) == epiweek(Sys.Date()) & epiyear(date) == epiyear(Sys.Date
     )
 ####################################
 
-#a. test volume plot
+#12. Community testing by date, PCR only -  test volume plot
 ggplot(testavg8_pcr)+
   geom_col(aes(x=date, y=tot), fill="lightgrey")+
   geom_line(aes(x=date, y=avgtot7), size=2)+
@@ -673,7 +677,7 @@ ggplot(testavg8_pcr)+
     title="Community testing by date, PCR only"
     )
 
-#b. test positivity plot
+#13. Community testing percentage positive by date, PCR only - test positivity plot
 ggplot(testavg8_pcr, aes(x=date, y=pctpos), color="black")+
   geom_line(size=2)+
   theme_classic()+
@@ -696,7 +700,7 @@ ggplot(testavg8_pcr, aes(x=date, y=pctpos), color="black")+
 #    title="Community testing percentage positive by date, PCR only"
 #    )
 
-#c. table with test counts
+# table with test counts
 weeklytest_pcr <- communitytest %>%
   filter(pcrag =="pcr" ) %>% 
 ##### THIS NEEDS TO CHANGE #####  
@@ -713,7 +717,8 @@ weeklytest_pcr <- communitytest %>%
 
 kable(weeklytest_pcr )
 ```
-##Slide 7 - new request for age group info from Albert. Community Tests ONLY. 
+
+##New request for age group info from Albert. Community Tests ONLY. 
 
 ```{r slide 75, echo = FALSE}
 #color palette for age graphs
@@ -800,7 +805,7 @@ weeklytest_age <- communitytest %>%
 
 weeklytest_age$age_group <- factor(weeklytest_age$age_group, labels = age_labels3, levels = age_labels3 )
 
-#plot total tests over time by age group
+#14. Tests per 100,000 Population per Day - plot total tests over time by age group
 ggplot(weeklytest_age, aes(x=date, y=rate))+
   geom_line(aes(color=age_group), size=2)+
   geom_line(data=weeklytest_all,  size=2.5, linetype="dotdash")+
@@ -810,7 +815,7 @@ ggplot(weeklytest_age, aes(x=date, y=rate))+
        y='Tests per 100,000 Population per Day',
        color='Age Group (years)')
 
-#plot % positive tests over time by age group
+#15. plot % positive tests over time by age group
 ggplot(weeklytest_age, aes(x=date, y=pctpos))+
   geom_line(aes(color=age_group), size=2)+
   geom_line(data=weeklytest_all, size=2.5, linetype="dotdash")+
@@ -885,7 +890,7 @@ filter(
 
 weeklycase_age$age_group <- factor(weeklycase_age$age_group, labels = age_labels4, levels = age_labels4 )
 
-
+#16. Cases per 100,000 Population per Day
 ggplot(weeklycase_age, aes(x=week, y=rate))+
   geom_line(aes(color=age_group), size=2)+
   geom_line(data=weeklycases_all, size=2.5, linetype="dotdash")+
@@ -906,11 +911,10 @@ ggplot(weeklycase_age, aes(x=week, y=rate))+
 #SWITCH TO BUBBLE PLOT OF AGE GROUPS FOR INCIDENCE
 ```
 
-##Slide 8 - map number of tests & number of cases by town for last 3 weeks
+##Map number of tests & number of cases by town for last 3 weeks
 
 
 ```{r slide 8, echo = FALSE}
-
 
 #a. count cases and tests for each week
 #cases
@@ -989,7 +993,7 @@ subdat_3wkt <- subdat %>%
   left_join(
     test3wk_count, by = c("NAME" = "NAME")    
   ) 
-#make map
+#16. Test Count
 ggplot(subdat_3wkt)+
   geom_sf(aes(fill = totcat))+
   #facet_wrap(vars(week))+
@@ -1006,6 +1010,7 @@ ggplot(subdat_3wkt)+
     legend.text = element_text(size=9)
   )
 
+#17. Tests per 100,000 Population per Day
 ggplot(subdat_3wkt)+
   geom_sf(aes(fill = ratecat))+
   #facet_wrap(vars(week))+
@@ -1022,6 +1027,7 @@ ggplot(subdat_3wkt)+
     legend.text = element_text(size=9)
   )
 
+#18. Percentage Positive Tests
 ggplot(subdat_3wkt)+
   geom_sf(aes(fill = poscat))+
   #facet_wrap(vars(week))+
@@ -1038,8 +1044,6 @@ ggplot(subdat_3wkt)+
     legend.title = element_text(size = 11),
     legend.text = element_text(size=9)
   )
-
-
 
 #c. map cases for each week
 num_groups <- c("None", "1 to 4", "5 to 24", "25 to 49", "50 to 99", "100 to 199", "200 to 499", "500 to 999", "1000+")
@@ -1112,7 +1116,7 @@ subdat_3wkc$n_cat[is.na(subdat_3wkc$n_cat)] <- "None"
 
 check<-count(subdat_3wkc, n_cat)
 
-#create maps 
+#19. Case Count
 ggplot(subdat_3wkc)+
  # facet_wrap(vars(week))+
   facet_wrap(vars(as.Date(week, format="%m-%d-%Y")))+
@@ -1133,7 +1137,7 @@ ggplot(subdat_3wkc)+
 
 tompalette2 <- c("white", "#ffffb2", "gold", "darkorange", "#f03b20")
 
-#create maps 
+#20. Average Daily Incidence Rate per 100,000 \nover last two weeks
 ggplot(subdat_3wkc)+
   #facet_wrap(vars(week))+
   facet_wrap(vars(as.Date(week, format="%m-%d-%Y")))+
@@ -1155,9 +1159,9 @@ ggplot(subdat_3wkc)+
 ```
 
 
-#Slide 9 - Turn Around Time
+#Turn Around Time
 ```{r slide 9, echo = FALSE}
-##Slide 9 - turn around time = ALEX
+##21. Test turn around time = ALEX
 elr <- testgeo2 %>% 
   filter(spec_col_date >= max(spec_col_date, na.rm = T)-42) %>% 
   mutate(reported = as.Date(mdy(date_reported_dph))) %>% 
@@ -1223,7 +1227,7 @@ elr9histo <- elr %>%
   ungroup()# %>% 
   #filter(tat <=15)
 
-
+#22. Test TurnAround Time(TAT) Histogram
 ggplot(elr9histo)+
   geom_col(aes(tat, test, fill = tat), width=1, col = "black")+
   geom_vline(xintercept = 2, linetype = "longdash")+
@@ -1234,7 +1238,7 @@ ggplot(elr9histo)+
     title = "Test Turnaround Time",
     subtitle = paste0(format(end_date-20, format="%b %d"),"-",format(end_date-7, format="%b %d")),
     y = "Number of Tests",
-    x = "TAT, days"   
+    x = "Test TurnAround Time(TAT), days"   
        )
 
 elr9medweek <- elr %>% 
@@ -1264,7 +1268,7 @@ kable(elr9medweek )
 ```
 
 
-##Slide 10 - Syndromic Surveillance
+## Syndromic Surveillance
 ```{r slide 10, echo = FALSE}
 clipath <- paste0(dir, "/sys_here/cli_state")
 clifiles <- list.files(clipath, ".xlsx", full.names = T)
@@ -1310,6 +1314,7 @@ combline <- comb %>%
   mutate(weekenddate = factor(weekenddate)) %>% 
   unique()
 
+#23. Percentage (%) of ILI and CLI-related Hospital ED Visits
 ggplot(combline)+
   geom_line(aes(weekenddate, weekperc, col = ccdd, group = ccdd), size = 1)+
   scale_color_brewer(palette = "Dark2")+
@@ -1339,6 +1344,7 @@ combline2 <- comb %>%
   mutate(weekenddate = factor(weekenddate)) %>% 
   unique()
 
+#24. Percentage (%) of ILI and CLI-related Hospital ED Visits
 ggplot(combline2)+
   geom_line(aes(weekenddate, weekperc, col = ccdd, group = ccdd), size = 1)+
   scale_color_brewer(palette = "Dark2")+
@@ -1387,7 +1393,7 @@ kable(systable )
 
 ```
 
-##Slide 16 - hospitalizations + Deaths
+##Hospitalizations + Deaths
 
 
 ```{r slide 16, echo = FALSE}
@@ -1418,7 +1424,7 @@ filter((epiweek(date) == epiweek(Sys.Date()) & epiyear(date) == epiyear(Sys.Date
     (epiweek(date) == epiweek(Sys.Date()-84) & epiyear(date) == epiyear(Sys.Date()-84)) #thisweek-12
     )
 ##################################
-
+#25. COVID-19 Hospital Census - county-wise
 ggplot(cha_cty)+
   geom_line(aes(x=date, y=avgcount7, color=County), size=2)+
   scale_color_brewer(palette= "Paired")+
@@ -1477,7 +1483,7 @@ filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) | #thisweek -
   group_by(year, week)%>%
   mutate(percent = paste0(round(n/sum(n)*100, 0), "%"))
 
-
+#26. COVID-19 Deaths per Week of Death
 ggplot(deathavg_wk, aes(date, n, group=cong_yn))+
   geom_col(aes(fill=cong_yn))+
   #geom_text(aes(label=percent), position=position_stack(vjust=0.5), size = 2.75)+
@@ -1494,6 +1500,7 @@ ggplot(deathavg_wk, aes(date, n, group=cong_yn))+
    subtitle = paste0("n = ", sum(deathavg_wk$n))
   )
 
+#27. COVID-19 Deaths per Week of Death - 3 month period
 ggplot(deathavg_wk1, aes(date, n, group=cong_yn))+
   geom_col(aes(fill=cong_yn))+
   geom_text(aes(label=percent), position=position_stack(vjust=0.5), size = 2.75)+
@@ -1559,7 +1566,7 @@ filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) | #thisweek -
   group_by(year, week)%>%
   mutate(percent = paste0(round(n/sum(n)*100, 0), "%"))
 
-
+#28. COVID-19 Deaths per Week of Specimen Collection
 ggplot(deathavg_wk_speccoldate, aes(date, n, group=cong_yn))+
   geom_col(aes(fill=cong_yn))+
   #geom_text(aes(label=percent), position=position_stack(vjust=0.5), size = 2.75)+
@@ -1576,6 +1583,7 @@ ggplot(deathavg_wk_speccoldate, aes(date, n, group=cong_yn))+
    subtitle = paste0("n = ", sum(deathavg_wk_speccoldate$n))
   )
 
+#29. COVID-19 Deaths per Week of Specimen Collection - 3 month period
 ggplot(deathavg_wk1_speccoldate, aes(date, n, group=cong_yn))+
   geom_col(aes(fill=cong_yn))+
   geom_text(aes(label=percent), position=position_stack(vjust=0.5), size = 2.75)+
@@ -1591,10 +1599,6 @@ ggplot(deathavg_wk1_speccoldate, aes(date, n, group=cong_yn))+
    title = "COVID-19 Deaths per Week of Specimen Collection",
    subtitle = paste0("n = ", sum(deathavg_wk1_speccoldate$n))
   )
-
-
-
-
 
 kable(weeklydeaths )
 ```
@@ -1638,7 +1642,7 @@ highincidence$week <- factor(highincidence$week, levels = highincidence$week[ord
 newlondon <- highincidence %>% 
   filter(COUNTY=="New London County")
 
-
+#30. Towns with average 15+ cases per day in New London County
 ggplot(newlondon)+
   geom_line(aes(x=week, y=rate14, color=NAME, group=NAME), size=2)+
    geom_hline(aes(yintercept=15), size=1, linetype="dotted")+
@@ -1651,6 +1655,7 @@ ggplot(newlondon)+
     color="Town"
   )
 
+#31.Towns with average 15+ cases per day in Hartford & Windham Counties
 hartfordwindham <- highincidence %>% 
   filter(COUNTY %in% c("Hartford County", "Windham County"))
 ggplot(hartfordwindham)+
@@ -1665,6 +1670,7 @@ ggplot(hartfordwindham)+
     color="Town"
   )
 
+#32. Towns with average 15+ cases per day in New Haven and Fairfield Counties
 newhavenfairfield <- highincidence %>% 
   filter(COUNTY %in% c("Fairfield County", "New Haven County"))
 ggplot(newhavenfairfield)+
@@ -1695,7 +1701,7 @@ filter(
 bigtowns <- bigtowns[order(bigtowns$year, bigtowns$week),]
 bigtowns$week <- factor(bigtowns$week, levels = bigtowns$week[order(bigtowns$year, bigtowns$week)], labels = bigtowns$week[order(bigtowns$year, bigtowns$week)])
 
-##############################
+#33. 14-day average daily incidence in large towns
 ggplot(bigtowns)+
   geom_line(aes(x=week, y=rate14, color=NAME, group=NAME), size=2)+
   geom_hline(aes(yintercept=15), size=1, linetype="dotted")+
