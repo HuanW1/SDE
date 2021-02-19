@@ -48,10 +48,16 @@ No_DOC_young <-  final %>%
   filter(!eventid %in% Match_wLOF$eventid & (intoms ==1 | disposition == "Yes") & match_LOF != "DOC" & age <65)
 
 #write_csv(sub1, "roster_FLIS_match.csv")
-write_csv(DOC, paste0(Sys.Date(),"nancy_doc.csv"))
-write_csv(No_DOC_Old, paste0(Sys.Date(),"loc_determination.csv"))
-write_csv(No_DOC_young, paste0(Sys.Date(),"manual_review.csv"))
-write_csv(final, paste0(Sys.Date(),"BIGcong_review.csv"))
+todaydir <- paste0("L://Cong//", Sys.Date())
+if(dir.exists(todaydir)) {
+  dir.create(todaydir)
+}
+
+
+write_csv(DOC, paste0(todaydir, "//", Sys.Date(),"nancy_doc.csv"))
+write_csv(No_DOC_Old, paste0(todaydir, "//", Sys.Date(),"loc_determination.csv"))
+write_csv(No_DOC_young, paste0(todaydir, "//", Sys.Date(),"manual_review.csv"))
+write_csv(final, paste0(todaydir, "//", Sys.Date(),"BIGcong_review.csv"))
 
 
 Match_wLOF_roster <- Match_wLOF %>% 
@@ -75,4 +81,4 @@ Match_wLOF_roster <- Match_wLOF %>%
          `Facility Name` = nickname
          ) 
 
-write_csv(Match_wLOF_roster, paste0(Sys.Date(),"roster_FLIS_match.csv"))
+write_csv(Match_wLOF_roster, paste0(todaydir, "//", Sys.Date(),"roster_FLIS_match.csv"))
