@@ -9,7 +9,7 @@ zips <-
   search_state(state_abb = "CT") %>%
   select(zipcode, zipcity = major_city)
 
-ct_boros <- read_csv(boro_file)
+ct_boros <- read_csv("boros_list.csv")
 # 100+ connecticut boros and towns
 
 
