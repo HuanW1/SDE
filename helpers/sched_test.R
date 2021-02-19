@@ -1,3 +1,4 @@
+started_time <- Sys.time()
 require(rmarkdown)
 require(tidyverse)
 require(sf)
@@ -12,7 +13,7 @@ require(english)
 require(flextable)
 require(DBI)
 
-started_time <- Sys.time()
+graphdate <- Sys.Date() - 1
 
 con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
 log_data <- DBI::dbGetQuery(conn = con2 ,
@@ -20,6 +21,9 @@ log_data <- DBI::dbGetQuery(conn = con2 ,
 log_data
 odbc::dbDisconnect(con2)
 
+logged_update_date <- log_data$UpdatedDate
+
+if(logged_update_date < lubridate::today()) warning("No new data")
 
 #### setting report dow options ####
 # change for thanksgiving
@@ -45,6 +49,10 @@ if (monthsame) {
     format(thursday_range_end, "%d")
   )
 }
+
+#### setting what we write out ####
+csv_write <- FALSE
+SQL_write <- FALSE
 
 
 ## ----declare_functions, include=FALSE------------------------------------------------------------------------------------
@@ -190,6 +198,8 @@ subdat2 <- st_read('L:/daily_reporting_figures_rdp/shape_files',
 subdat2 <- st_transform(subdat2,"+init=epsg:4326")
 subdat3 <- subdat2
 
+started_pull <- Sys.time()
+
 con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 # dbListFields(con2, SQL("DPH_COVID_IMPORT.dbo.CTEDSS_DAILY_REPORT_ALL_Cases"))
@@ -209,6 +219,8 @@ statement <-
          FROM [DPH_COVID_IMPORT].[dbo].[CTEDSS_DAILY_REPORT_ALL_Cases]")
 
 raw_cases <- DBI::dbGetQuery(conn = con2 , statement = statement)
+
+if(nrow(raw_cases) != log_data$Case_Rows) message("Cases are off")
 
 statement <-
   paste0(
@@ -235,10 +247,28 @@ statement <-
 
 raw_tests <-  DBI::dbGetQuery(conn = con2 , statement = statement)
 
+if(nrow(raw_tests) != log_data$Test_Rows) message("Tests are off")
+
+
 odbc::dbDisconnect(con2)
+
+finished_pull <- Sys.time()
+
+
 cases_dim <- dim(raw_cases)
 tests_dim <- dim(raw_tests)
 
+timey <- Sys.time()
+timey <- gsub(pattern = " |:", replacement = "-", x = timey)
+
+save(started_time,
+     finished_pull,
+     cases_dim,
+     tests_dim,
+     file = paste0("l:/quick_summary_", timey, ".RData" ))
+
+
+started_df <- Sys.time()
 
 ## ----df_creation--------------------------------------------------------
 df <-  left_join(raw_cases, raw_tests, by = c("eventid"))
@@ -333,7 +363,6 @@ df <-
 df <- df %>%
   left_join(cc_map %>% rename(county=COUNTY), by = c("city" = "CITY"))
 
-endend_time <- Sys.time()
 
 
 ## ----multi_and_beyond----------------------------------------------------------------------------------------------------
@@ -413,22 +442,23 @@ df <-
 
 #setting confirmed with no +pcr or blank pcr results to suspect at the top here and then the rest of the checks will pop them in their proper category should they be picked up again
 
-#leave folks who are covid_death = Yes and their disease status %in% Confirmed, Probable alone, except probables should be able to be upped to conf if applicable
+# leave folks who are covid_death = Yes and their disease status %in% Confirmed,
+# Probable alone, except probables should be able to be upped to conf
+# if applicable
+
 untouchable_conf <- df %>%
   filter(outcome == "Died" & disease_status == "Confirmed") %>%
   select(eventid) %>%
   distinct()
-# count(untouchables, disease_status)
-# count(untouchables, covid_death)
 
-#suspect who should be probable based on ocmeid and covid_death = yes
+# suspect who should be probable based on ocmeid and covid_death = yes
 ocmeprob <- df %>%
   filter(disease_status == "Suspect" & !is.na(ocmeid) & covid_death == "YES") %>%
   select(eventid) %>%
   distinct()
 
 
-#currently not much going on with this object here, but maybe down the line
+# currently not much going on with this object here, but maybe down the line
 mostly_untouchable_prob <- df %>%
   filter(outcome == "Died" & disease_status == "Probable") %>%
   select(eventid) %>%
@@ -460,29 +490,29 @@ conf_bad_result <- df %>%
 df$disease_status[df$eventid %in% conf_bad_result$eventid] <- "Suspect" #conf to suspect
 
 pcr_not_confirmed <- df %>%
-  filter(state == "CT"| is.na(state)) %>%
+  filter(state == "CT" | is.na(state)) %>%
   filter(test %in% pcrtests & !disease_status %in% c("Confirmed", "Not a case") & result == "detected") %>%
   select(eventid) %>%
-  unique()
+  distinct()
 
 pcr_confirmed <- df %>%
-  filter(state == "CT"| is.na(state)) %>%
+  filter(state == "CT" | is.na(state)) %>%
   filter(test %in% pcrtests & result == "detected") %>%
   select(eventid) %>%
-  unique()
+  distinct()
 
 ag_probable <- df %>%
   filter(!eventid %in% pcr_confirmed$eventid) %>%
-  filter(state == "CT"| is.na(state)) %>%
+  filter(state == "CT" | is.na(state)) %>%
   filter(test %in% agtests & !disease_status %in% c("Probable") & result == "detected") %>%
   select(eventid) %>%
-  unique()
+  distinct()
 
 df_suspect <- df %>%
   filter(disease_status == "Suspect") %>%
   filter(state == "CT"| is.na(state))
 
-two_or_more_symps <- df_suspect%>%
+two_or_more_symps <- df_suspect %>%
   select(eventid, disease_status, fever, chills, rigors, myalgia, headache, sorethroat, new_olfact_taste) %>%
   pivot_longer(-c(eventid, disease_status), names_to = "symptom", values_to = "symp_pres") %>%
   filter(symp_pres == "Yes") %>%
@@ -490,7 +520,7 @@ two_or_more_symps <- df_suspect%>%
   tally() %>%
   filter(!disease_status %in% c("Confirmed", "Probable")  & n >= 2) %>%
   select(eventid) %>%
-  unique()
+  distinct()
 
 one_of_symps <- df_suspect %>%
   select(eventid, disease_status, cough, sob, ards, pneumonia) %>%
@@ -500,11 +530,11 @@ one_of_symps <- df_suspect %>%
   tally() %>%
   filter(!disease_status %in% c("Confirmed", "Probable")) %>%
   select(eventid) %>%
-  unique()
+  distinct()
 
 suspect_probable <- df_suspect %>%
-  filter((eventid %in% one_of_symps$eventid|eventid %in% two_or_more_symps$eventid)) %>%
-  unique()
+  filter((eventid %in% one_of_symps$eventid | eventid %in% two_or_more_symps$eventid)) %>%
+  distinct()
 
 df <- df %>%
   mutate(disease_status = ifelse(eventid %in% ocmeprob$eventid, "Probable", disease_status)) %>%  #ocmeid + covid_death = yes, setting disease status to probable
@@ -512,21 +542,21 @@ df <- df %>%
   mutate(disease_status = ifelse(eventid %in% ag_probable$eventid,  "Probable", disease_status)) %>%  #AG postives not already probable changed to Probable
   mutate(disease_status = ifelse(eventid %in% suspect_probable$eventid, "Probable", disease_status))
 
+rm(df_suspect)
+gc()
 
-
-endend_time <- Sys.time()
+# endend_time <- Sys.time()
+finished_df <- Sys.time()
 
 df_dim <- dim(df)
 
 timey <- Sys.time()
 timey <- gsub(pattern = " |:", replacement = "-", x = timey)
 
-save(started_time,
-     endend_time,
-     cases_dim,
-     tests_dim,
+save(started_df,
+     finished_df,
      df_dim,
-     file = paste0("l:/quick_summary_", timey, ".RData" ))
+     file = paste0("l:/df_creation_", timey, ".RData" ))
 
 save(df,
      file = paste0("l:/current_data_", timey, ".RData" ))
@@ -550,8 +580,565 @@ if(current_count != nrow(DeathUnder20)) {
   warning("Deaths Under 20 changed")
 }
 
+
+
+######case pt 1############
+case <- df %>%
+  filter(disease_status == "Confirmed"  | disease_status == "Probable") %>%
+  filter(state == "CT" | is.na(state)) %>%
+  mutate(
+    date = case_when(
+      disease_status %in% c("Confirmed", "Probable") & !is.na(spec_col_date) ~ spec_col_date,
+      disease_status %in% c("Confirmed", "Probable") & is.na(spec_col_date) ~ event_date,
+      TRUE ~ NA_Date_
+    )) %>%
+  filter(date > ymd("2020-03-01") &
+           date <= today()) %>%
+  mutate(
+    week = epiweek(date),
+    year = epiyear(date),
+    mmwrweek = epiweek(date), #setting to date so it works for now
+    simple_result = ifelse(
+      result == "detected",
+      1,2
+    ),
+    pcrtest = ifelse(test %in% pcrtests, 1, 2)
+  ) %>%
+  mutate(cong_yn = if_else(
+    cong_exposure_type ==  "Reside" &
+      (cong_setting== "JAIL" | cong_setting == "LTCF"| cong_setting == "ALF" ),
+    "Yes", "No", missing = "No")) %>%
+  group_by(bigID) %>%
+  arrange(simple_result,pcrtest,date) %>% # detected, first priority, and then the pcr test or ag if no pcr, then earliest date, date is spec_col_Date for tests with that or eventdate if none listed or is a non ag+ prob
+  slice(1L) %>%
+  ungroup()
+
+#Outcome and Covid Death Cleanup
+#case$covid_death[case$eventid %in% untouchable_conf$eventid] <- "YES"  pulls in too many wrong.
+case$covid_death[is.na(case$outcome) & case$covid_death == "NO" | case$covid_death == "UNKNOWN"] <- NA
+case$outcome[case$covid_death == "NO" | is.na(case$covid_death)] <- NA
+case$outcome[case$outcome == "Unknown"] <- NA
+case$outcome[case$covid_death == "YES"] <- "Died"
+case$death_date[is.na(case$covid_death) | case$covid_death == "NO"] <- NA
+
+thursday_case <- case %>%
+  filter(date >= thursday_range_start & date <= thursday_range_end )
+
+#count(case, hisp_race2)
+case2 <- case %>%
+  select(-phone) %>%
+  select(eventid,disease_status, age, gender, city, county, state, hisp_race, race, hisp,hospitalized, admit_date, discharge_date, icu, preg, symptoms, symp_onset_date, spec_col_date, fever, fatigue, sob, headache, cough, myalgia, new_olfact_taste, rigors, pneumonia, ards, outcome, death_date, healthcare_worker, cong_setting, cong_exposure_type, cong_facility, cong_yn, case_create_date, event_date, mmwrweek)
+
+if (csv_write) {
+  dir.create(paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date()))
+  write_csv(case2,
+            paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(),
+                   "/", Sys.Date(), "cases.csv"))
+}
+
+rm(case2)
+
+if (SQL_write) {
+  #  df_to_table()
+}
+
+
+case3 <- case %>%
+  select(eventid,fname, lname, dob, phone, disease_status, age, gender, street, city, county, state, hisp_race, race, hisp,hospitalized, admit_date, discharge_date, icu, preg, symptoms, symp_onset_date, spec_col_date, fever, fatigue, sob, headache, cough, myalgia, new_olfact_taste, rigors, pneumonia, ards, outcome, covid_death, vrn, ocme_reported, ocmeid, death_date, healthcare_worker, cong_setting, cong_exposure_type, cong_facility,cong_yn, case_create_date, event_date, test, result, lab_name, mmwrweek)
+
+if(csv_write){
+  write_csv(case3, paste0("L:/daily_reporting_figures_rdp/csv/",
+                          Sys.Date(),"/", Sys.Date(), "cases_wphi.csv"))
+}
+
+rm(case3)
+
+case <- case %>%
+  select(-phone)
+cdc_numbers <- case %>%
+  group_by(disease_status) %>%
+  tally(name = "Cases") %>%
+  left_join(
+    case %>%
+      filter(outcome == "Died") %>%
+      group_by(disease_status) %>%
+      tally(name = "Deaths"),
+    by = c('disease_status' = 'disease_status')
+  )
+
+if(csv_write) {
+  write_csv(cdc_numbers,
+            paste0("L:/daily_reporting_figures_rdp/csv/",
+                   Sys.Date(), "/",  Sys.Date(), "cdc_numbers.csv")) #who actually uses this?
+}
+
+pendingaddress_text <- case %>%
+  filter(is.na(county) & disease_status %in% c("Confirmed", "Probable")) %>%
+  group_by(county) %>%
+  tally() %>%
+  select(n)
+
+thursday_pending_address <- thursday_case %>%
+  filter(is.na(county) & disease_status %in% c("Confirmed", "Probable")) %>%
+  group_by(county) %>%
+  tally() %>%
+  select(n)
+
+dim(thursday_pending_address)
+
+outstatecolleges <- c(
+  "Afc Bryn Mawr College",
+  "American University Student",
+  "American Unviersity Student Health Center",
+  "Amherst College",
+  "Anna Maria College",
+  "Arcadia University",
+  "Assumption University",
+  "Babson College",
+  "Bank Street College",
+  "Bard College At Simon's Rock",
+  "Barnard College",
+  "Bay Path University",
+  "Bentley University",
+  "Boston College",
+  "Brandeis University",
+  "Brandeis University Admissions",
+  "Brandeis University Heller",
+  "Bridgewater State University",
+  "Bryant University",
+  "Campbell University Health",
+  "Cc-University of San Diego",
+  "Champlain College",
+  "Chapman University",
+  "Clark University",
+  "Clark University Bts",
+  "Clarkson University",
+  "Coastal Carolina University",
+  "Colby College",
+  "College of the Atlantic",
+  "College of the Holy Cross",
+  "Columbia Univ Hlth Svcs",
+  "Columbia University",
+  "Columbia University- Medical",
+  "Columbia University MC I/F",
+  "Crh/emory University",
+  "Curry College",
+  "Curry Colllege",
+  "Drexel University Student Hlth",
+  "Duke University Screening",
+  "Duquesne University-Student",
+  "Elms College",
+  "Elon University",
+  "Embry Riddle Aeronautical Univ",
+  "Emerson College",
+  "Fisher College",
+  "Fitchburg State University",
+  "Fl Gulf Coast University",
+  "Fordham Bronx Employees",
+  "Fordham Bronx Students",
+  "Fordham University",
+  "Framingham State University",
+  "Frostburg State Univ",
+  "George Mason University",
+  "Gordon College Medical center",
+  "Hamilton College",
+  "Hampshire College",
+  "Health Ctr Landmark College",
+  "High Point University Student",
+  "Hobart And William Smith Colleges",
+  "Hoboken University Medical Ctr",
+  "Husson University",
+  "Interlochen Arts Academy",
+  "James Madison University",
+  "Johnson And Wales University",
+  "Keene State-Bts",
+  "La Salle University",
+  "Lasell University",
+  "Liberty Univ Student Health Ctr",
+  "Lincoln Center Employees",
+  "Lincoln Center Students",
+  "Manhattan College Health Services",
+  "Manhattanville College",
+  "Massachusetts College of Art And Design",
+  "Massachusetts College of Liberal Arts",
+  "Massachusetts Institute of Technology",
+  "Massbio - Mattapan",
+  "McDaniel College",
+  "McPhs-Boston",
+  "McPhs-Manchester",
+  "McPhs-Worcester",
+  "Medexpress - State College",
+  "Medical Univ of South Carolina",
+  "Merrimack College",
+  "Messiah College Health Center",
+  "Middlebury College",
+  "Mount Holyoke College",
+  "Mount Saint Mary College",
+  "Nichols College",
+  "Northeastern University Health And Counseling Services",
+  "Northwestern Univ Hlth Serv",
+  "Norwich University",
+  "Notre Dame At Home",
+  "Nys - Niagra County Community College",
+  "Nys - Rochester Monroe Community College",
+  "Providence College",
+  "Psu-Covid University Park",
+  "Reed College Health and Counseling Center",
+  "Regis College",
+  "Rhode Island School of Design",
+  "Roger Williams University",
+  "Rwu Providence Campus",
+  "Salem State Staff",
+  "Salem State University",
+  "Seton Hill University",
+  "Simmons University",
+  "Smith College",
+  "Springfield College",
+  "St Olaf College",
+  "St Louis University",
+  "St. Thomas More",
+  "Stonehill College",
+  "Stony Brook University Student Health Center",
+  "Suffolk University",
+  "Suffolk University Sargent",
+  "Suffolk University Sawyer",
+  "Suny Maritime College",
+  "Swathmore College",
+  "Syracuse Univ Hlth Srvc",
+  "the Catholic Univ of America",
+  "the University of Vermont Medical Center",
+  "Temple Univ Health Services",
+  "Tuftsuemp (Marathon Health)",
+  "Tuftsugst (Oehn-Provider1)",
+  "Tuftsumst (Student Health Services)",
+  "Tuftsuvnd (Oehn-Provider2)",
+  "Umass Memorial",
+  "Umass University Campus",
+  "Umass University Health",
+  "University of Lynchburg",
+  "University of Maryland",
+  "University of Massachusetts Amherst",
+  "University of Massachusetts Amherst Springfield Center",
+  "University of Massachusetts Boston",
+  "University of Massachusetts Dartmouth",
+  "University of Massachusetts Medical School",
+  "University of Michigan Health System",
+  "University of Missouri-Department of Pathology",
+  "University of Rhode Island",
+  "University of Scranton",
+  "University of Tampa",
+  "University of Vermont",
+  "Villanova University",
+  "Villanova University Shc",
+  "Wake Forest University Student Health Services",
+  "Wagner College",
+  "Washington College Hlth Serv",
+  "Wellesley College",
+  "Westfield State University",
+  "Wheaton College",
+  "Williams College",
+  "Worcester Polytechnic Institute",
+  "Worcester State University"
+)
+
+outstate<-filter(df, auth_facility %in% outstatecolleges)
+
+elr <-   df %>%
+  rename(
+    test_method = test,
+    lab_result_create_date = investigation_create_date,
+    lab_result_mod_date = investigation_mod_date,
+    #ordering_lab = `Ordering Lab Facility`, this missing?
+    lab_facility = facility_name,
+    #name = lab_name,
+    spec_rec_date = spec_rec_date,
+    date_tested = tested_date,
+    date_reported_dph = result_rpt_date,
+  ) %>%
+  filter(!is.na(test_method)) %>% # filter our blank tests (captured later on in the in statements but cant hurt to have less data now)
+  filter(!is.na(result)) %>% # filter out blank results
+  filter(!auth_facility %in% outstatecolleges) %>%
+  select(-c( admit_date, ards, chills,  cong_exposure_type, cong_facility, cong_setting, cough, covid_death, death_date, discharge_date, fatigue, fever, headache, healthcare_worker, hisp, hospitalized, icu, myalgia, new_olfact_taste, outcome,  preg, race, sob, sorethroat, rigors)) %>%
+  filter(state == "CT" | is.na(state)) %>%  #keep ct or blank state
+  filter(test_method %in% pcrtests| test_method %in% agtests) %>%  #keep only test methods we care about
+  mutate( #new test var to distinct upon
+    pcrag  = ifelse(test_method %in% pcrtests,
+                    "pcr",
+                    "ag"
+    )
+  ) %>%
+  distinct(
+    eventid, pcrag, spec_col_date, result, spec_num, .keep_all = TRUE
+  ) %>%
+  distinct(
+    eventid, pcrag, spec_col_date, result, source, .keep_all = TRUE
+  ) %>%
+  distinct(
+    pcrag, fname, lname,  dob, spec_col_date, spec_num, result, .keep_all = TRUE
+  ) %>%
+  distinct(
+    pcrag, fname, lname, dob, spec_col_date, source, result, .keep_all = TRUE
+  ) #%>%
+#rename(zipcode = 'Postal Code')
+
+elr_linelist <- elr
+elr_linelist_elronly <-  elr_linelist %>%
+  filter(new_elr_result == "YES") #%>%
+# mutate(result = ifelse(
+#     result %in% c("not detected", "indeterminate"),
+#     "Not Positive", "Positive" ) )
+number_of_elr <- elr_linelist_elronly %>%
+  filter(test_method %in% pcrtests) %>%
+  nrow()
+
+total_pcr_tests <- nrow(elr %>%  filter(test_method %in% pcrtests))  # change to PCR only and change name
+total_ag_tests <- nrow(elr %>%  filter(test_method %in% agtests))
+
+elr <- elr %>%
+  group_by(spec_col_date, result) %>%
+  tally()
+missing_spec_date <- sum(elr$n[is.na(elr$spec_col_date)])
+pos_tests <- sum(elr$n[elr$result == "detected"])
+neg_tests <- sum(elr$n[elr$result == "not detected"])
+total_tests_thursday <- elr %>% filter(spec_col_date >= thursday_range_start & spec_col_date <= thursday_range_end) %>% mutate(j=1) %>%  group_by(j) %>%  summarize(n = sum(n)) %>% select(n)
+total_tests_thursday <-total_tests_thursday$n
+pos_tests_thursday <- elr %>% filter(result == "detected" & spec_col_date >= thursday_range_start & spec_col_date <= thursday_range_end) %>% group_by(result) %>%  summarize(n = sum(n)) %>% select(n)
+pos_tests_thursday <- pos_tests_thursday$n
+neg_tests_thursday <- elr %>% filter(result == "not detected" & spec_col_date >= thursday_range_start & spec_col_date <= thursday_range_end) %>% group_by(result) %>%  summarize(n = sum(n)) %>% select(n)
+neg_tests_thursday <- neg_tests_thursday$n
+
+# write_csv(elr_linelist,
+#           paste0("L:/daily_reporting_figures_rdp/elr_linelists/elr_linelist",
+#                  Sys.Date(),
+#                  ".csv")
+#           )
+
+if(csv_write) {
+  data.table::fwrite(elr_linelist,
+                     paste0("L:/daily_reporting_figures_rdp/elr_linelists/elr_linelist",
+                            Sys.Date(),
+                            ".csv"),
+                     buffMB = 16,
+                     nThread = 4,
+                     verbose = FALSE,
+                     showProgress = FALSE)
+}
+
 rm(df)
+
+save(elr_linelist,
+     file = paste0("l:/current_elr_linelist_", timey, ".RData" ))
+
+rm(elr)
 gc()
+
+cha_c <- cha %>%
+  filter(Type == "Admit") %>%
+  select(-Type) %>%
+  rename(NAME=County )
+cols <- ncol(cha_c)
+cha_c <- cha_c %>%
+  rename( today= cols-1,
+          yesterday = cols-2) %>%
+  mutate(sign = ifelse(
+    Change>=0,
+    "+",
+    "-"
+  ),
+  Change = abs(Change)
+  )
+num_groups <- c("None", "1 to 5", "6 to 10", "11 to 25", "26 to 50", "51 to 100", "101 to 200", "201 to 500", "501 to 1000", "1001 to 5000")
+cha_c <- cha_c %>%
+  mutate(
+    ngrp = cut(today, breaks = c(-Inf,0,5,10,25,50,100,200,500,1000, Inf), labels = num_groups )
+  )
+subdat2 <- subdat2 %>%
+  left_join(
+    cha_c, by = c("NAME" = "NAME")
+  )
+case_m <- case %>%
+  mutate(NAME = str_to_title(city)) %>%
+  group_by(NAME) %>%
+  tally() %>%
+  complete(NAME = unique(town_pop18$city), fill = list(n = 0))
+case_m$n[is.na(case_m$n)] <- 0
+num_groups <- c("0 to 5", "6 to 50", "51 to 100", "101 to 200", "201 to 500", "501 to 1000", "1001 to 5000", ">5000")
+case_m <- case_m %>%
+  mutate(
+    n = cut(n, breaks = c(-Inf,5,50,100,200,500,1000, 5000, Inf), labels = num_groups )
+  )
+subdat <- subdat %>%
+  left_join(
+    case_m, by = c("NAME" = "NAME")
+  )
+subdat$n[is.na(subdat$n)] <- "None"
+subdat <- subdat %>%
+  mutate(
+    n=factor(n, levels = num_groups, labels = num_groups)
+  )
+num_groups2 <- c("None", "1 to 5", "6 to 50", "51 to 100", "101 to 200", "201 to 500", "501 to 1000", "1001 to 5000", "5001 to 10000", "10001 to 25000", "Greater than 25000")
+cuml_cols <- ncol(cha)-2
+cha_cuml <- cha %>%
+  filter(Type == 'CumAdmit')
+cha_cuml <- cha_cuml[c(1:3,cuml_cols)] %>%
+  replace_na(replace = list(County = "TOTAL"))
+names(cha_cuml)[length(names(cha_cuml))] <- "yesterday"
+cha_cuml <- cha_cuml%>%
+  mutate(
+    cmlgrp = cut(yesterday, breaks = c(-Inf,0,5,50,100,200,500,1000, 5000, 10000, 25000, Inf), labels = num_groups2)
+  )
+subdat3 <- subdat3 %>%
+  left_join(
+    cha_cuml, by =c("NAME" = "County")
+  )
+
+today_text <- format(graphdate, "%B %d, %Y")
+cases_text <- nrow(case)  # for now
+confirmed_text <- nrow(case %>%  filter(disease_status == "Confirmed"))
+probable_text <- nrow(case %>% filter(disease_status == "Probable"))
+hosp_text <- str_to_sentence(as.english(cha_c$today[cha_c$State =='TOTAL']))  # for now
+dec <- case %>% filter(outcome == 'Died') %>% nrow()
+deaths_text <- str_to_sentence(as.english(dec))  # for now
+
+if(exists('fake_yesterday')){
+  hospitalized_totals <-  cha_c %>%  filter(State== "TOTAL") %>% select(today)
+  discharged_totals <- cha %>%
+    filter(Type == "Discharge") %>%
+    select(-Type)
+  cols2 <- ncol(discharged_totals)
+  discharged_totals <- discharged_totals %>%
+    rename( today= cols2-1,
+            yesterday = cols2-2) %>%
+    filter(State== "TOTAL") %>%
+    select(today)
+  tbl_summary <- tibble(
+    'Overall Summary' = c(
+      "COVID-19 Cases (confirmed and probable)",
+      "COVID-19 Tests Reported (molecular and antigen)",
+      "Daily Test Positivity*",
+      "Patients Currently Hospitalized with COVID-19",
+      "COVID-19-Associated Deaths"
+    )
+  )
+
+  ncases <- nrow(case)
+  ntests <- nrow(elr_linelist)
+
+  tbl_total <-  tibble(
+    "Total**" = c(
+      ncases,
+      ntests,
+      round(ncases/ntests*100,2),
+      hospitalized_totals,
+      dec
+    )
+  )
+  tbl_total$`Total**` <- as.character(tbl_total$`Total**`)
+  tbl_total[3,] <- ""
+
+  chg_yst <- tibble("Change Since Yesterday" = c('+0','+0','0%','+0', '+0'))
+  ovlsum <- bind_cols(tbl_summary, tbl_total, chg_yst)
+
+  tableforgary <- ovlsum
+
+  if(csv_write) {
+    dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
+    write_csv(ovlsum,
+              paste0("L:/daily_reporting_figures_rdp/yesterday/",
+                     Sys.Date(), "/", Sys.Date(), ".csv"))
+    # testing new code Feb 1
+  }
+
+  df_to_table(ovlsum, "test_overall_summary", overwrite = TRUE, append = FALSE)
+
+  ovlsum <- regulartable(ovlsum) %>%
+    flextable::autofit()
+  ovlsum <- align_nottext_col(ovlsum,align = "center")
+  ovlsum
+
+} else{
+  hospitalized_totals <-  cha_c %>%  filter(State== "TOTAL") %>% select(today)
+  discharged_totals <- cha %>%
+    filter(Type == "Discharge") %>%
+    select(-Type)
+  cols2 <- ncol(discharged_totals)
+  discharged_totals <- discharged_totals %>%
+    rename( today= cols2-1,
+            yesterday = cols2-2) %>%
+    filter(State== "TOTAL") %>%
+    select(today)
+
+  tbl_summary <- tibble(
+    'Overall Summary' = c(
+      "COVID-19 Cases (confirmed and probable)",
+      "COVID-19 Tests Reported (molecular and antigen)",
+      "Daily Test Positivity*",
+      "Patients Currently Hospitalized with COVID-19",
+      "COVID-19-Associated Deaths"
+    )
+  )
+
+  ncases <- nrow(case)
+  ntests <- nrow(elr_linelist)
+
+  tbl_total <-  tibble(
+    "Total**" = c(
+      ncases,
+      ntests,
+      0,#round(ncases/ntests*100,2),
+      hospitalized_totals,
+      dec
+    )
+  )
+  tbl_total$`Total**` <- as.double(tbl_total$`Total**`)
+
+  chg_yst <- read_csv(paste0("L:/daily_reporting_figures_rdp/yesterday/",Sys.Date() - 1, "/", yesterday_file)) %>%
+    select(`Total**`) %>%
+    rename(yesterday = `Total**`) %>%
+    bind_cols(tbl_total) %>%
+    mutate(
+      `Total**` =as.double(`Total**`),
+      sign = ifelse(`Total**`>= yesterday, "+", "-"),
+      delta = abs(`Total**` - yesterday),
+      'Change Since Yesterday' = paste0(sign, delta)
+    ) %>%
+    select('Change Since Yesterday')
+  chg_yst[3,] <- paste0(round(as.double(chg_yst[1,])/as.double(chg_yst[2,])*100,2), "%")
+
+
+
+  tbl_total$`Total**` <- as.character(tbl_total$`Total**`)
+  tbl_total[3,] <- ""
+  ovlsum <- bind_cols(tbl_summary, tbl_total, chg_yst)
+  tableforgary <- ovlsum
+  cha_stats <-  bind_cols(tbl_summary, tbl_total) %>%
+    rename(summary = `Overall Summary`, total = `Total**`)
+
+  if(csv_write) {
+    dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
+    write_csv(ovlsum,
+              paste0("L:/daily_reporting_figures_rdp/yesterday/",
+                     Sys.Date(), "/", Sys.Date(), ".csv"))
+  }
+
+  ovlsum <- regulartable(ovlsum) %>%
+    flextable::autofit()
+  ovlsum <- align_nottext_col(ovlsum,align = "center")
+  ovlsum
+}
+
+ovlsum
+
+timey <- Sys.time()
+timey <- gsub(pattern = " |:", replacement = "-", x = timey)
+
+save(ovlsum,
+     file = paste0("l:/draft_table_", timey, ".RData" ))
+
+endend_time <- Sys.time()
+endend_time
+
+
 
 # janitor::compare_df_cols_same(df, df2)
 # df2 <- structure(list(eventid = "101299413", fname = "suzanne", lname = "dahlberg",
