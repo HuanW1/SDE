@@ -7,7 +7,7 @@ query <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[ODP_StateSummary]")
 ssummary <- DBI::dbGetQuery(conn = con, statement = query)
 
 #filtering for latest records, inserting additional columns into the df and changing the data types - -100000 needs to change once we have valid entries in the table
-yesterday <- ssummary %>%
+new_yesterday <- ssummary %>%
   filter(DateUpdated == Sys.Date() - 2) %>%
   mutate(ReportTime = as.character(Sys.time() -100000),
          Total = as.numeric(Total),
@@ -17,10 +17,10 @@ yesterday <- ssummary %>%
   mutate() %>%
   head(5)
 
-yesterday$SNo <- seq.int(nrow(yesterday))
+new_yesterday$SNo <- seq.int(nrow(new_yesterday))
 
 #creating a table to write the new df
-DBI::dbWriteTable(con, SQL("DPH_COVID_IMPORT.dbo.ODP_TESTYEST"), yesterday, append = FALSE, overwrite = TRUE)
+DBI::dbWriteTable(con, SQL("DPH_COVID_IMPORT.dbo.ODP_TESTYEST"), new_yesterday, append = FALSE, overwrite = TRUE)
 
 today <- tbl_total %>%
   rename(today = "Total**") %>%
@@ -35,24 +35,24 @@ ReportTimes <- DBI::dbGetQuery(conn = con, statement = statement)  %>%
   pull(ReportTime)
 
 statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[ODP_TESTYEST] WHERE ReportTime = '", ReportTimes, "'")
-rm(yesterday)
-yesterday <- DBI::dbGetQuery(conn = con, statement = statement) %>%
+rm(new_yesterday)
+new_yesterday <- DBI::dbGetQuery(conn = con, statement = statement) %>%
   select(SNo, Total) %>%
-  rename(yesterday = Total)
+  rename(new_yesterday = Total)
 
-chg_yst <- today %>%
-  left_join(yesterday, by = "SNo") %>%
+new_chg_yst <- today %>%
+  left_join(new_yesterday, by = "SNo") %>%
   mutate(today = as.numeric(today),
-         yesterday = as.numeric(yesterday),
-         delta = as.character(abs(today - yesterday)),
-         sign = ifelse(today >= yesterday, "+", "-"),
+         new_yesterday = as.numeric(new_yesterday),
+         delta = as.character(abs(today - new_yesterday)),
+         sign = ifelse(today >= new_yesterday, "+", "-"),
          'Change Since Yesterday' = paste0(sign, delta)
   )
 
-chg_yst[3,4] <- paste0(round(as.double(chg_yst[1,2])/as.double(chg_yst[2,2])*100,2), "%")
+new_chg_yst[3,4] <- paste0(round(as.double(new_chg_yst[1,2])/as.double(new_chg_yst[2,2])*100,2), "%")
 
-ovl_sum <- chg_yst %>%
-  select(-c(SNo, yesterday)) %>%
+new_ovl_sum <- new_chg_yst %>%
+  select(-c(SNo, new_yesterday)) %>%
   bind_cols(tbl_summary) %>%
   rename(Measure = "Overall Summary",
          Total = today,
@@ -62,10 +62,10 @@ ovl_sum <- chg_yst %>%
   mutate(DateUpdated = Sys.Date() - 1) %>%
   select(Measure, Total, ChangeDirection, Change, DateUpdated)
 
-summary <- ovl_sum %>%
+new_summary <- new_ovl_sum %>%
   mutate(ReportTime = as.character(Sys.time()),
-         SNo = seq.int(nrow(ovl_sum)))
+         SNo = seq.int(nrow(new_ovl_sum)))
 
-DBI::dbWriteTable(con, SQL("DPH_COVID_IMPORT.dbo.ODP_TESTTODAY"), summary, append = FALSE, overwrite = TRUE)
+DBI::dbWriteTable(con, SQL("DPH_COVID_IMPORT.dbo.ODP_TESTTODAY"), new_summary, append = FALSE, overwrite = TRUE)
 
 odbc::dbDisconnect(con)
