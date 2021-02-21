@@ -18,8 +18,10 @@
 .libPaths(c("L:/library", .libPaths()))
 
 library(tidyverse)			# filter
+library(lubridate)
 library(zipcodeR)
 library(stringdist)
+
 
 #### declare functions ####
 
