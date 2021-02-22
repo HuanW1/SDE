@@ -69,3 +69,21 @@ new_summary <- new_ovl_sum %>%
 DBI::dbWriteTable(con, SQL("DPH_COVID_IMPORT.dbo.ODP_TESTTODAY"), new_summary, append = FALSE, overwrite = TRUE)
 
 odbc::dbDisconnect(con)
+
+
+xxx <-
+  list.files(path = "l:/daily_reporting_figures_rdp/yesterday",
+             recursive = TRUE, pattern = ".csv",
+             full.names = TRUE) %>%
+  str_subset(.,
+             pattern = "avgdailyincidence|old",
+             negate = TRUE) %>% set_names() %>%
+  map_dfr(~ read_csv(.x,
+                     col_types = "cdc"),
+          .id = "file_name") %>%
+  tidyr::separate(col = "file_name",
+                  into = c(NA, NA, NA, "report_date", NA),
+                  sep = "/") %>%
+  mutate(report_date = ymd(report_date),
+         dow_report_date = weekdays(report_date))
+
