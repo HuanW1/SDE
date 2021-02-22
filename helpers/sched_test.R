@@ -21,7 +21,7 @@ log_data <- DBI::dbGetQuery(conn = con2 ,
 log_data
 odbc::dbDisconnect(con2)
 
-logged_update_date <- log_data$UpdatedDate
+logged_update_date <- max(log_data$UpdatedDate)
 
 if(logged_update_date < lubridate::today()) warning("No new data")
 
@@ -220,7 +220,7 @@ statement <-
 
 raw_cases <- DBI::dbGetQuery(conn = con2 , statement = statement)
 
-if(nrow(raw_cases) != log_data$Case_Rows) message("Cases are off")
+if(nrow(raw_cases) != max(log_data$Case_Rows)) message("Cases are off")
 
 statement <-
   paste0(
@@ -247,7 +247,7 @@ statement <-
 
 raw_tests <-  DBI::dbGetQuery(conn = con2 , statement = statement)
 
-if(nrow(raw_tests) != log_data$Test_Rows) message("Tests are off")
+if(nrow(raw_tests) != max(log_data$Test_Rows)) message("Tests are off")
 
 
 odbc::dbDisconnect(con2)
