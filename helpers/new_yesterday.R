@@ -86,4 +86,5 @@ xxx <-
                   sep = "/") %>%
   mutate(report_date = ymd(report_date),
          dow_report_date = weekdays(report_date))
+xxx
 

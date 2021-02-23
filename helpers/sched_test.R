@@ -399,6 +399,22 @@ df <-
 
 # Sys.time()
 
+dq_death_check_table <- df %>%
+  filter(outcome == "Died" | covid_death == "YES")%>%
+  mutate(deaths_under_20 = ifelse(age < 20, 1, 0),
+         death_too_early = ifelse((death_date < "2020-02-01" & !is.na(death_date)), 1, 0),
+         dead_no_town = ifelse(is.na(city), 1, 0),
+         dead_no_date = ifelse(is.na(death_date), 1, 0),
+         dead_no_ocmeid = ifelse((outcome %in% "Died" | covid_death %in% "YES") & is.na(ocmeid), 1, 0),
+         died_not_covid = ifelse((outcome %in% "Died" & covid_death %in% "NO"), 1, 0))%>%
+  distinct(eventid, .keep_all=TRUE)%>%
+  select(eventid, bigID, deaths_under_20, death_too_early, dead_no_town, dead_no_date, dead_no_ocmeid, died_not_covid)%>%
+  filter(deaths_under_20==1 | death_too_early==1 | dead_no_town==1 | dead_no_date==1 | dead_no_ocmeid==1 | died_not_covid==1)
+
+df_to_table(df_name = dq_death_check_table,
+            table_name = "DQ_deathtable",
+            overwrite = TRUE,
+            append = FALSE)
 
 ##########  Death Cleanup     #############
 
@@ -841,7 +857,7 @@ outstatecolleges <- c(
   "Worcester State University"
 )
 
-outstate<-filter(df, auth_facility %in% outstatecolleges)
+outstate <- filter(df, auth_facility %in% outstatecolleges)
 
 elr <-   df %>%
   rename(
@@ -1056,7 +1072,7 @@ if(exists('fake_yesterday')){
   ovlsum <- align_nottext_col(ovlsum,align = "center")
   ovlsum
 
-} else{
+} else {
   hospitalized_totals <-  cha_c %>%  filter(State== "TOTAL") %>% select(today)
   discharged_totals <- cha %>%
     filter(Type == "Discharge") %>%
