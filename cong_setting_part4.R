@@ -49,7 +49,7 @@ No_DOC_young <-  final %>%
 
 #write_csv(sub1, "roster_FLIS_match.csv")
 todaydir <- paste0("L://Cong//", Sys.Date())
-if(dir.exists(todaydir)) {
+if(!dir.exists(todaydir)) {
   dir.create(todaydir)
 }
 
