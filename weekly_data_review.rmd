@@ -8,20 +8,23 @@ author: 'Sydney Jones'
 
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
 ############################################ 1. DATA PREP ###########################
-#1. package installs
-options(scipen = 999)
-mypak <- function(pkg){
-  new.pkg <- pkg[!(pkg %in% installed.packages(lib.loc = .libPaths()[1])[, "Package"])]
-  if (length(new.pkg)) 
-    install.packages(new.pkg, dependencies = TRUE, repos = "https://cran.rstudio.com/")
-  sapply(pkg, require, character.only = TRUE)
-}
-my_packages <-  c("ggspatial","data.table","sf","odbc","tm","viridis",
-                  "kableExtra","webshot", "geosphere", "pracma", "tidyverse", "tidytext", "ggplot2", "ggraph", "zoo", "roll",
-                  "igraph", "widyr", "stringr", "lubridate", "readr", "leaflet", "RColorBrewer", "ggmap", "rgdal",
-                  "tigris", "acs", "tidycensus", "DT", "rgeos", "formatR", "knitr", "MMWRweek", "sf",
-                  "RODBC", "plotly", 'rgeos', "scales", "english", 'flextable', 'slider', "transformr", "gganimate", "tibble", "dplyr")
-mypak(my_packages)
+
+require(rmarkdown)
+require(tidyverse)
+require(sf)
+require(odbc)
+require(kableExtra)
+require(lubridate)
+require(formatR)
+require(knitr)
+require(MMWRweek)
+require(scales)
+require(english)
+require(flextable)
+require(DBI)
+require(slider)
+
+
 dir <- "L:/daily_reporting_figures_rdp/"
 
 theme_update(
@@ -30,39 +33,33 @@ theme_update(
 )
 
 #2. load map data
-if(file.exists("shape_files/cb_2017_09_cousub_500k.shp")){
-  filename<-list.files('shape_files', pattern=".shp", full.names=FALSE)
-  filename<-gsub(".shp", "", filename)
-  subdat <- st_read('shape_files', "cb_2017_09_cousub_500k")
-  subdat<-st_transform(subdat,"+init=epsg:4326")
-} else {
-  url<-"https://www2.census.gov/geo/tiger/GENZ2017/shp/cb_2017_09_cousub_500k.zip"
-  destname<-"tiger_county.zip"
-  download.file(url, destname)
-  unzip(destname, exdir='shape_files', junkpaths=TRUE)
-  filename<-list.files('shape_files', pattern=".shp", full.names=FALSE)
-  filename<-gsub(".shp", "", filename)
-  subdat <- st_read('shape_files', "cb_2017_09_cousub_500k")
-  subdat<-st_transform(subdat,"+init=epsg:4326")
-}
-cc_map <- read_csv(
-  paste0(dir, "dependancies/City County Mapping.csv")) %>% 
+subdat <- st_read('L:/daily_reporting_figures_rdp/shape_files', "cb_2017_09_cousub_500k")
+subdat <- st_transform(subdat,"+init=epsg:4326")
+
+cc_map <- 
+  read_csv(
+    paste0(dir, "dependancies/City County Mapping.csv"), 
+    col_types = "cc") %>% 
   mutate(COUNTY = paste0(COUNTY," County"))
 
 
 #3. load town and county population data
-town_pop18 <- read_csv(paste0(dir, "population_data/pop_towns2018.csv"))%>%
-  rename(city=Town, 
-          pop=`Est. Pop.`)
+#### fix this
+town_pop18 <- 
+  read_csv(paste0(dir, "population_data/pop_towns2018.csv")) %>%
+  rename(city = Town, 
+         pop = `Est. Pop.`)
 
-county_pop <- read_csv(paste0(dir,"population_data/county_pop.csv"))
+county_pop <- read_csv(paste0(dir,"population_data/county_pop.csv"), 
+                       col_types = "cd")
 
 
 #4. set epi week and other date info
 #this epi week
-thisweek<-epiweek(Sys.Date())
+thisweek <- epiweek(Sys.Date())
+
 #all dates of interest
-dates<- tibble("date"=seq.Date(as.Date("2020-02-22"), Sys.Date(), by='day'), j=1) 
+dates <- tibble("date" = seq.Date(as.Date("2020-02-22"), Sys.Date(), by='day'), j=1) 
 
 
 #5. Read in case data (cases w/ phi)
@@ -221,6 +218,11 @@ arrange(popbycat, desc(RateCategory))
 case_dat <- read_csv(paste0(dir, "gary_csv/", Sys.Date(), "/", "CTTown_Alert.csv"))
 case_dat1 <- read_csv(paste0(dir, "gary_csv/", Sys.Date()-7, "/", "CTTown_Alert.csv"))
 case_dat2 <- read_csv(paste0(dir, "gary_csv/", Sys.Date()-14, "/", "CTTown_Alert.csv"))
+
+# case_dat <- 
+#   case_dat %>% 
+#   mutate(across(.cols = UpdateDate:ReportPeriodEndDate,
+#                 ~ mdy(.x)))
 
 
 case_dat <- bind_rows(case_dat, case_dat1) %>% bind_rows(case_dat2)
