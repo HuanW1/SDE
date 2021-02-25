@@ -1,83 +1,17 @@
-#replacement for yesterday in next chunk
-
-#Connecting to SQL022 DB and creating a local df from StateSummary table
-con <- DBI::dbConnect(odbc::odbc(), "epicenter")
-
-query <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[ODP_StateSummary]")
-ssummary <- DBI::dbGetQuery(conn = con, statement = query)
-
-#filtering for latest records, inserting additional columns into the df and changing the data types - -100000 needs to change once we have valid entries in the table
-new_yesterday <- ssummary %>%
-  filter(DateUpdated == Sys.Date() - 2) %>%
-  mutate(ReportTime = as.character(Sys.time() -100000),
-         Total = as.numeric(Total),
-         Change = as.numeric(Change)
-  ) %>%
-  #mutate(ChangeDirection = as.numeric(ChangeDirection)) %>%
-  mutate() %>%
-  head(5)
-
-new_yesterday$SNo <- seq.int(nrow(new_yesterday))
-
-#creating a table to write the new df
-DBI::dbWriteTable(con, SQL("DPH_COVID_IMPORT.dbo.ODP_TESTYEST"), new_yesterday, append = FALSE, overwrite = TRUE)
-
-today <- tbl_total %>%
-  rename(today = "Total**") %>%
-  rowid_to_column(var = "SNo")
-
-statement <- paste0("SELECT ReportTime FROM [DPH_COVID_IMPORT].[dbo].[ODP_TESTYEST]")
-ReportTimes <- DBI::dbGetQuery(conn = con, statement = statement)  %>%
-  mutate(ReportTime = lubridate::ymd_hms(ReportTime, tz = "EST")) %>%
-  unique() %>%
-  filter(as_date(ReportTime) != Sys.Date()) %>%
-  slice_max(ReportTime) %>%
-  pull(ReportTime)
-
-statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[ODP_TESTYEST] WHERE ReportTime = '", ReportTimes, "'")
-rm(new_yesterday)
-new_yesterday <- DBI::dbGetQuery(conn = con, statement = statement) %>%
-  select(SNo, Total) %>%
-  rename(new_yesterday = Total)
-
-new_chg_yst <- today %>%
-  left_join(new_yesterday, by = "SNo") %>%
-  mutate(today = as.numeric(today),
-         new_yesterday = as.numeric(new_yesterday),
-         delta = as.character(abs(today - new_yesterday)),
-         sign = ifelse(today >= new_yesterday, "+", "-"),
-         'Change Since Yesterday' = paste0(sign, delta)
-  )
-
-new_chg_yst[3,4] <- paste0(round(as.double(new_chg_yst[1,2])/as.double(new_chg_yst[2,2])*100,2), "%")
-
-new_ovl_sum <- new_chg_yst %>%
-  select(-c(SNo, new_yesterday)) %>%
-  bind_cols(tbl_summary) %>%
-  rename(Measure = "Overall Summary",
-         Total = today,
-         ChangeDirection =sign,
-         Change = delta
-  ) %>%
-  mutate(DateUpdated = Sys.Date() - 1) %>%
-  select(Measure, Total, ChangeDirection, Change, DateUpdated)
-
-new_summary <- new_ovl_sum %>%
-  mutate(ReportTime = as.character(Sys.time()),
-         SNo = seq.int(nrow(new_ovl_sum)))
-
-DBI::dbWriteTable(con, SQL("DPH_COVID_IMPORT.dbo.ODP_TESTTODAY"), new_summary, append = FALSE, overwrite = TRUE)
-
-odbc::dbDisconnect(con)
-
+library(tidyverse)
+library(lubridate)
+library(DBI)
+library(odbc)
 
 xxx <-
   list.files(path = "l:/daily_reporting_figures_rdp/yesterday",
-             recursive = TRUE, pattern = ".csv",
+             recursive = TRUE,
+             pattern = ".csv",
              full.names = TRUE) %>%
   str_subset(.,
              pattern = "avgdailyincidence|old",
-             negate = TRUE) %>% set_names() %>%
+             negate = TRUE) %>%
+  set_names() %>%
   map_dfr(~ read_csv(.x,
                      col_types = "cdc"),
           .id = "file_name") %>%
@@ -85,6 +19,201 @@ xxx <-
                   into = c(NA, NA, NA, "report_date", NA),
                   sep = "/") %>%
   mutate(report_date = ymd(report_date),
-         dow_report_date = weekdays(report_date))
+         dow_report_date = weekdays(report_date)) %>%
+  rename(Measure = `Overall Summary`,
+         Change = `Change Since Yesterday`) %>%
+  mutate(Total = if_else(is.na(Total), `Total**`, Total)) %>%
+  mutate(Measure = case_when(str_detect(Measure, "Deaths") ~ "Deaths",
+                             str_detect(Measure, "Cases") ~ "Cases",
+                             str_detect(Measure, "Tests") ~ "Tests",
+                             str_detect(Measure, "Hospitalized") ~ "Hospitalized",
+                             str_detect(Measure, "Positivity") ~ "Positivity")) %>%
+  mutate(Change = readr::parse_number(Change),
+         Total = if_else(is.na(Total) & Measure == "Positivity", Change/100, Total))
+
 xxx
 
+table(xxx$Measure)
+slice_tail(xxx, n = 20)
+
+running_tally <-
+  xxx %>%
+  filter(report_date > "2020-11-03") %>%
+  pivot_wider(id_cols = c(report_date, dow_report_date),
+              names_from = Measure,
+              values_from = Total)
+
+slice_tail(running_tally, n = 20)
+
+df_to_table(running_tally,
+            "RPT_summary_bydate",
+            overwrite = TRUE,
+            append = FALSE)
+table_to_df("RPT_summary_bydate")
+
+
+# hospitalized_totals <-  cha_c %>%  filter(State== "TOTAL") %>% select(today)
+# discharged_totals <- cha %>%
+#   filter(Type == "Discharge") %>%
+#   select(-Type)
+# cols2 <- ncol(discharged_totals)
+# discharged_totals <- discharged_totals %>%
+#   rename( today= cols2-1,
+#           yesterday = cols2-2) %>%
+#   filter(State== "TOTAL") %>%
+#   select(today)
+#
+# tbl_summary <- tibble(
+#   'Overall Summary' = c(
+#     "COVID-19 Cases (confirmed and probable)",
+#     "COVID-19 Tests Reported (molecular and antigen)",
+#     "Daily Test Positivity*",
+#     "Patients Currently Hospitalized with COVID-19",
+#     "COVID-19-Associated Deaths"
+#   )
+# )
+#
+# ncases <- nrow(case)
+# ntests <- nrow(elr_linelist)
+#
+# tbl_total <-
+#   tibble(
+#     "Total**" = c(
+#       ncases,
+#       ntests,
+#       0,#round(ncases/ntests*100,2),
+#       hospitalized_totals,
+#       dec
+#     )
+#   )
+#
+# tbl_total$`Total**` <- as.double(tbl_total$`Total**`)
+#
+# chg_yst <- read_csv(paste0("L:/daily_reporting_figures_rdp/yesterday/",Sys.Date() - 1, "/", yesterday_file)) %>%
+#   select(`Total**`) %>%
+#   rename(yesterday = `Total**`) %>%
+#   bind_cols(tbl_total) %>%
+#   mutate(
+#     `Total**` =as.double(`Total**`),
+#     sign = ifelse(`Total**`>= yesterday, "+", "-"),
+#     delta = abs(`Total**` - yesterday),
+#     'Change Since Yesterday' = paste0(sign, delta)
+#   ) %>%
+#   select('Change Since Yesterday')
+# chg_yst[3,] <- paste0(round(as.double(chg_yst[1,])/as.double(chg_yst[2,])*100,2), "%")
+#
+#
+#
+# tbl_total$`Total**` <- as.character(tbl_total$`Total**`)
+# tbl_total[3,] <- ""
+# ovlsum <- bind_cols(tbl_summary, tbl_total, chg_yst)
+# tableforgary <- ovlsum
+# cha_stats <-  bind_cols(tbl_summary, tbl_total) %>%
+#   rename(summary = `Overall Summary`, total = `Total**`)
+#
+# if(csv_write) {
+#   dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
+#   write_csv(ovlsum,
+#             paste0("L:/daily_reporting_figures_rdp/yesterday/",
+#                    Sys.Date(), "/", Sys.Date(), ".csv"))
+# }
+#
+# ovlsum <- regulartable(ovlsum) %>%
+#   flextable::autofit()
+# ovlsum <- align_nottext_col(ovlsum,align = "center")
+# ovlsum
+#
+
+mock_table <-
+  tibble(`Overall Summary` = c("COVID-19 Cases (confirmed and probable)",
+                               "COVID-19 Tests Reported (molecular and antigen)",
+                               "Daily Test Positivity*",
+                               "Patients Currently Hospitalized with COVID-19",
+                               "COVID-19-Associated Deaths"),
+         `Total**` = c("", "", "", "", ""),
+         `Change Since Yesterday` = c("", "", "", "", ""))
+
+tbl_total_col <-
+  c(as.character(ncases),
+    as.character(ntests),
+    "",
+    as.character(hospitalized_totals$today),
+    as.character(dec))
+
+mock_table$`Total**` <- tbl_total_col
+
+last_rpt_data <-
+  table_to_df("RPT_summary_bydate") %>%
+  filter(report_date == Sys.Date() - 1)
+
+yesterday_col <-
+  c(paste0("+", ncases - last_rpt_data$Cases),
+    paste0("+", ntests - last_rpt_data$Tests),
+    paste0(round((ncases - last_rpt_data$Cases)/(ntests - last_rpt_data$Tests) * 100, 2), "%"),
+    ifelse(hospitalized_totals$today - last_rpt_data$Hospitalized > 0,
+           paste0("+", hospitalized_totals$today - last_rpt_data$Hospitalized),
+           paste0(hospitalized_totals$today - last_rpt_data$Hospitalized)),
+    ifelse(dec - last_rpt_data$Deaths > 0,
+           paste0("+", dec - last_rpt_data$Deaths),
+           paste0(dec - last_rpt_data$Deaths)))
+
+mock_table$`Change Since Yesterday` <- yesterday_col
+mock_table
+
+write_csv(mock_table,
+          "L:/yesterday_test.csv")
+
+mock_table <-
+  regulartable(mock_table) %>%
+  flextable::autofit()
+mock_table <- align_nottext_col(mock_table,
+                                align = "center")
+
+mock_table
+
+con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
+
+# statement <-
+#   paste0("UPDATE [DPH_COVID_IMPORT].[dbo].[RPT_summary_bydate]
+#           SET dow_report_date = 'Odinsday'
+#           WHERE report_date = '2021-02-24'")
+
+
+dbExecute(
+  con2,
+  statement
+)
+
+
+values_formatted <-
+  paste0("'",
+         paste(today(),
+               weekdays(today()),
+               ncases,
+               ntests,
+               (ncases - last_rpt_data$Cases)/(ntests - last_rpt_data$Tests),
+               hospitalized_totals$today,
+               dec,
+               sep = "', '"),
+         "'")
+
+
+statement <-
+  paste0("IF EXISTS (SELECT * FROM [DPH_COVID_IMPORT].[dbo].[RPT_summary_bydate]
+            WHERE report_date = '", today(), "')
+            UPDATE [DPH_COVID_IMPORT].[dbo].[RPT_summary_bydate]
+            SET report_date ='", today(), "', dow_report_date = '", weekdays(today()),
+            "', Cases = '", ncases, "', Tests = '", ntests,
+            "', Positivity = '", Positivity, "', Hospitalized = '", hospitalized_totals$today,
+            "', Deaths = '", dec,
+            "' WHERE report_date = '", today(), "'
+          ELSE
+            INSERT INTO [DPH_COVID_IMPORT].[dbo].[RPT_summary_bydate]
+            VALUES (", values_formatted, ")")
+
+
+ncases <- 278184
+ntests <- 6591912
+Positivity <- (ncases - 276691)/(ntests - 6544400)
+ncases
+ntests <- 999999
