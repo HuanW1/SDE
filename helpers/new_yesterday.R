@@ -142,9 +142,15 @@ tbl_total_col <-
 
 mock_table$`Total**` <- tbl_total_col
 
+### Temporary logic to get last report
+when_was_last_report <-
+  case_when(weekdays(today()) %in% c("Monday", "Sunday") ~ "Friday",
+            TRUE ~ weekdays(today() - 1))
+
 last_rpt_data <-
   table_to_df("RPT_summary_bydate") %>%
-  filter(report_date == Sys.Date() - 1)
+  filter(dow_report_date == when_was_last_report) %>%
+  filter(report_date == max(report_date))
 
 yesterday_col <-
   c(paste0("+", ncases - last_rpt_data$Cases),
@@ -212,8 +218,8 @@ statement <-
             VALUES (", values_formatted, ")")
 
 
-ncases <- 278184
-ntests <- 6591912
-Positivity <- (ncases - 276691)/(ntests - 6544400)
+ncases <- 279946
+ntests <- 6673441
+Positivity <- (ncases - 279159)/(ntests - 6637929)
 ncases
 ntests <- 999999
