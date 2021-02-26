@@ -4,7 +4,7 @@ output: html_document
 author: 'Sydney Jones'
 ---
 
-```{r data prep,  echo= FALSE, include = FALSE}
+```{r data prep,  echo = FALSE, include = FALSE}
 
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
 ############################################ 1. DATA PREP ###########################
@@ -247,9 +247,12 @@ case_dat1 <- subdat %>%
 ggplot(case_dat1)+
   geom_sf(aes(fill = caserate), lwd=0.0, color = "gray")+
   #facet_wrap(vars(week))+
-  facet_wrap(vars(range))+
+  facet_wrap(vars(fct_reorder(range, date1))) +
   #scale_fill_brewer(palette = "Blues", direction = 1, na.value="white")+
-  scale_fill_gradient(high = "#000099", low = "#ededff", limits=c(min(case_dat1$caserate),max(case_dat1$caserate)), guide = "colorbar") +
+  scale_fill_gradient(high = "#000099", 
+                      low = "#ededff", 
+                      limits=c(min(case_dat1$caserate),max(case_dat1$caserate)), 
+                      guide = "colorbar") +
   theme_void()+
   theme(strip.text = element_text(size=14),
     #plot.title = element_text(hjust = 0.5,size=14), 
