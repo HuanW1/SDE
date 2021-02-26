@@ -88,7 +88,7 @@ table_to_df <-
 
     ### error checking
     if(is.null(table_name)) stop("You must specify a table in the database")
-    sql_table_name <- SQL("DPH_COVID_IMPORT.dbo.report_summary")
+    sql_table_name <- DBI::SQL("DPH_COVID_IMPORT.dbo.report_summary")
 
     ### main code
     epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
@@ -1150,6 +1150,98 @@ timey <- gsub(pattern = " |:", replacement = "-", x = timey)
 
 save(ovlsum,
      file = paste0("l:/draft_table_", timey, ".RData" ))
+
+mock_table <-
+  tibble(`Overall Summary` = c("COVID-19 Cases (confirmed and probable)",
+                               "COVID-19 Tests Reported (molecular and antigen)",
+                               "Daily Test Positivity*",
+                               "Patients Currently Hospitalized with COVID-19",
+                               "COVID-19-Associated Deaths"),
+         `Total**` = c("", "", "", "", ""),
+         `Change Since Yesterday` = c("", "", "", "", ""))
+
+tbl_total_col <-
+  c(as.character(ncases),
+    as.character(ntests),
+    "",
+    as.character(hospitalized_totals$today),
+    as.character(dec))
+
+mock_table$`Total**` <- tbl_total_col
+
+### Temporary logic to get last report
+when_was_last_report <-
+  case_when(weekdays(today()) %in% c("Monday", "Sunday") ~ "Friday",
+            TRUE ~ weekdays(today() - 1))
+
+last_rpt_data <-
+  table_to_df("RPT_summary_bydate") %>%
+  filter(dow_report_date == when_was_last_report) %>%
+  filter(report_date == max(report_date))
+
+yesterday_col <-
+  c(
+    paste0("+", ncases - last_rpt_data$Cases),
+    paste0("+", ntests - last_rpt_data$Tests),
+    paste0(round((ncases - last_rpt_data$Cases)/(ntests - last_rpt_data$Tests) * 100, 2), "%"),
+    ifelse(hospitalized_totals$today - last_rpt_data$Hospitalized > 0,
+           paste0("+", hospitalized_totals$today - last_rpt_data$Hospitalized),
+           paste0(hospitalized_totals$today - last_rpt_data$Hospitalized)),
+    ifelse(dec - last_rpt_data$Deaths > 0,
+           paste0("+", dec - last_rpt_data$Deaths),
+           paste0(dec - last_rpt_data$Deaths))
+  )
+
+mock_table$`Change Since Yesterday` <- yesterday_col
+mock_table
+
+write_csv(mock_table,
+          "L:/yesterday_test.csv")
+
+
+
+mock_table <-
+  regulartable(mock_table) %>%
+  flextable::autofit()
+mock_table <- align_nottext_col(mock_table,
+                                align = "center")
+
+mock_table
+
+values_formatted <-
+  paste0("'",
+         paste(today(),
+               weekdays(today()),
+               ncases,
+               ntests,
+               (ncases - last_rpt_data$Cases)/(ntests - last_rpt_data$Tests),
+               hospitalized_totals$today,
+               dec,
+               sep = "', '"),
+         "'")
+
+
+statement <-
+  paste0("IF EXISTS (SELECT * FROM [DPH_COVID_IMPORT].[dbo].[RPT_summary_bydate]
+            WHERE report_date = '", today(), "')
+            UPDATE [DPH_COVID_IMPORT].[dbo].[RPT_summary_bydate]
+            SET report_date ='", today(), "', dow_report_date = '", weekdays(today()),
+         "', Cases = '", ncases, "', Tests = '", ntests,
+         "', Positivity = '", Positivity, "', Hospitalized = '", hospitalized_totals$today,
+         "', Deaths = '", dec,
+         "' WHERE report_date = '", today(), "'
+          ELSE
+            INSERT INTO [DPH_COVID_IMPORT].[dbo].[RPT_summary_bydate]
+            VALUES (", values_formatted, ")")
+
+con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
+
+dbExecute(
+  con2,
+  statement
+)
+
+odbc::dbDisconnect(con2)
 
 endend_time <- Sys.time()
 endend_time
