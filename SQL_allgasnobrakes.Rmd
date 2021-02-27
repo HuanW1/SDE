@@ -976,7 +976,7 @@ rmarkdown::render("gary_text.Rmd", output_file = paste0(saveto,"/", Sys.Date(), 
 
 ```
 
-```{r new_overall_summary_table, echo=FALSE, message=FALSE, warning=TRUE, eval=FALSE}
+```{r new_overall_summary_table, echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
 
 hospitalized_totals <-  cha_c %>%  filter(State== "TOTAL") %>% select(today)
 
@@ -1021,11 +1021,13 @@ last_rpt_data <-
   filter(dow_report_date == when_was_last_report) %>%
   filter(report_date == max(report_date))
 
+Positivity <- (ncases - last_rpt_data$Cases)/(ntests - last_rpt_data$Tests)
+
 yesterday_col <-
   c(
     paste0("+", ncases - last_rpt_data$Cases),
     paste0("+", ntests - last_rpt_data$Tests),
-    paste0(round((ncases - last_rpt_data$Cases)/(ntests - last_rpt_data$Tests) * 100, 2), "%"),
+    paste0(round(Positivity * 100, 2), "%"),
     ifelse(hospitalized_totals$today - last_rpt_data$Hospitalized > 0,
            paste0("+", hospitalized_totals$today - last_rpt_data$Hospitalized),
            paste0(hospitalized_totals$today - last_rpt_data$Hospitalized)),
@@ -1054,7 +1056,7 @@ values_formatted <-
                weekdays(today()),
                ncases,
                ntests,
-               (ncases - last_rpt_data$Cases)/(ntests - last_rpt_data$Tests),
+               Positivity,
                hospitalized_totals$today,
                dec,
                sep = "', '"),
