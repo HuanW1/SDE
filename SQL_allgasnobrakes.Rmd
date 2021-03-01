@@ -976,7 +976,7 @@ rmarkdown::render("gary_text.Rmd", output_file = paste0(saveto,"/", Sys.Date(), 
 
 ```
 
-```{r new_overall_summary_table, echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+```{r new_overall_summary_table, echo=FALSE, message=FALSE, warning=FALSE, eval=TRUE}
 
 hospitalized_totals <-  cha_c %>%  filter(State== "TOTAL") %>% select(today)
 
@@ -1037,7 +1037,8 @@ yesterday_col <-
   )
 
 mock_table$`Change Since Yesterday` <- yesterday_col
-mock_table
+
+tableforgary <- mock_table
 
 write_csv(mock_table,
           "L:/yesterday_test.csv")
@@ -1078,16 +1079,25 @@ statement <-
 
 con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
-dbExecute(
-  con2,
-  statement
-)
+invisible(capture.output(
+  dbExecute(
+    con2,
+    statement
+  )))
 
 odbc::dbDisconnect(con2)
 
+if(csv_write) {
+  dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
+  write_csv(mock_table, 
+            paste0("L:/daily_reporting_figures_rdp/yesterday/", 
+                   Sys.Date(), "/", Sys.Date(), ".csv"))
+}
+
+
 ```
 
-```{r overall_summary_table, echo=FALSE, message=FALSE, warning=FALSE}
+```{r overall_summary_table, echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
 if(exists('fake_yesterday')){
 hospitalized_totals <-  cha_c %>%  filter(State== "TOTAL") %>% select(today)
 discharged_totals <- cha %>%
@@ -1214,6 +1224,7 @@ ovlsum <- regulartable(ovlsum) %>%
 ovlsum <- align_nottext_col(ovlsum,align = "center")
 ovlsum
 }
+
 ```
 \*\*Includes confirmed plus probable cases  
 
@@ -2685,7 +2696,7 @@ dfs_age_d %>%
        x="Age (years)")
 ```
 
-Time hack `r Sys.time()`
+
 
 ```{r plot_deaths_gender, message=FALSE, warning=FALSE, fig.align= "center", eval=thursday}
 gender_total_rate_dec <- gender_count_dec %>% 
@@ -3380,14 +3391,14 @@ GenderSummary <- tibble(
   DateUpdated = format(graphdate, "%m/%d/%Y")
 ) 
 
-
-chg_yst2 <- read_csv(paste0("L:/daily_reporting_figures_rdp/yesterday/",Sys.Date()-1,"/",yesterday_file)) %>%
+#### Why is this even here?
+chg_yst2 <- read_csv(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1,"/", yesterday_file)) %>%
   rename(yesterday = `Total**`) 
 chg_yst2[1,1] <- "Total COVID-19 Cases"
 chg_yst2[4,1] <- "Total COVID-19-Associated Deaths"
 chg_yst2 <- chg_yst2 %>% 
   select(yesterday) %>% 
-  bind_cols(tbl_total) %>% 
+  bind_cols(mock_table$`Total**`) %>% 
   mutate(
     'Total**' = as.integer("Total**"),
     sign = ifelse(`Total**`>= yesterday, "+", "-"),
