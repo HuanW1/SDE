@@ -1043,6 +1043,13 @@ tableforgary <- mock_table
 write_csv(mock_table,
           "L:/yesterday_test.csv")
 
+if(csv_write) {
+  dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
+  write_csv(mock_table, 
+            paste0("L:/daily_reporting_figures_rdp/yesterday/", 
+                   Sys.Date(), "/", Sys.Date(), ".csv"))
+}
+
 mock_table <-
   regulartable(mock_table) %>%
   flextable::autofit()
@@ -1087,12 +1094,6 @@ invisible(capture.output(
 
 odbc::dbDisconnect(con2)
 
-if(csv_write) {
-  dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
-  write_csv(mock_table, 
-            paste0("L:/daily_reporting_figures_rdp/yesterday/", 
-                   Sys.Date(), "/", Sys.Date(), ".csv"))
-}
 
 
 ```
