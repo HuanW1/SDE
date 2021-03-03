@@ -1335,8 +1335,8 @@ c14nc_count <- cases_14_nc %>%
   mutate(NAME = str_to_title(city)) %>% 
   group_by(NAME) %>% 
   tally() %>% 
-  complete(NAME=town_pop18$city, fill=list(n=0)) %>% 
-  filter(!NAME=="Not Available")
+  complete(NAME = town_pop18$city, fill = list(n = 0)) %>% 
+  filter(!NAME == "Not Available")
 
 #c14nc_count$n[is.na(c14nc_count$n)] <- 0
 c14nc_count <- c14nc_count %>% 
@@ -3659,29 +3659,43 @@ pctpos14 <- test14nc %>%
   filter(city != "Not Available")
 
 #community cases in the past 2 weeks with rates by town, case count for each week
-gary_dailyincidence<-cases_14_nc %>% 
+gary_dailyincidence <- 
+  cases_14_nc %>% 
   group_by(week, city) %>% 
   tally() %>%  
-  pivot_wider(names_from=week,  
-              values_from=n, values_fill = list(n=0)) %>% 
+  pivot_wider(names_from = week,  
+              values_from = n, 
+              values_fill = list(n = 0)) %>% 
   rename(casesweek1 = 2,
          casesweek2 = 3) %>% 
-  right_join(c14nc_count, by=c("city"="NAME")) %>% 
-  replace_na(replace=list(casesweek1=0, casesweek2=0, n=0)) %>% 
-  mutate(RateCategory=ifelse(avgrate =="<5 cases per 100,000 or <5 reported cases", "1. <5 cases per 100,000 or <5 reported cases",
-                             ifelse(avgrate=="5-9 cases per 100,000", "2. 5-9 cases per 100,000", 
-                                    ifelse(avgrate=="10-14 cases per 100,000", "3. 10-14 cases per 100,000",
-                                           ifelse(avgrate=="15 or more cases per 100,000", "4. 15 or more cases per 100,000", "other")))),
-         UpdateDate=Sys.Date(),
-         ReportPeriodStartDate=thursday_range_start,
-         ReportPeriodEndDate=thursday_range_end,
+  right_join(c14nc_count, by=c("city" = "NAME")) %>% 
+  replace_na(replace=list(casesweek1 = 0, 
+                          casesweek2 = 0, 
+                          n = 0)) %>% 
+  mutate(RateCategory = ifelse(avgrate =="<5 cases per 100,000 or <5 reported cases", 
+                               "1. <5 cases per 100,000 or <5 reported cases",
+                               ifelse(avgrate=="5-9 cases per 100,000", 
+                                      "2. 5-9 cases per 100,000", 
+                                      ifelse(avgrate=="10-14 cases per 100,000", 
+                                             "3. 10-14 cases per 100,000",
+                                             ifelse(avgrate=="15 or more cases per 100,000", 
+                                                    "4. 15 or more cases per 100,000", 
+                                                    "other")))),
+         UpdateDate = Sys.Date(),
+         ReportPeriodStartDate = thursday_range_start,
+         ReportPeriodEndDate = thursday_range_end,
          townname=paste0(city, " town")) %>%
-  rename(totalcases=n,
-         NAME=city) %>% 
-  left_join(pctpos14, by=c("NAME"="city")) %>% 
-  left_join(town_codes, by = c("townname" = "ANPSADPI"))%>%
+  rename(totalcases = n,
+         NAME = city) %>% 
+  left_join(pctpos14, by = c("NAME" = "city")) %>% 
+  left_join(town_codes, by = c("townname" = "ANPSADPI")) %>%
   rename(Town_No = TOWNNO) %>% 
-  select(Town_No, NAME, pop, casesweek1, casesweek2, totalcases, CaseRate, RateCategory, TotalTests, PercentPositive, UpdateDate, ReportPeriodStartDate, ReportPeriodEndDate)
+  select(Town_No, NAME, pop, casesweek1, casesweek2, totalcases, CaseRate, 
+         RateCategory, TotalTests, PercentPositive, UpdateDate, 
+         ReportPeriodStartDate, ReportPeriodEndDate) %>%
+  filter(!NAME == "Not Available")
+
+### Why do we write the same thing to two different places?
 
 if(csv_write) {
   write_csv(gary_dailyincidence, 
