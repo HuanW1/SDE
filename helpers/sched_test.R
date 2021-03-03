@@ -12,6 +12,7 @@ require(scales)
 require(english)
 require(flextable)
 require(DBI)
+require(stringdist)
 
 graphdate <- Sys.Date() - 1
 
