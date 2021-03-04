@@ -36,10 +36,12 @@ require(DBI)
 
 #### kable options ####
 options(kableExtra.auto_format = FALSE)
-graphdate <- Sys.Date() - 1
 
 #### setting report dow options ####
 # change for thanksgiving
+graphdate <- Sys.Date() - 1
+default_subtitle <- paste0("As of ", format(graphdate, "%m/%d/%Y"))
+
 thursday <- wday(Sys.Date()) == 5
 wedthurs <- wday(Sys.Date()) %in% c(5) # makes no sense this is the same as previous line
 not_thursday <- wday(Sys.Date()) != 5
@@ -1701,7 +1703,7 @@ ggplot(dfs_age)+
   theme_classic()+
   theme(legend.position = "none")+
   labs(title = paste0("Number of New COVID-19 Cases by Age Group \nwith Collection or Onset during ", thursday_range),
-       #subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+       #subtitle = default_subtitle,
        y = "Number of Cases",
        x="Age (years)")
 
