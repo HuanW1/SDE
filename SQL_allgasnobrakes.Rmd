@@ -1456,15 +1456,15 @@ ggplot(subdat14nc)+
 `r if(thursday){"*Map does not include* "}` `r if(thursday){thursday_pending_address$n}` `r if(thursday){"*cases pending address validation*"}`
 
 
-`r if(thursday){"Because towns with larger populations are likely to have more cases, it is also important to look at the number of new cases per 100,000 population. The next map below shows the average number of new cases per 100,000 population per day, with darker colors indicating higher rates. Cases among people residing in nursing homes, assisted living facilities, and correctional facilities are excluded."}`
+`r if(thursday){"Because towns with larger populations are likely to have more cases, it is also important to look at the number of new cases per 100,000 population. The maps below show the average number of new cases per 100,000 population per day, with darker colors indicating higher rates. Cases among people residing in nursing homes, assisted living facilities, and correctional facilities are excluded."}`
 
 
 `r if(thursday){"Among towns with at least 5 new cases during "}` `r if(thursday){thursday_range}` `r if(thursday){", # towns had an average rate of 15 or more cases per 100,000 population per day, shown in red in the map below."}`
 
 
 ```{r plot_community_settings, eval=thursday, dpi=300, fig.height=5, fig.width= 7}
-#avgpal <- c("#d3d3d3", "#ffffb2", "#fd8d3c", "#e31a1c")
-avgpal <- c("#d3d3d3", "#e31a1c")
+avgpal <- c("#d3d3d3", "#ffffb2", "#fd8d3c", "#e31a1c")
+#avgpal <- c("#d3d3d3", "#e31a1c")
 
 ggplot(subdat14nc)+
   geom_sf(aes(fill = avgrate))+
@@ -1786,7 +1786,7 @@ ggplot(agegrp, aes(mmwrweekdate, rate_100k,col = age_group, group = age_group))+
   )+
   labs(
     title= "Average daily rate of COVID-19 cases\nby age group",
-    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at 8:30PM"),
+    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
     x="",
     y="Rate per 100,000 population",
     color = "Age group (years)"
@@ -1878,7 +1878,7 @@ ggplot(weekincidence, aes(mmwrweekdate, rate, col = County, group = County))+
   )+
   labs(
     title= "Average daily rates of COVID-19 cases by county",
-    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at 8:30PM"),
+    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
     x="",
     y="Rate per 100,000 population"
   )+
@@ -1888,7 +1888,7 @@ ggplot(weekincidence, aes(mmwrweekdate, rate, col = County, group = County))+
 ```
 
 
-`r if(thursday){"__Cumulative Number of COVID-19 Cases and COVID-19-Associated Death by Date__  "}`
+`r if(thursday){"__Cumulative Number of COVID-19 Cases and COVID-19-Associated Deaths by Date__  "}`
 
 `r if(thursday){"_Test results may be reported several days after the result. Data are incomplete for most recent dates shaded in grey. Data from previous dates are routinely updated._  "}`
 
@@ -1936,7 +1936,7 @@ epicurve %>%
         )+
   labs(
     title = "Number of Confirmed and Probable \nCOVID-19 Cases by Date",
-    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
     y = "Number of Cases",
     x=paste0("Date of Specimen Collection (confirmed)\nor Symptom Onset/Postive Antigen Test Date (probable)"),
     fill = ""
@@ -1987,7 +1987,7 @@ ggplot(dfs_daily_dead_proto)+
         )+
   labs(
     title ="Number of COVID-19-Associated Deaths\nby Date of Death",
-    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
       y = "Number of Deaths",
        x="Date of Death",
     fill = "")
@@ -2241,7 +2241,7 @@ ggplot()+
         )+
   labs(
     title = "Number of Molecular Laboratory Tests for COVID-19 \nReported via ELR by Specimen Collection Date ",
-    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
     y = "Number of Tests",
     x="Specimen Collection Date",
     fill = "",
@@ -2278,7 +2278,7 @@ ggplot()+
         )+
   labs(
     title = "Number of Antigen Tests for COVID-19 Reported\nby Specimen Collection Date ",
-    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
     y = "Number of Tests",
     x="Specimen Collection Date",
     fill = "",
@@ -2334,7 +2334,7 @@ epicurve %>%
         )+
   labs(
     title = "Number of Confirmed and Probable \nCOVID-19 Cases by Date",
-    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
     y = "Number of Cases",
     x=paste0("Date of Specimen Collection (confirmed)\nor Symptom Onset/Postive Antigen Test Date (probable)"),
     fill = ""
@@ -2391,7 +2391,7 @@ ggplot(dfs_daily_dead_proto)+
         )+
   labs(
     title ="Number of COVID-19-Associated Deaths\nby Date of Death",
-    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
       y = "Number of Deaths",
        x="Date of Death",
     fill = "")
@@ -2415,7 +2415,7 @@ ggplot(dfs_age)+
   theme_classic()+
   theme(legend.position = "none")+
   labs(title = "Number of COVID-19 Cases\nby Age Group",
-       subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+       subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
        y = "Number of Cases",
        x="Age(years)")
 ```
@@ -2444,7 +2444,7 @@ ggplot(dfs_age_d)+
   theme_classic()+
   theme(legend.position = "none")+
   labs(title = "Number of COVID-19-Associated Deaths\nby Age Group",
-       subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+       subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
        y = "Number of Cases",
        x="Age(years)")
 
@@ -2487,7 +2487,7 @@ ggplot(
   theme_classic()+
   theme(legend.position = "none")+
   labs(title = "Number of COVID-19 Cases\nby Gender",
-       subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+       subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
        y = "Number of Cases",
        x="")
 ```
@@ -2504,7 +2504,7 @@ ggplot(
   theme_classic()+
   theme(legend.position = "none")+
   labs(title = "Number of COVID-19-Associated Deaths\nby Gender",
-       subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+       subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
        y = "Number of Cases",
        x="")
 
@@ -2632,7 +2632,7 @@ ggplot(state_wide_rates%>% filter(type!="Death Rate") , aes(geo, rate, fill = co
   )+
   labs(
       title = "Rate of COVID-19 Cases Statewide\nand by County",
-      subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+      subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
         x="",
        y="Rate per 100,000 Population",
        fill = "")
@@ -2648,7 +2648,7 @@ ggplot(state_wide_rates%>% filter(type =="Death Rate") , aes(geo, rate, fill = c
   )+
   labs(
       title = "Rate of COVID-19-Associated Deaths\nStatewide and by County",
-      subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+      subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
         x="",
        y="Rate per 100,000 Population",
        fill = "")
@@ -2675,7 +2675,7 @@ ggplot(dfs_per_capita)+
   theme(legend.position = "none")+
   labs(
       title = "Rate of COVID-19 Cases\nby Age Group",
-      subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+      subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
        y = "Rate per 100,000 CT Population",
        x="Age (years)")
 
@@ -2692,7 +2692,7 @@ dfs_age_d %>%
   theme_classic()+
   theme(legend.position = "none")+
   labs(title = "Rate of COVID-19-Associated Deaths\nby Age Group",
-       subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+       subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
        y = "Rate per 100,000 Population",
        x="Age (years)")
 ```
@@ -2713,7 +2713,7 @@ ggplot(
   theme_classic()+
   theme(legend.position = "none")+
   labs(title = "Rate of COVID-19 Cases\nby Gender",
-       subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+       subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
        y = "Rate per 100,000 CT Population",
        x="")
 
@@ -2727,7 +2727,7 @@ gender_total_rate_dec %>%
   theme_classic()+
   theme(legend.position = "none")+
   labs(title = "Rate of COVID-19-Associated Deaths\nby Gender",
-       subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+       subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
        y = "Rate per 100,000 Population",
        x="")
 
@@ -2781,7 +2781,7 @@ ggplot(
         )+
   labs(
     title = "Number of COVID-19 Cases\nby Race\\Ethnicity",
-       subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+       subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
        y = "Number of Cases",
        x="")
 
@@ -2808,7 +2808,7 @@ ggplot(
     )+
   labs(
     title = "Number of COVID-19-Associated Deaths\nby Race\\Ethnicity",
-    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
     y = "Number of Deaths",
     x="")
 ```
@@ -2967,7 +2967,7 @@ ggplot(adj_tbl_long, aes(fill = rate_type, y = n, x = hisp_race))+
     y="Cases per 100,000 population",
     x="",
     title=paste0("Rate of COVID-19 Cases by Race/Ethnicity, \nwith and without age adjustment"), 
-    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime)
+    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"))
   )+
   theme(
     legend.position = c(0.43, .9),
@@ -3103,7 +3103,7 @@ ggplot(adj_tbl_long_dec, aes(fill = rate_type, y = n, x = hisp_race))+
     y="Deaths per 100,000 population",
     x="",
     title=paste0("Rate of COVID-19-Associated Deaths\nby Race/Ethnicity, with and without age adjustment*"), 
-    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime)
+    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"))
   )+
   theme(
     legend.position = c(0.25,0.9),
@@ -3138,7 +3138,7 @@ ggplot(longer, aes(stringr::str_wrap(hisp_race,15), perc, fill = type))+
   theme_classic()+
   labs(
     title = 'Non-Hispanic black people disproportionately\naffected by COVID-19 deaths in Connecticut',
-      subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"), " at ",params$desiredtime),
+      subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
     fill = "",
     y = "Percent (%)",
     x = ""
