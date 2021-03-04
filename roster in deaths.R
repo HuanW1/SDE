@@ -11,59 +11,43 @@ library(stringdist)
 library(lubridate)
 
 ###########################
-## importing the old OCME list
-oldOCME = read.csv("L:/daily_reporting_figures_rdp/DeathRostering/All DPH 2.28.csv")
+## importing the old OCME list, subseting to covid deaths
+oldocme <-  read.csv("L:/daily_reporting_figures_rdp/DeathRostering/old.csv") %>% 
+  subset(COVID.Death == "Yes")
 
 ### importing the new OCME list
-newOCME = read.csv("L:/daily_reporting_figures_rdp/DeathRostering/All DPH 3.1.csv")
-
-#subset on covid.death = yes
-newOCME=subset(newOCME, subset=COVID.Death == "Yes")
-oldOCME=subset(oldOCME, subset=COVID.Death == "Yes")
+newocme <-  read.csv("L:/daily_reporting_figures_rdp/DeathRostering/new.csv") %>% 
+  subset(COVID.Death == "Yes")
 
 #### link on ocme id and only keep the new people for the day
+ocme <- anti_join(newocme, oldocme, by=c("OCME."))
 
-OCME_new <-   
-  anti_join(newOCME, oldOCME, by=c("OCME."))
+#split Name, race, ethnicity, select required columns
+#mutating - when race = hispanic, ethnicity needs to be yes
+# for Black in Race, enforce as "Black or African American"
 
-#OCME_name <-   
-#  anti_join(newOCME, oldOCME, by=c("Name"))
- 
-#OCME_new<-rbind(OCME_ident, OCME_name, by= c('OCME.','Name')) %>% 
-#  group_by(OCME.) %>% 
-#  summarise_all(funs(max))
+roster <- ocme %>% 
+  separate(col = Name, into = c("lname", "fname"), sep = ",") %>% 
+  separate(col = Race.Ethnicity, into = c("Race", "Ethnicity"), sep = ",") %>% 
+  select(OCME., DOB, DOD, lname, fname, DateApproved, Residence, Sex, Race, 
+         Ethnicity, PronouncedBy) 
+#%>% mutate(Ethnicity = case_when(
+    #str_detect(Race == "Hispanic") ~ "Yes",
+    #TRUE ~ as.character(eth)))
 
-#split Name into 2 variables
-OCME_new <- separate(OCME_new, col = Name, into = c("lname", "fname"), sep = ",")
-
-#split Race.Ethnicity into 2 variables
-OCME_new <- separate(OCME_new, col = Race.Ethnicity, into = c("Race", "Ethnicity"), sep = ",")
-
-# add more variables to the roster
-Roster <- OCME_new %>% 
-  select(OCME., DOB, DOD, lname, fname, DateApproved, Residence, Sex, Race, Ethnicity, PronouncedBy)
-
-# delete rows with labels or no data
-elim_inds = which(Roster$DateApproved=="Name")
-keep_inds = setdiff(1:nrow(Roster),elim_inds)
-Roster = Roster[keep_inds,]
-
-# delete rows with labels or no data
-#elim_inds=which(results$Raw_Name=="NA OCME.")
-#keep_inds=setdiff(1:nrow(results),elim_inds)
-#results=results[keep_inds,]
-
-# delete rows with labels or no data
-elim_inds = which(OCME_new$OCME.=="Name")
-keep_inds = setdiff(1:nrow(OCME_new),elim_inds)
-OCME_new = OCME_new[keep_inds,]
+#do we need this?
+# # delete rows with labels or no data
+# elim_inds = which(Roster$DateApproved=="Name")
+# keep_inds = setdiff(1:nrow(Roster),elim_inds)
+# Roster = Roster[keep_inds,]
+# 
+# # delete rows with labels or no data
+# elim_inds = which(OCME_new$OCME.=="Name")
+# keep_inds = setdiff(1:nrow(OCME_new),elim_inds)
+# OCME_new = OCME_new[keep_inds,]
 
 # fix for any race
 # if Race includes 'Hispanic', then Ethnicity should be 'YES'
-race_inds = grep("Hispanic",Roster$Race,ignore.case=TRUE)
-if (length(race_inds)>0){
-  Roster$Ethnicity[race_inds]="YES"
-  }
 
 # if Ethnicity includes any other text, put it in Race
 race_inds2 = grep("YES",Roster$Ethnicity,ignore.case=TRUE)
@@ -87,41 +71,41 @@ if (length(black_inds)>0){
 # might want to get the latest cases w PHI file
 
 # read-in data from file
-AllCases = read.csv(paste0("L:/daily_reporting_figures_rdp/csv/",Sys.Date(), "/", Sys.Date(), "cases_wphi.csv"))
+AllCases <-  read.csv(paste0("L:/daily_reporting_figures_rdp/csv/",Sys.Date(), "/", Sys.Date(), "cases_wphi.csv"))
 
 #rename the dob so you can link on that variable
-AllCases = rename(AllCases, DOB ="dob")
+AllCases <-  rename(AllCases, DOB ="dob")
 
 # step 2 match names and dob
 # 1a. 
-Roster$name = paste(Roster$fname, Roster$lname)
-AllCases$name = paste(AllCases$fname, AllCases$lname)
+Roster$name <-  paste(Roster$fname, Roster$lname)
+AllCases$name <-  paste(AllCases$fname, AllCases$lname)
 
 # 1b. find nearest match in name
-match_inds = amatch(Roster$name, AllCases$name, maxDist=100)
+match_inds <-  amatch(Roster$name, AllCases$name, maxDist=100)
 
 # 1c. construct a results matrix
-results = data.frame(Roster$name,AllCases$name[match_inds],Roster$DOB, AllCases$DOB[match_inds], AllCases$disease_status[match_inds])
-names(results) = c("Raw_Name","Match_Name","Raw_DOB","Match_DOB","MatchStatus")
+results <-  data.frame(Roster$name,AllCases$name[match_inds],Roster$DOB, AllCases$DOB[match_inds], AllCases$disease_status[match_inds])
+names(results) <-  c("Raw_Name","Match_Name","Raw_DOB","Match_DOB","MatchStatus")
 
 # flag people with multiple
 
 # 1d. enforce classes
-results$Raw_DOB = as.Date(results$Raw_DOB,format="%m/%d/%Y")
-results$Match_DOB = as.Date(results$Match_DOB,format="%Y-%m-%d")
+results$Raw_DOB <-  as.Date(results$Raw_DOB,format="%m/%d/%Y")
+results$Match_DOB <-  as.Date(results$Match_DOB,format="%Y-%m-%d")
 
 # 1d. add string distance
-results$Name_Dist = stringdist(results$Raw_Name,results$Match_Name)
+results$Name_Dist <-  stringdist(results$Raw_Name,results$Match_Name)
 # 1e. add date distance
-results$DOB_Dist = as.numeric(abs(results$Raw_DOB-results$Match_DOB))
+results$DOB_Dist <-  as.numeric(abs(results$Raw_DOB-results$Match_DOB))
 
 year(results$Raw_DOB)
 month(results$Raw_DOB)
 day(results$Raw_DOB)
 
-results$BDay_Match = month(results$Raw_DOB)==month(results$Match_DOB)
-results$BDay_Match = results$BDay_Match+(day(results$Raw_DOB)==day(results$Match_DOB))
-results$BDay_Match = results$BDay_Match+(year(results$Raw_DOB)==year(results$Match_DOB))
+results$BDay_Match <-  month(results$Raw_DOB)==month(results$Match_DOB)
+results$BDay_Match <-  results$BDay_Match+(day(results$Raw_DOB)==day(results$Match_DOB))
+results$BDay_Match <-  results$BDay_Match+(year(results$Raw_DOB)==year(results$Match_DOB))
 
 results$EventID = AllCases$eventid[match_inds]
 
@@ -306,4 +290,4 @@ write.table(Roster2,"Roster2.csv",na="",
 
 dir.create(paste0('L:/daily_reporting_figures_rdp/DeathRostering/', Sys.Date()))
 write_csv(Roster2, 
-          paste0("L:/daily_reporting_figures_rdp/DeathRostering/", Sys.Date(), "/", Sys.Date(),"Roster.csv"))
+          paste0("L:/daily_reporting_figures_rdp/DeathRostering/", Sys.Date(), "/", Sys.Date(),"Roster.csv", na = ""))
