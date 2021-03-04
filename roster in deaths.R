@@ -26,7 +26,7 @@ ocme <- anti_join(newocme, oldocme, by=c("OCME."))
 #mutating - when race = hispanic, ethnicity needs to be yes
 # for Black in Race, enforce as "Black or African American"
 
-roster <- ocme %>% 
+Roster <- ocme %>% 
   separate(col = Name, into = c("lname", "fname"), sep = ",") %>% 
   separate(col = Race.Ethnicity, into = c("Race", "Ethnicity"), sep = ",") %>% 
   select(OCME., DOB, DOD, lname, fname, DateApproved, Residence, Sex, Race, 
@@ -34,17 +34,6 @@ roster <- ocme %>%
 #%>% mutate(Ethnicity = case_when(
     #str_detect(Race == "Hispanic") ~ "Yes",
     #TRUE ~ as.character(eth)))
-
-#do we need this?
-# # delete rows with labels or no data
-# elim_inds = which(Roster$DateApproved=="Name")
-# keep_inds = setdiff(1:nrow(Roster),elim_inds)
-# Roster = Roster[keep_inds,]
-# 
-# # delete rows with labels or no data
-# elim_inds = which(OCME_new$OCME.=="Name")
-# keep_inds = setdiff(1:nrow(OCME_new),elim_inds)
-# OCME_new = OCME_new[keep_inds,]
 
 # fix for any race
 # if Race includes 'Hispanic', then Ethnicity should be 'YES'
@@ -64,11 +53,6 @@ black_inds = grep("Black",Roster$Race,ignore.case=TRUE)
 if (length(black_inds)>0){
   Roster$Race[black_inds]="Black or African American"
   }
-
-#stop
-#################################################################################
-# step 1 is look at the the cases w PHI table
-# might want to get the latest cases w PHI file
 
 # read-in data from file
 AllCases <-  read.csv(paste0("L:/daily_reporting_figures_rdp/csv/",Sys.Date(), "/", Sys.Date(), "cases_wphi.csv"))
@@ -196,28 +180,26 @@ Roster$HospitalAccess = key_match
 # Below here is where we want to fix the MATCH = FALSE data by looking in Master list
 ####################################################################################
 # run the search again looking for only the FALSE = MATCH data
-# step 1 is look at the the cases w PHI table
-#read the file in (1.9 records)
-read_file = "L:/daily_reporting_figures_rdp/DeathRostering/Alison_Cases_1_13_2021.csv"
 
-# read in the lookup.csv
-con = file(read_file,open="r")
-data = readLines(con)
-close(con)
-# cleans data of spurious slash characters
-data = gsub("\"","",data)
-# split on commas
-data = str_split(data,",",simplify=TRUE)
-# eliminate spurious first row
-data = data[-1,]
-# convert to data-frame; declare headers
-data = as.data.frame(data)
-names(data) = c("eventid","lname","fname","dob","extra")
-# convert data (if you like...)
-data$eventid = as.numeric(data$eventid)
+# SQL connection
+statement <-
+  paste0("SELECT [event_id]
+, [fname]
+, [lname]
+, [dob]
+, [ocme_num]
+, [disease_status] FROM [DPH_COVID_IMPORT].[dbo].[CTEDSS_DAILY_REPORT_ALL_Cases]
+WHERE disease_status<>'CONFIRMED' AND disease_status<>'PROBABLE'")
 
-#add extra code here to read in
-AllCases = data
+
+con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
+lookup <- DBI::dbGetQuery(conn = con2 , statement = statement)
+odbc::dbDisconnect(con2)
+glimpse(lookup)
+
+table(lookup$disease_status)
+
+AllCases<-lookup
 
 # subset the Roster file for only FALSE ones
 RosterF = Roster %>% subset(MATCH==FALSE)
