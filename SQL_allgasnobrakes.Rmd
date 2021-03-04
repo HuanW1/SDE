@@ -1787,7 +1787,7 @@ ggplot(agegrp, aes(mmwrweekdate, rate_100k,col = age_group, group = age_group))+
     legend.position = "bottom"
   )+
   labs(
-    title= "Average daily rate of COVID-19 cases\nby age group",
+    title= "Average daily rate of COVID-19 cases by age group",
     subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
     x="",
     y="Rate per 100,000 population",
