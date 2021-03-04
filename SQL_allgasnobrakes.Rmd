@@ -1713,7 +1713,7 @@ ggplot(dfs_age)+
 `r if(thursday){"The chart below shows the average number of new COVID-19 cases per day per 100,000 population by age group. The rates in this chart are calculated by averaging the number of new cases diagnosed each day during the previous two weeks, dividing by the annual population in each age group, and then multiplying by 100,000.  "}`
 
 
-```{r plot_thurs_rate_by_age, eval=thursday, dpi=300, fig.height=5, fig.width= 7}
+```{r plot_thurs_rate_by_age, eval=thursday, dpi=300, fig.height=6, fig.width= 7}
 weeks <-  case %>%
   select(date,mmwrweek) %>%
   mutate(
