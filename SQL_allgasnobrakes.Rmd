@@ -1232,7 +1232,7 @@ ovlsum
 \*\*Includes confirmed plus probable cases  
 
 **COVID-19 Cases and Associated Deaths by County of Residence**  
-*As of `r paste0(format(graphdate, "%m/%d/%y"), " ", params$desiredtime)`.*
+*As of `r paste0(format(graphdate, "%m/%d/%y"))`.*
 ```{r county_lab_cases_deaths_table, message=FALSE, warning=FALSE}
 tbl_county <- tibble::tibble(County = forcats::as_factor(c("Fairfield County", "Hartford County", "Litchfield County", "Middlesex County", "New Haven County", "New London County", "Tolland County", "Windham County", "Pending address validation")))
 tbl_confirmed_cases <- case %>%
