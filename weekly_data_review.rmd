@@ -81,9 +81,29 @@ casenew <- casenew %>%
   ) 
 count(casenew, cong_yn)
 
-#6. create community only testing dataset 
+#6. create community only testing dataset - changing the logic to capture the latest geo coded dataset
 monthday <- format(Sys.Date()-1, "%b_%d_%y")
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
+
+most_current_geo <- 
+  odbc::odbcListObjects(con, 
+                        catalog = "DPH_COVID_IMPORT", 
+                        schema = "dbo") %>% 
+  filter(stringr::str_detect(string = name, 
+                             pattern = "Geo_Tract")) %>%
+  tidyr::separate(data = .,
+                  col = name,
+                  sep = "_",
+                  into = c("month", "day"),
+                  extra = "drop",
+                  remove = FALSE) %>%
+  mutate(table_date = mdy(paste(month, 
+                                day, 
+                                year(Sys.Date()), 
+                                sep = "-"))) %>%
+  slice_max(order_by = table_date) %>%
+  pull(name)
+
 statement <- paste0("SELECT [r].[case_id]
                               ,[r].[X]
                               ,[r].[Y]
@@ -92,7 +112,7 @@ statement <- paste0("SELECT [r].[case_id]
                               ,[r].[License__]
                               ,[r].[DBA]
                               ,[r].[type]
-                    FROM [DPH_COVID_IMPORT].[dbo].[", monthday,"_Covid_Geo_Tract] as [r]")
+                    FROM [DPH_COVID_IMPORT].[dbo].[", most_current_geo,"] as [r]")
 alltestgeo <-  DBI::dbGetQuery(conn = con , statement = statement)
 
 testgeo <- alltestgeo %>%
@@ -260,6 +280,7 @@ ggplot(case_dat1)+
             legend.title=element_text(size=14),
             legend.position="right", legend.box = "horizontal") +
       guides(fill=guide_colorbar(barwidth=0.7,barheight=5, title="Cases/100k")) +
+  ggtitle("New continuous scale, 14-day average case rates by town\n")
   #ggtitle(paste("Week ending", format(case_dat1$date2, "%b %d"))) + 
       theme(plot.title = element_text(size=14),
             panel.grid.major = element_line(colour = "transparent"))
@@ -301,7 +322,8 @@ ggplot(caseavg)+
   xlim(mdy("03-01-2020"), Sys.Date()-7)+
   labs(
     y = "Number of COVID-19 Cases",
-    x="Specimen Collection/Onset Date")
+    x="Specimen Collection/Onset Date") +
+  ggtitle("Overall State Snapshot for Number of cases")
 
 #3.b. counts of cases for table
 totalcases <- count(casenew)
@@ -315,7 +337,7 @@ weeklycases <- casenew %>%
     (week == epiweek(Sys.Date()-28) & year == epiyear(Sys.Date()-28)))%>%
   group_by(year,week) %>%
   tally() %>%
-  rename(newcases=n) #%>%
+  rename(newcases=n)
 
 #create community only case dataset 
 communitycase <- casenew %>%
@@ -372,7 +394,8 @@ ggplot(chanewadmit)+
   xlim(ymd("2020-03-01"), Sys.Date()-7)+
   labs(
     y = "New COVID-19 Admissions",
-    x="Date")
+    x="Date") +
+  ggtitle("New hospital admissions by day over time")
 
 #counts by week
 chaavgadmit <- chanewadmit %>%
@@ -407,7 +430,8 @@ ggplot(chaadmit)+
   theme_classic()+
   labs(
     y = "COVID-19 Hospital Census",
-    x="Date")
+    x="Date") +
+  ggtitle("COVID-19 Hospital Census by day over time")
 
 #count census by week 
 chaavgcensus <- chaadmit %>%
@@ -447,7 +471,8 @@ ggplot(deathavg)+
   labs(
     y = "Number of COVID-19 Deaths",
     x = "Date of Death"
-   )
+   ) +
+  ggtitle("Number of COVID-19 Deaths over time")
 
 totaldeaths <- sum(death_ct$n)
 weeklydeaths <- casenew %>%
@@ -496,7 +521,8 @@ ggplot(caserecent)+
   scale_x_date(date_labels = "%b-%d", date_breaks = "14 days")+
   labs(
     y = "Number of COVID-19 Cases",
-    x="Specimen Collection/Onset Date")
+    x="Specimen Collection/Onset Date") +
+  ggtitle("COVID-19 Cases by Specimen collection or onset Date")
 
 #count cases by week
 case_ct_week <- casenew %>%
@@ -539,7 +565,8 @@ ggplot(case_ct_week)+
     y = "Number of COVID-19 Cases",
     x="Specimen Collection/Onset Date",
     fill="Reside in Congregate Setting")+
-  theme(axis.text.x = element_text(size = 8, angle = 30, vjust = .7))
+  theme(axis.text.x = element_text(size = 8, angle = 30, vjust = .7)) +
+  ggtitle("COVID-19 Cases stratified by residents/non-residents of congregate settings")
 
 ```
 
@@ -590,7 +617,8 @@ ggplot(testavg8)+
   labs(
     y = "Number of Tests",
     x="Specimen Collection Date"
-    )
+    ) +
+  ggtitle("Number of COVID-19 Tests over time")
 
 #10. Community test positivity plot
 ggplot(testavg8, aes(x=date, y=pctpos), color="black")+
@@ -600,7 +628,9 @@ ggplot(testavg8, aes(x=date, y=pctpos), color="black")+
   labs(
     y = "% Positive",
     x="Date"
-    )
+    ) +
+  ggtitle("Percentage Positivity in COVID-19 tests over time")
+
 #added 1/27/2021: daily pct positivity:
 #ggplot(testavg8)+
 ##  geom_col(aes(x=date, y=daily_pctpos), fill="lightgrey")+
@@ -1013,7 +1043,8 @@ ggplot(subdat_3wkt)+
     legend.direction = "horizontal",
     legend.title = element_text(size = 11),
     legend.text = element_text(size=9)
-  )
+  ) +
+  ggtitle("Test Count")
 
 #17. Tests per 100,000 Population per Day
 ggplot(subdat_3wkt)+
@@ -1030,7 +1061,8 @@ ggplot(subdat_3wkt)+
     legend.direction = "horizontal",
     legend.title = element_text(size = 11),
     legend.text = element_text(size=9)
-  )
+  ) +
+  ggtitle("Tests per 100,000 Population per Day")
 
 #18. Percentage Positive Tests
 ggplot(subdat_3wkt)+
@@ -1048,7 +1080,8 @@ ggplot(subdat_3wkt)+
     legend.direction = "horizontal",
     legend.title = element_text(size = 11),
     legend.text = element_text(size=9)
-  )
+  ) +
+  ggtitle("Percentage Positive Tests")
 
 #c. map cases for each week
 num_groups <- c("None", "1 to 4", "5 to 24", "25 to 49", "50 to 99", "100 to 199", "200 to 499", "500 to 999", "1000+")
@@ -1137,7 +1170,8 @@ ggplot(subdat_3wkc)+
     legend.direction = "horizontal",
     legend.title = element_text(size = 11),
     legend.text = element_text(size=11)
-  )
+  ) +
+  ggtitle("Case countt")
 
 
 tompalette2 <- c("white", "#ffffb2", "gold", "darkorange", "#f03b20")
@@ -1149,18 +1183,13 @@ ggplot(subdat_3wkc)+
   geom_sf(aes(fill = rate14cat1))+
   scale_fill_manual(values = tompalette2, drop=FALSE)+
   theme_void()+
-  labs(
-    fill = "Average Daily Incidence Rate per 100,000 \nover last two weeks"
-  )+
+  labs(fill = "Average Daily Incidence Rate per 100,000 \nover last two weeks") +
   theme(
     legend.position = "bottom",
     legend.direction = "vertical",
     legend.title = element_text(size = 11),
-    legend.text = element_text(size=11)
-  )
-
-
-
+    legend.text = element_text(size=11))
+  
 ```
 
 
@@ -1435,8 +1464,9 @@ ggplot(cha_cty)+
   scale_color_brewer(palette= "Paired")+
   theme_classic()+
   labs(
-    y = "COVID-19 Hospital Census",
-    x="Date")
+    y = "Hospital Census",
+    x="Date") +
+  ggtitle("COVID-19 Hospital census")
 
 kable(chaavgcensus )
 
