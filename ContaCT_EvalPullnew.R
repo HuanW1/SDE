@@ -194,7 +194,12 @@ all_possible_files <-
   list.files(magic_directory,
              ".csv")
 
-# Extract just the ones after start_date
+# Extract just the files after start_date
+# Use separate() to grab the two dates in the filename
+# apply filter() to get dates we want
+# paste0 the full path back on
+# use deframe() to get a named list of files with the date as a name
+
 relevant_files <-
   all_possible_files %>%
   as_tibble %>%
@@ -208,14 +213,18 @@ relevant_files <-
   mutate(value = paste0(magic_directory, value)) %>%
   deframe()
 
+# Take our list of relevant files and build a dataframe
+# Make all columns type char
+# Since the list is named add a column called importdt with the date
+# Reduce it down with map_df() to one big tibble
 CTimport <-
   purrr::map_df(relevant_files,
                 ~ read_csv(.x,
                            col_types = list(.default = col_character())),
                 .id = "importdt")
 
-
-CTimport <-
+# Rename some stuff, make spec_col_date & Birthday real dates
+ContaCT <-
   CTimport %>%
   rename( street1 = `Address 1: Street 1`,
           street2 = `Address 1: Street 2`,
@@ -224,22 +233,22 @@ CTimport <-
           zip = `Address 1: ZIP/Postal Code`,
           eventid = `CTEDSS ID`) %>%
   mutate(spec_col_date = mdy(`Positive Test date`),
-         Birthday = mdy(Birthday)) %>%
+         Birthday = mdy(Birthday),
+         EXPORT_DATETIME = ymd(importdt),
+         bigID = str_to_lower(paste0(`First Name`,
+                                     `Last Name`,
+                                     Birthday))) %>%
   select(-c("Positive Test date"))
-
-# View(CTimport)
-
-ContaCT <- CTimport %>%
-  mutate (EXPORT_DATETIME = ymd(importdt),
-          bigID = str_to_lower(paste0(`First Name`, `Last Name`, Birthday)))
 
 # View(ContaCT)
 
+# Make a list of possible elr_linelists to choose from
 possibilities <-
   list.files(path = "l:/",
              pattern = "current_elr_linelist_",
              full.names = TRUE)
 
+# Figure out which is latest
 which_one <-
   as.data.frame(possibilities) %>%
   cbind(as.data.frame(str_split(possibilities,
@@ -250,10 +259,11 @@ which_one <-
   filter(justdate == max(justdate)) %>%
   pull(possibilities)
 
+# load the latest
 load(which_one)
 
-# load("l:/current_elr_linelist_2021-03-05-06-09-03.RData")
-
+# filter the elr down to just result=="detected"
+# select needed columns goes from ~7M to ~350k rows
 elr4paula <-
   elr_linelist %>%
   filter(result=="detected") %>%
@@ -269,9 +279,12 @@ elr4paula <-
          EventAgeYears = age,
          `Event Date` = event_date)
 
+# throw away original linelist recover memory
 rm(elr_linelist)
 gc()
 
+#### From here on it's pretty much untouched ####
+### not at all sure the comments are accurate ###
 contactpull2 <- ContaCT %>%
   inner_join(elr4paula, by = c("eventid", "spec_col_date")) %>%
   select(-c("bigID.y")) %>%
