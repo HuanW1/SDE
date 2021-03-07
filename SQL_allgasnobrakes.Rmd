@@ -190,7 +190,7 @@ newcha <- cha %>%
 
 ```
 
-```{r yesterday_summary, include=FALSE}
+```{r yesterday_summary, include=FALSE, eval=FALSE}
 #### Check for yesterday data otherwise create fake ####
 if(file.exists(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1))) {
   yesterday_file <- list.files(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1), 
@@ -3395,19 +3395,19 @@ GenderSummary <- tibble(
 ) 
 
 #### Why is this even here?
-chg_yst2 <- read_csv(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1,"/", yesterday_file)) %>%
-  rename(yesterday = `Total**`) 
-chg_yst2[1,1] <- "Total COVID-19 Cases"
-chg_yst2[4,1] <- "Total COVID-19-Associated Deaths"
-chg_yst2 <- chg_yst2 %>% 
-  select(yesterday) %>% 
-  bind_cols(mock_table$`Total**`) %>% 
-  mutate(
-    'Total**' = as.integer("Total**"),
-    sign = ifelse(`Total**`>= yesterday, "+", "-"),
-    delta = abs(`Total**` - yesterday),
-         ) %>% 
-  select(sign, delta)
+# chg_yst2 <- read_csv(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1,"/", yesterday_file)) %>%
+#   rename(yesterday = `Total**`) 
+# chg_yst2[1,1] <- "Total COVID-19 Cases"
+# chg_yst2[4,1] <- "Total COVID-19-Associated Deaths"
+# chg_yst2 <- chg_yst2 %>% 
+#   select(yesterday) %>% 
+#   bind_cols(mock_table$`Total**`) %>% 
+#   mutate(
+#     'Total**' = as.integer("Total**"),
+#     sign = ifelse(`Total**`>= yesterday, "+", "-"),
+#     delta = abs(`Total**` - yesterday),
+#          ) %>% 
+#   select(sign, delta)
 
 StateSummary <- tableforgary %>%
   rename(
