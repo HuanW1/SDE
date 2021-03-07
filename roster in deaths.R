@@ -88,7 +88,7 @@ names(results) <-  c("Raw_Name","Match_Name","Raw_DOB","Match_DOB","MatchStatus"
 
 # 1d. enforce classes
 results$Raw_DOB <-  as.Date(results$Raw_DOB,format="%m/%d/%Y")
-results$Match_DOB <-  as.Date(results$Match_DOB,format="%Y-%m-%d")
+results$Match_DOB <-  as.Date(results$Match_DOB,format="%m/%d/%Y")
 
 # 1d. add string distance
 results$Name_Dist <-  stringdist(results$Raw_Name,results$Match_Name)
@@ -97,7 +97,6 @@ results$DOB_Dist <-  as.numeric(abs(results$Raw_DOB-results$Match_DOB))
 
 year(results$Raw_DOB)
 month(results$Raw_DOB)
-
 day(results$Raw_DOB)
 
 results$BDay_Match <-  month(results$Raw_DOB)==month(results$Match_DOB)
@@ -105,6 +104,29 @@ results$BDay_Match <-  results$BDay_Match+(day(results$Raw_DOB)==day(results$Mat
 results$BDay_Match <-  results$BDay_Match+(year(results$Raw_DOB)==year(results$Match_DOB))
 
 results$EventID = AllCases$event_id[match_inds]
+
+# initialize results
+results$dobMatch_name = ""
+results$dobMatch_dist = -1
+
+# # for each record in the roster
+# for (i in 1:nrow(Roster)){
+#   # extract the ith date of birth and name and disease
+#   temp_dob=Roster$DOB[i]
+#   temp_name=Roster$name[i]
+#   # find all records with same dob
+#   match_dobs=which(as.Date(AllCases$DOB)==as.Date(temp_dob,format="%m/%d/%Y"))
+#   # find all names with same dob
+#   match_names=AllCases$name[match_dobs]
+#   # find best-match name to this dob
+#   match_idx=amatch(temp_name,match_names,maxDist=100)
+#   match_name=match_names[match_idx]
+#   # determine string distance of dob-matched name
+#   match_dist=stringdist(temp_name,match_name)
+#   # take note of results
+#   results$dobMatch_name[i]=match_name
+#   results$dobMatch_dist[i]=match_dist
+# } # end-for (iteration over roster)
 
 # check the names and put the match in the tables
 OCME_newdeaths$MATCH = results$BDay_Match>1 & results$Name_Dist<10
@@ -128,15 +150,18 @@ Roster = rename(Roster, DOB ="DOB")
 Roster$OCME_RPT <-"YES"
 Roster$SFNa <-NA
 
+
 Roster$Outcome <-"DIED"
 Roster$DieWith <- "YES"
 Roster$Minitial <- NA
+
 Roster$HospitalAccess <- NA
 Roster$Suffix <- NA
 
 # Enter the EventIDs into Roster and comparison file
 Roster$EventID = results$EventID
 OCME_newdeaths$EventID = results$EventID
+
 Roster$DiseaseStatus = results$MatchStatus
 
 # change lower case to all capitals for Roster
@@ -182,3 +207,4 @@ dir.create(paste0('L:/daily_reporting_figures_rdp/DeathRostering/', Sys.Date()))
 
 write_csv(Roster2,
           paste0("L:/daily_reporting_figures_rdp/DeathRostering/", Sys.Date(), "/", Sys.Date(),"Roster.csv"), na="")
+
