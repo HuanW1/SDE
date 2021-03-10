@@ -1,6 +1,6 @@
 if(!dir.exists("L:/")) message("You need to have L drive mapped")
 
-.libPaths(c("L:/library", .libPaths()))
+.libPaths(c("L:/newlib", .libPaths()))
 
 library(tidyverse)
 library(lubridate)
