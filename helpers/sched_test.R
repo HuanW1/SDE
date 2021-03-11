@@ -251,7 +251,7 @@ save(started_time,
      finished_pull,
      cases_dim,
      tests_dim,
-     file = paste0("l:/quick_summary_", timey, ".RData" ))
+     file = paste0("l:/Otto_summary_", timey, ".RData" ))
 
 
 started_df <- Sys.time()
@@ -557,13 +557,13 @@ df_dim <- dim(df)
 timey <- Sys.time()
 timey <- gsub(pattern = " |:", replacement = "-", x = timey)
 
-save(started_df,
-     finished_df,
-     df_dim,
-     file = paste0("l:/df_creation_", timey, ".RData" ))
+# save(started_df,
+#      finished_df,
+#      df_dim,
+#      file = paste0("l:/df_creation_", timey, ".RData" ))
 
 save(df,
-     file = paste0("l:/raw_data_", timey, ".RData" ))
+     file = paste0("l:/recent_rdata/raw_data_", timey, ".RData" ))
 
 DeathUnder20 <- df %>%
   filter(covid_death == "YES" & age < 20 & event_date > "2020-02-01") %>%
@@ -640,7 +640,7 @@ timey <- Sys.time()
 timey <- gsub(pattern = " |:", replacement = "-", x = timey)
 
 save(case3,
-     file = paste0("l:/cases_wphi_", timey, ".RData" ))
+     file = paste0("l:/recent_rdata/cases_wphi_", timey, ".RData" ))
 
 
 
@@ -965,7 +965,7 @@ neg_tests_thursday <- neg_tests_thursday$n
 rm(df)
 
 save(elr_linelist,
-     file = paste0("l:/elr_linelist_", timey, ".RData" ))
+     file = paste0("l:/recent_rdata/elr_linelist_", timey, ".RData" ))
 
 rm(elr, elr_linelist_elronly)
 gc()
