@@ -616,22 +616,22 @@ rm(case3)
 
 case <- case %>% select(-phone)
 
-cdc_numbers <- case %>% 
-  group_by(disease_status) %>% 
-  tally(name = "Cases") %>% 
-  left_join(
-    case %>% 
-      filter(outcome == "Died") %>% 
-      group_by(disease_status) %>% 
-      tally(name = "Deaths"),
-    by = c('disease_status' = 'disease_status')
-  )
-
-if(csv_write) {
-  write_csv(cdc_numbers, 
-            paste0("L:/daily_reporting_figures_rdp/csv/", 
-                                Sys.Date(), "/",  Sys.Date(), "cdc_numbers.csv")) #who actually uses this?
-}
+# cdc_numbers <- case %>% 
+#   group_by(disease_status) %>% 
+#   tally(name = "Cases") %>% 
+#   left_join(
+#     case %>% 
+#       filter(outcome == "Died") %>% 
+#       group_by(disease_status) %>% 
+#       tally(name = "Deaths"),
+#     by = c('disease_status' = 'disease_status')
+#   )
+# 
+# if(csv_write) {
+#   write_csv(cdc_numbers, 
+#             paste0("L:/daily_reporting_figures_rdp/csv/", 
+#                                 Sys.Date(), "/",  Sys.Date(), "cdc_numbers.csv")) #who actually uses this?
+# }
 
 ```
 
