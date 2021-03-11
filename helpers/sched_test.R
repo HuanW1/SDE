@@ -1,6 +1,7 @@
 started_time <- Sys.time()
+cat(started_time)
 require(rmarkdown)
-require(tidyverse)
+require(tidyverse, quietly = TRUE, warn.conflicts = FALSE)
 require(sf)
 require(odbc)
 require(kableExtra)
@@ -165,29 +166,6 @@ cha_file <- list.files("L:/daily_reporting_figures_rdp/CHA_data_here",
                        pattern = ".csv",
                        full.names = TRUE)
 cha <-  read_csv(cha_file)
-
-# Why do we create newcha then never use it?
-newcha <-
-  cha %>%
-  filter(Type == "Admit" & State == "TOTAL") %>%
-  select(-c(Change, County, State)) %>%
-  pivot_longer(-Type,
-               names_to = "admit_date",
-               values_to = "admissions",
-               names_transform = list(admit_date = mdy)) %>%
-  select(-Type)
-
-
-# ## ----yesterday_summary, include=FALSE------------------------------------------------------------------------------------
-# #### Check for yesterday data otherwise create fake ####
-# if(file.exists(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1))) {
-#   yesterday_file <- list.files(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1),
-#                                pattern = ".csv")
-# } else {
-#   yesterday_file <- "No yesterday file yet"
-# }
-
-
 
 ## ----shapefiles, include = FALSE-----------------------------------------------------------------------------------------
 #### towns shapes ####
@@ -375,27 +353,6 @@ df <- df %>%
 
 ## ----multi_and_beyond----------------------------------------------------------------------------------------------------
 
-#### multioutcome ####
-
-# Sys.time()
-# multioutcome <- test_df %>%
-#   select(bigID, outcome) %>%
-#   distinct(bigID, outcome) %>%
-#   group_by(bigID) %>%
-#   tally() %>%
-#   filter(n >= 2) %>%
-#   ungroup() %>%
-#   left_join(df, by = c("bigID" = "bigID")) %>%
-#   select(eventid, bigID, outcome, death_date) %>%
-#   unique() %>%
-#   filter(outcome == "Died" & !is.na(death_date))
-#
-# test_df <- test_df %>%
-#   mutate(outcome = ifelse(bigID %in% multioutcome$bigID, "Died", outcome))
-# Sys.time()
-# #
-# table(df$outcome)
-
 # Sys.time()
 df <-
   df %>%
@@ -478,10 +435,6 @@ df$result <- if_else(
     "indeterminate"
   )
 )
-
-###bad spec_col_dates blanked out
-# df$spec_col_date[df$spec_col_date < ymd("2020-02-20")] <- NA
-# df$spec_col_date[df$spec_col_date > Sys.Date()] <- NA
 
 df <-
   df %>%
@@ -610,7 +563,7 @@ save(started_df,
      file = paste0("l:/df_creation_", timey, ".RData" ))
 
 save(df,
-     file = paste0("l:/current_data_", timey, ".RData" ))
+     file = paste0("l:/raw_data_", timey, ".RData" ))
 
 DeathUnder20 <- df %>%
   filter(covid_death == "YES" & age < 20 & event_date > "2020-02-01") %>%
@@ -674,31 +627,6 @@ case$death_date[is.na(case$covid_death) | case$covid_death == "NO"] <- NA
 
 thursday_case <- case %>%
   filter(date >= thursday_range_start & date <= thursday_range_end )
-
-#count(case, hisp_race2)
-case2 <- case %>%
-  select(-phone) %>%
-  select(eventid,disease_status, age, gender, city, county, state, hisp_race, race, hisp,hospitalized, admit_date, discharge_date, icu, preg, symptoms, symp_onset_date, spec_col_date, fever, fatigue, sob, headache, cough, myalgia, new_olfact_taste, rigors, pneumonia, ards, outcome, death_date, healthcare_worker, cong_setting, cong_exposure_type, cong_facility, cong_yn, case_create_date, event_date, mmwrweek)
-
-if (csv_write) {
-  dir.create(paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date()))
-  write_csv(case2,
-            paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(),
-                   "/", Sys.Date(), "cases.csv"))
-}
-
-timey <- Sys.time()
-timey <- gsub(pattern = " |:", replacement = "-", x = timey)
-
-save(case2,
-     file = paste0("l:/cases_", timey, ".RData" ))
-
-rm(case2)
-
-if (SQL_write) {
-  #  df_to_table()
-}
-
 
 case3 <- case %>%
   select(eventid,fname, lname, dob, phone, disease_status, age, gender, street, city, county, state, hisp_race, race, hisp,hospitalized, admit_date, discharge_date, icu, preg, symptoms, symp_onset_date, spec_col_date, fever, fatigue, sob, headache, cough, myalgia, new_olfact_taste, rigors, pneumonia, ards, outcome, covid_death, vrn, ocme_reported, ocmeid, death_date, healthcare_worker, cong_setting, cong_exposure_type, cong_facility,cong_yn, case_create_date, event_date, test, result, lab_name, mmwrweek)
@@ -809,11 +737,6 @@ cdc_numbers <- case %>%
     by = c('disease_status' = 'disease_status')
   )
 
-if(csv_write) {
-  write_csv(cdc_numbers,
-            paste0("L:/daily_reporting_figures_rdp/csv/",
-                   Sys.Date(), "/",  Sys.Date(), "cdc_numbers.csv")) #who actually uses this?
-}
 
 pendingaddress_text <- case %>%
   filter(is.na(county) & disease_status %in% c("Confirmed", "Probable")) %>%
@@ -1050,27 +973,10 @@ pos_tests_thursday <- pos_tests_thursday$n
 neg_tests_thursday <- elr %>% filter(result == "not detected" & spec_col_date >= thursday_range_start & spec_col_date <= thursday_range_end) %>% group_by(result) %>%  summarize(n = sum(n)) %>% select(n)
 neg_tests_thursday <- neg_tests_thursday$n
 
-# write_csv(elr_linelist,
-#           paste0("L:/daily_reporting_figures_rdp/elr_linelists/elr_linelist",
-#                  Sys.Date(),
-#                  ".csv")
-#           )
-
-if(csv_write) {
-  data.table::fwrite(elr_linelist,
-                     paste0("L:/daily_reporting_figures_rdp/elr_linelists/elr_linelist",
-                            Sys.Date(),
-                            ".csv"),
-                     buffMB = 16,
-                     nThread = 4,
-                     verbose = FALSE,
-                     showProgress = FALSE)
-}
-
 rm(df)
 
 save(elr_linelist,
-     file = paste0("l:/current_elr_linelist_", timey, ".RData" ))
+     file = paste0("l:/elr_linelist_", timey, ".RData" ))
 
 rm(elr, elr_linelist_elronly)
 gc()
@@ -1146,144 +1052,13 @@ hosp_text <- str_to_sentence(as.english(cha_c$today[cha_c$State =='TOTAL']))  # 
 dec <- case %>% filter(outcome == 'Died') %>% nrow()
 deaths_text <- str_to_sentence(as.english(dec))  # for now
 
-# if(exists('fake_yesterday')){
-#   hospitalized_totals <-  cha_c %>%  filter(State== "TOTAL") %>% select(today)
-#   discharged_totals <- cha %>%
-#     filter(Type == "Discharge") %>%
-#     select(-Type)
-#   cols2 <- ncol(discharged_totals)
-#   discharged_totals <- discharged_totals %>%
-#     rename( today= cols2-1,
-#             yesterday = cols2-2) %>%
-#     filter(State== "TOTAL") %>%
-#     select(today)
-#   tbl_summary <- tibble(
-#     'Overall Summary' = c(
-#       "COVID-19 Cases (confirmed and probable)",
-#       "COVID-19 Tests Reported (molecular and antigen)",
-#       "Daily Test Positivity*",
-#       "Patients Currently Hospitalized with COVID-19",
-#       "COVID-19-Associated Deaths"
-#     )
-#   )
-#
-#   ncases <- nrow(case)
-#   ntests <- nrow(elr_linelist)
-#
-#   tbl_total <-  tibble(
-#     "Total**" = c(
-#       ncases,
-#       ntests,
-#       round(ncases/ntests*100,2),
-#       hospitalized_totals,
-#       dec
-#     )
-#   )
-#   tbl_total$`Total**` <- as.character(tbl_total$`Total**`)
-#   tbl_total[3,] <- ""
-#
-#   chg_yst <- tibble("Change Since Yesterday" = c('+0','+0','0%','+0', '+0'))
-#   ovlsum <- bind_cols(tbl_summary, tbl_total, chg_yst)
-#
-#   tableforgary <- ovlsum
-#
-#   if(csv_write) {
-#     dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
-#     write_csv(ovlsum,
-#               paste0("L:/daily_reporting_figures_rdp/yesterday/",
-#                      Sys.Date(), "/", Sys.Date(), ".csv"))
-#     # testing new code Feb 1
-#   }
-#
-#   df_to_table(ovlsum, "test_overall_summary", overwrite = TRUE, append = FALSE)
-#
-#   ovlsum <- regulartable(ovlsum) %>%
-#     flextable::autofit()
-#   ovlsum <- align_nottext_col(ovlsum,align = "center")
-#   ovlsum
-#
-# } else {
-#   hospitalized_totals <-  cha_c %>%  filter(State== "TOTAL") %>% select(today)
-#   discharged_totals <- cha %>%
-#     filter(Type == "Discharge") %>%
-#     select(-Type)
-#   cols2 <- ncol(discharged_totals)
-#   discharged_totals <- discharged_totals %>%
-#     rename( today= cols2-1,
-#             yesterday = cols2-2) %>%
-#     filter(State== "TOTAL") %>%
-#     select(today)
-#
-#   tbl_summary <- tibble(
-#     'Overall Summary' = c(
-#       "COVID-19 Cases (confirmed and probable)",
-#       "COVID-19 Tests Reported (molecular and antigen)",
-#       "Daily Test Positivity*",
-#       "Patients Currently Hospitalized with COVID-19",
-#       "COVID-19-Associated Deaths"
-#     )
-#   )
-#
-#   ncases <- nrow(case)
-#   ntests <- nrow(elr_linelist)
-#
-#   tbl_total <-  tibble(
-#     "Total**" = c(
-#       ncases,
-#       ntests,
-#       0,#round(ncases/ntests*100,2),
-#       hospitalized_totals,
-#       dec
-#     )
-#   )
-#   tbl_total$`Total**` <- as.double(tbl_total$`Total**`)
-#
-#   chg_yst <- read_csv(paste0("L:/daily_reporting_figures_rdp/yesterday/",Sys.Date() - 1, "/", yesterday_file)) %>%
-#     select(`Total**`) %>%
-#     rename(yesterday = `Total**`) %>%
-#     bind_cols(tbl_total) %>%
-#     mutate(
-#       `Total**` =as.double(`Total**`),
-#       sign = ifelse(`Total**`>= yesterday, "+", "-"),
-#       delta = abs(`Total**` - yesterday),
-#       'Change Since Yesterday' = paste0(sign, delta)
-#     ) %>%
-#     select('Change Since Yesterday')
-#   chg_yst[3,] <- paste0(round(as.double(chg_yst[1,])/as.double(chg_yst[2,])*100,2), "%")
-#
-#
-#
-#   tbl_total$`Total**` <- as.character(tbl_total$`Total**`)
-#   tbl_total[3,] <- ""
-#   ovlsum <- bind_cols(tbl_summary, tbl_total, chg_yst)
-#   tableforgary <- ovlsum
-#   cha_stats <-  bind_cols(tbl_summary, tbl_total) %>%
-#     rename(summary = `Overall Summary`, total = `Total**`)
-#
-#   if(csv_write) {
-#     dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
-#     write_csv(ovlsum,
-#               paste0("L:/daily_reporting_figures_rdp/yesterday/",
-#                      Sys.Date(), "/", Sys.Date(), ".csv"))
-#   }
-#
-#   ovlsum <- regulartable(ovlsum) %>%
-#     flextable::autofit()
-#   ovlsum <- align_nottext_col(ovlsum,align = "center")
-#   ovlsum
-# }
-
-# ovlsum
 
 timey <- Sys.time()
 timey <- gsub(pattern = " |:", replacement = "-", x = timey)
 
-# save(ovlsum,
-#      file = paste0("l:/draft_table_", timey, ".RData" ))
 
 ncases <- nrow(case)
 ntests <- nrow(elr_linelist)
-
 
 hospitalized_totals <-
   cha_c %>%
@@ -1348,9 +1123,6 @@ yesterday_col <-
 
 mock_table$`Change Since Yesterday` <- yesterday_col
 mock_table
-
-write_csv(mock_table,
-          "L:/yesterday_test.csv")
 
 if(csv_write) {
   dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
