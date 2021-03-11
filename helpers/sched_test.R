@@ -726,17 +726,6 @@ rm(case3, yesterday_cases, yesterday_dob)
 
 case <- case %>%
   select(-phone)
-cdc_numbers <- case %>%
-  group_by(disease_status) %>%
-  tally(name = "Cases") %>%
-  left_join(
-    case %>%
-      filter(outcome == "Died") %>%
-      group_by(disease_status) %>%
-      tally(name = "Deaths"),
-    by = c('disease_status' = 'disease_status')
-  )
-
 
 pendingaddress_text <- case %>%
   filter(is.na(county) & disease_status %in% c("Confirmed", "Probable")) %>%
