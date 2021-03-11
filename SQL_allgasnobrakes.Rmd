@@ -3967,7 +3967,7 @@ if(csv_write){
 ```
 
 
-```{r county_data_request, message=FALSE, warning=FALSE, include=FALSE}
+```{r county_data_request, message=FALSE, warning=FALSE, include=FALSE, eval=FALSE}
 case_county_cum <-  case %>% 
   group_by(county) %>% 
   tally() %>% 
@@ -3991,8 +3991,8 @@ county7 <- case %>%
 }else{
 county7 <- tibble(
   County = c("Fairfield County", "Hartford County", "Litchfield County", "New Haven County", "Tolland County", "Middlesex County", "New London County","Windham County", NA ),
-  "Cases in last 7 days" =0,
-  "Total cases to date" =0
+  "Cases in last 7 days" = 0,
+  "Total cases to date" = 0
 )  
 }
 
