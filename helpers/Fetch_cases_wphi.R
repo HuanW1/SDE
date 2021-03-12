@@ -15,7 +15,7 @@ library("lubridate",
 # a. what are my choices
 possibilities <-
   list.files(path = "l:/recent_rdata",
-             pattern = "elr_linelist_",
+             pattern = "cases_wphi_",
              full.names = TRUE)
 
 # b. pick the newest
@@ -31,5 +31,9 @@ which_one <-
 
 # c. load it with the name elr_linelist
 # takes a minute or so
-message("This will take about 2.5 minutes")
+
+message("This will take about 10 seconds")
 load(which_one)
+cases_wphi <- case3
+rm(case3)
+

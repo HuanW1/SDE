@@ -2,15 +2,18 @@ if(!dir.exists("L:/")) message("You need to have L drive mapped")
 suppressPackageStartupMessages(library("tidyverse", 
                                        lib.loc = "L:/newlib", 
                                        quietly = TRUE, 
-                                       warn.conflicts = FALSE))
+                                       warn.conflicts = FALSE,
+                                       logical.return = TRUE))
 library("lubridate", 
         lib.loc = "L:/newlib", 
         quietly = TRUE, 
-        warn.conflicts = FALSE)
+        warn.conflicts = FALSE,
+        logical.return = TRUE)
 library(flextable, 
         lib.loc = "L:/newlib", 
         quietly = TRUE, 
-        warn.conflicts = FALSE)
+        warn.conflicts = FALSE,
+        logical.return = TRUE)
 
 possibilities <-
   list.files(path = "l:/",
