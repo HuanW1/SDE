@@ -10,3 +10,4 @@ sapply(DPH_packages, library,
        warn.conflicts = FALSE, 
        quietly = TRUE)
 
+message("All set! The usual packages are loaded")

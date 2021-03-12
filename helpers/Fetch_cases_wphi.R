@@ -36,4 +36,5 @@ message("This will take about 10 seconds")
 load(which_one)
 cases_wphi <- case3
 rm(case3)
+message("cases_wphi is loaded")
 

@@ -31,4 +31,6 @@ which_one <-
   pull(possibilities)
 
 load(which_one)
-mock_table
+print(mock_table)
+message("Draft table loaded in the Viewer window and as mock_table")
+

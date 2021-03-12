@@ -33,3 +33,5 @@ which_one <-
 # takes a minute or so
 message("This will take about 2.5 minutes")
 load(which_one)
+message("elr_linelist is loaded")
+
