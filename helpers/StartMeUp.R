@@ -4,10 +4,14 @@ DPH_packages <- c("rmarkdown", "kableExtra", "tidyverse", "lubridate", "sf",
                    "DBI", "odbc", "formatR", "knitr", "MMWRweek",
                   "scales", "english", "flextable")
 
-sapply(DPH_packages, library, 
-       logical.return = TRUE, 
-       character.only = TRUE, 
-       warn.conflicts = FALSE, 
-       quietly = TRUE)
+quiet_load <- function(x) {  
+  suppressPackageStartupMessages(library(x, 
+                                         logical.return = TRUE, 
+                                         character.only = TRUE, 
+                                         warn.conflicts = FALSE, 
+                                         quietly = TRUE))
+}
+
+sapply(DPH_packages, quiet_load)
 
 message("All set! The usual packages are loaded")
