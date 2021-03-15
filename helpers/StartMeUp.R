@@ -10,7 +10,8 @@ quiet_load <- function(x) {
                                          logical.return = TRUE, 
                                          character.only = TRUE, 
                                          warn.conflicts = FALSE, 
-                                         quietly = TRUE))
+                                         quietly = TRUE,
+                                         attach.required = TRUE))
 }
 
 sapply(DPH_packages, quiet_load)
