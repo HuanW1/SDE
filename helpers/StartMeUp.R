@@ -5,7 +5,8 @@ DPH_packages <- c("rmarkdown", "kableExtra", "tidyverse", "lubridate", "sf",
                   "scales", "english", "flextable")
 
 quiet_load <- function(x) {  
-  suppressPackageStartupMessages(library(x, 
+  suppressPackageStartupMessages(library(x,
+                                         lib.loc = "l:/newlib/",
                                          logical.return = TRUE, 
                                          character.only = TRUE, 
                                          warn.conflicts = FALSE, 
