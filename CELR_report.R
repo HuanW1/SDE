@@ -12,12 +12,13 @@
 # 7. 12/23/20: wininger - file-sourcing, edits to sources
 # 8. 02/08/21: kleppinger - link to new source file and edit county and city and create new matching file
 # 9. 02/11/21: Powell - Overhaul
+# 10.03/16/2021: Kleppinger - added newlib and deleted extras to match routine
 ################################################################
 
 #### load libraries ####
-.libPaths(c("L:/library", .libPaths()))
+.libPaths(c("L:/newlib", .libPaths()))
 
-library(tidyverse)			# filter
+library(tidyverse) # filter
 library(lubridate)
 library(zipcodeR)
 library(stringdist)
@@ -126,7 +127,7 @@ SELECT  [csv_file_version_no]
 --,[ExportEndDate]
 --,[RecID]
 FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]
-WHERE ExportDate = '2021-02-19 07:54:00'")
+WHERE ExportDate = '2021-03-16 08:00:00'")
 
 # DBI::dbGetQuery(con2, statement = "select max(exportdate) FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]")
 # latest_report <-
@@ -184,8 +185,6 @@ data <-
 
 table(data$Test_date)
 
-which_test_date <- "20210216" # YMD
-
 #### automate writing file name by test date
 first_part <- paste0("w:/Electronic Laboratory Reporting/Output/CTEDSS/MIF-PROD/CoV testing/CDC related/CELR/Output/",
                       today())
@@ -200,20 +199,11 @@ zero_pad <-
          which_test_date,
          "18050000~STOP~COVID")
 
-data %>%
-  select(csv_file_version_no:Submitter_unique_sample_ID) %>%
-  filter(Test_date == which_test_date) %>%
-  group_by(grp = rep(row_number(), length.out = n(), each = 25000)) %>%
-  group_walk(~ write_csv(.x, paste0(zero_pad, .y$grp, ".csv"), na=""))
-
-
-
-
 # "w:\Electronic Laboratory Reporting\Output\CTEDSS\MIF-PROD\CoV testing\CDC related\CELR\Output\Feb 15"
 
 #### Easy lazy way to do multiple test dates in one for loop
 
-which_test_date <- c("20210216", "20210215") # YMD order doesn't matter
+which_test_date <- c("20210311", "20210312", "20210313", "20210314", "20210315") # YMD order doesn't matter
 
 for (idate in which_test_date) {
   zero_pad <-
