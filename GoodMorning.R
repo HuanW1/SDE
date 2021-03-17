@@ -1,17 +1,17 @@
 if(!dir.exists("L:/")) message("You need to have L drive mapped")
-suppressPackageStartupMessages(library("tidyverse", 
-                                       lib.loc = "L:/newlib", 
-                                       quietly = TRUE, 
+suppressPackageStartupMessages(library("tidyverse",
+                                       lib.loc = "L:/newlib",
+                                       quietly = TRUE,
                                        warn.conflicts = FALSE,
                                        logical.return = TRUE))
-library("lubridate", 
-        lib.loc = "L:/newlib", 
-        quietly = TRUE, 
+library("lubridate",
+        lib.loc = "L:/newlib",
+        quietly = TRUE,
         warn.conflicts = FALSE,
         logical.return = TRUE)
-library(flextable, 
-        lib.loc = "L:/newlib", 
-        quietly = TRUE, 
+library(flextable,
+        lib.loc = "L:/newlib",
+        quietly = TRUE,
         warn.conflicts = FALSE,
         logical.return = TRUE)
 
@@ -33,5 +33,7 @@ which_one <-
 load(which_one)
 print(mock_table)
 message("Draft table loaded in the Viewer window and as mock_table")
-save_as_docx(mock_table, path = "testing123.docx")
+save_as_docx(mock_table, path = "pre_draft_summary_table.docx")
+message("word version available in this directory as pre_draft_summary_table.docx ")
+
 
