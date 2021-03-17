@@ -33,4 +33,5 @@ which_one <-
 load(which_one)
 print(mock_table)
 message("Draft table loaded in the Viewer window and as mock_table")
+save_as_docx(mock_table, path = "testing123.docx")
 
