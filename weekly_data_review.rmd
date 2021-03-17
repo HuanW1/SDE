@@ -9,21 +9,8 @@ author: 'Sydney Jones'
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
 ############################################ 1. DATA PREP ###########################
 
-require(rmarkdown)
-require(tidyverse)
-require(sf)
-require(odbc)
-require(kableExtra)
-require(lubridate)
-require(formatR)
-require(knitr)
-require(MMWRweek)
-require(scales)
-require(english)
-require(flextable)
-require(DBI)
-require(slider)
-
+#### required packages are on L: ####
+source("helpers/StartMeUp.R")
 
 dir <- "L:/daily_reporting_figures_rdp/"
 
@@ -145,7 +132,7 @@ communitytest <- testgeo2 %>%
   filter(!cong_test %in% "Yes")
 
 #7. Read in town alert dataset
-town_alert <- read_csv(paste0(dir, "tables/", Sys.Date(), "/TownAlertLevelsTable.csv"))
+town_alert <- read_csv(paste0(dir, "tables/", Sys.Date() - 6, "/TownAlertLevelsTable.csv"))
 
 #8. CHA data
 cha_file <- list.files(paste0(dir,"CHA_data_here"), pattern = ".csv")
@@ -235,9 +222,9 @@ arrange(popbycat, desc(RateCategory))
 ## New continuous scale, 14-day average case rates by town:
 ```{r, echo=FALSE, message=FALSE, fig.width=16, fig.height=4}
 #2. 14-day average on map
-case_dat <- read_csv(paste0(dir, "gary_csv/", Sys.Date(), "/", "CTTown_Alert.csv"))
-case_dat1 <- read_csv(paste0(dir, "gary_csv/", Sys.Date()-7, "/", "CTTown_Alert.csv"))
-case_dat2 <- read_csv(paste0(dir, "gary_csv/", Sys.Date()-14, "/", "CTTown_Alert.csv"))
+case_dat <- read_csv(paste0(dir, "gary_csv/", Sys.Date() - 6, "/", "CTTown_Alert.csv"))
+case_dat1 <- read_csv(paste0(dir, "gary_csv/", Sys.Date()-13, "/", "CTTown_Alert.csv"))
+case_dat2 <- read_csv(paste0(dir, "gary_csv/", Sys.Date()-20, "/", "CTTown_Alert.csv"))
 
 # case_dat <- 
 #   case_dat %>% 
@@ -1222,7 +1209,7 @@ wrong <- elr %>% filter(tat > 21)%>% filter(spec_col_date >= end_date-20 & spec_
 
 #wrong_foremail <- wrong %>% select(eventid, lab_result_create_date, lab_result_mod_date, spec_col_date, date_tested, date_reported_dph)
 
-write_csv(wrong, paste0(dir, "turnaround_issues.csv"))
+# write_csv(wrong, paste0(dir, "turnaround_issues.csv"))
 
 elr <- elr %>% filter(!(eventid %in% wrong$eventid & spec_col_date %in% wrong$spec_col_date))
 
