@@ -2209,7 +2209,7 @@ ggplot(daycare, aes(x=date, y=n, fill=role))+
   theme_classic()+
 theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
-    title = element_text(size = 8.5)
+    title = element_text(size = 7.5)
   )
 ```
 
@@ -3949,12 +3949,14 @@ if(csv_write){
 }
 
 #create dataset for sde indicator for county test counts
+# added epiyear
 sdedata <- testgeo2 %>%
   filter(cong_test !="Yes") %>% 
   mutate(week = epiweek(spec_col_date),
+         year = epiyear(spec_col_date),
          result2=ifelse(result=="detected", "Positive",
                         ifelse(result=="not detected", "Negative", "Indeterminate"))) %>% 
-  group_by(county, week, result2) %>%
+  group_by(county, year, week, result2) %>%
   tally() %>% 
   spread(result2, n) %>% 
   replace_na(replace=list(Positive=0, Negative=0, Indeterminate=0)) 
