@@ -1,13 +1,20 @@
 if(!dir.exists("L:/")) message("You need to have L drive mapped")
-.libPaths(c("L:/library", .libPaths()))
 
-#### required packages are on L: ####
-require(tidyverse)
-require(odbc)
-require(lubridate)
-require(MMWRweek)
-require(DBI)
-require(stringr)
+DPH_packages <- c( "tidyverse", "lubridate", "stringr",
+                  "DBI", "odbc", "formatR", "knitr", "MMWRweek","stringdist")
+
+quiet_load <- function(x) {
+  suppressPackageStartupMessages(library(x,
+                                         lib.loc = "l:/newlib/",
+                                         logical.return = TRUE,
+                                         character.only = TRUE,
+                                         warn.conflicts = FALSE,
+                                         quietly = TRUE,
+                                         attach.required = TRUE))
+}
+
+sapply(DPH_packages, quiet_load)
+
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 ####0. set this epiweek and year####
