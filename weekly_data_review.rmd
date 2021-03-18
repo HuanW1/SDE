@@ -1159,7 +1159,7 @@ ggplot(subdat_3wkc)+
     legend.title = element_text(size = 11),
     legend.text = element_text(size=11)
   ) +
-  ggtitle("Case countt")
+  ggtitle("Case count")
 
 
 tompalette2 <- c("white", "#ffffb2", "gold", "darkorange", "#f03b20")
