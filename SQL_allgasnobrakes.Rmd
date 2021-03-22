@@ -67,8 +67,8 @@ if (monthsame) {
 }
 
 #### setting what we write out ####
-csv_write <- TRUE
-SQL_write <- TRUE
+csv_write <- FALSE
+SQL_write <- FALSE
 
 ```
 
@@ -1504,55 +1504,77 @@ ggplot(subdat14nc)+
 ```{r newcasetable, eval = wedthurs}
 
 # code change Feb 2 to better capture most recent geocode table
+# con <- DBI::dbConnect(odbc::odbc(), "epicenter")
+# most_current_geo <- 
+#   odbc::odbcListObjects(con, 
+#                         catalog = "DPH_COVID_IMPORT", 
+#                         schema = "dbo") %>% 
+#   filter(stringr::str_detect(string = name, 
+#                              pattern = "Geo_Tract")) %>%
+#   tidyr::separate(data = .,
+#                   col = name,
+#                   sep = "_",
+#                   into = c("month", "day"),
+#                   extra = "drop",
+#                   remove = FALSE) %>%
+#   mutate(table_date = mdy(paste(month, 
+#                                 day, 
+#                                 year(Sys.Date()), 
+#                                 sep = "-"))) %>%
+#   slice_max(order_by = table_date) %>%
+#   pull(name)
+# 
+# # table_id <- DBI::Id(catalog = "DPH_COVID_IMPORT", schema = "dbo", table = most_current_geo)
+# # alltestgeo <- DBI::dbReadTable(con, table_id)
+# 
+# statement <- paste0("SELECT [r].[case_id]
+#                               ,[r].[X]
+#                               ,[r].[Y]
+#                               ,[r].[geoid10]
+#                               ,[r].[Name]
+#                               ,[r].[License__]
+#                               ,[r].[DBA]
+#                               ,[r].[type]
+#                     FROM [DPH_COVID_IMPORT].[dbo].[", most_current_geo,"] as [r]")
+# alltestgeo <-  DBI::dbGetQuery(conn = con , statement = statement)
+# 
+# odbc::dbDisconnect(con)
+# 
+# # SLUGGISH Agreed :) I didn't write it haha -AS
+# testgeo <- alltestgeo %>%
+#   mutate(name = ifelse(Name %in% c("", "NULL"), NA, Name),
+#          DBA = ifelse(DBA %in% c("", "NULL"), NA, DBA),
+#          facil_name = if_else(is.na(name), DBA, Name),
+#          cong_test = if_else(!is.na(facil_name), "Yes", "No"),
+#          eventid = as.numeric(case_id)) %>%
+#   rename(GEOID10 = geoid10) %>%
+#   select(-c("case_id", "name", "License__", "DBA")) %>%
+#   group_by(eventid) %>%
+#   arrange(facil_name) %>%
+#   slice(1L) %>%
+#   ungroup()
+
+# Reflects new table from Tom CTEDSS_GEOCODED_RECORDS
+# eliminates expensive group and slice
+# eliminates interim alltestgo df
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
-most_current_geo <- 
-  odbc::odbcListObjects(con, 
-                        catalog = "DPH_COVID_IMPORT", 
-                        schema = "dbo") %>% 
-  filter(stringr::str_detect(string = name, 
-                             pattern = "Geo_Tract")) %>%
-  tidyr::separate(data = .,
-                  col = name,
-                  sep = "_",
-                  into = c("month", "day"),
-                  extra = "drop",
-                  remove = FALSE) %>%
-  mutate(table_date = mdy(paste(month, 
-                                day, 
-                                year(Sys.Date()), 
-                                sep = "-"))) %>%
-  slice_max(order_by = table_date) %>%
-  pull(name)
+ghost_data <- tbl(con, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.CTEDSS_GEOCODED_RECORDS"))
+testgeo <-
+  ghost_data %>%
+  select(case_id, X, Y, geoid10, name, License__, DBA, type) %>%
+  mutate(newName = if_else(name %in% c("", "NULL"), NA_character_, name),
+         DBA = if_else(DBA %in% c("", "NULL"), NA_character_, DBA),
+         facil_name = if_else(is.na(newName), DBA, name),
+         cong_test = if_else(!is.na(facil_name), "Yes", "No"),
+         eventid = as.numeric(case_id)) %>%
+  rename(GEOID10 = geoid10, Name = name)  %>%
+  select(-c("case_id", "newName", "License__", "DBA")) %>%
+  arrange(facil_name) %>%
+  collect()
 
-# table_id <- DBI::Id(catalog = "DPH_COVID_IMPORT", schema = "dbo", table = most_current_geo)
-# alltestgeo <- DBI::dbReadTable(con, table_id)
-
-statement <- paste0("SELECT [r].[case_id]
-                              ,[r].[X]
-                              ,[r].[Y]
-                              ,[r].[geoid10]
-                              ,[r].[Name]
-                              ,[r].[License__]
-                              ,[r].[DBA]
-                              ,[r].[type]
-                    FROM [DPH_COVID_IMPORT].[dbo].[", most_current_geo,"] as [r]")
-alltestgeo <-  DBI::dbGetQuery(conn = con , statement = statement)
 
 odbc::dbDisconnect(con)
 
-# SLUGGISH Agreed :) I didn't write it haha -AS
-testgeo <- alltestgeo %>%
-  mutate(name = ifelse(Name %in% c("", "NULL"), NA, Name),
-         DBA = ifelse(DBA %in% c("", "NULL"), NA, DBA),
-         facil_name = if_else(is.na(name), DBA, Name),
-         cong_test = if_else(!is.na(facil_name), "Yes", "No"),
-         eventid = as.numeric(case_id)) %>%
-  rename(GEOID10 = geoid10) %>%
-  select(-c("case_id", "name", "License__", "DBA")) %>%
-  group_by(eventid) %>%
-  arrange(facil_name) %>%
-  slice(1L) %>%
-  ungroup()
 
 #dates for TESTS SHOULD NOT BE SET BY EVENT DATE. UPDATED TO ONLY USE SPEC COL or received DATE 10/15/2020.
 testgeo2 <- elr_linelist %>%
