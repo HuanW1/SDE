@@ -67,8 +67,8 @@ if (monthsame) {
 }
 
 #### setting what we write out ####
-csv_write <- FALSE
-SQL_write <- FALSE
+csv_write <- TRUE
+SQL_write <- TRUE
 
 ```
 
