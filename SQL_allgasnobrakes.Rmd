@@ -1771,12 +1771,13 @@ minweeks <- min(weeks$mmwrweekdate, na.rm = T)
 weeks <- seq.Date(from = minweeks, to =  maxweeks, by= "7 days")
 
 ### duplicate????
-age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
 
-pop <- read_csv("L:/daily_reporting_figures_rdp/population_data/2018_dph_asrh/2018_asrh.csv") %>% 
-  select(age_g, total) %>% 
-  filter(!is.na(age_g))
-
+# age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
+# 
+# pop <- read_csv("L:/daily_reporting_figures_rdp/population_data/2018_dph_asrh/2018_asrh.csv") %>% 
+#   select(age_g, total) %>% 
+#   filter(!is.na(age_g))
+# 
 
 agegrp <- case %>%
   mutate(
