@@ -86,4 +86,7 @@ Match_wLOF_roster <- Match_wLOF %>%
          `Facility Name` = nickname
          ) 
 
+odbc::dbDisconnect(con)
 write_csv(Match_wLOF_roster, paste0(todaydir, "//", Sys.Date(),"roster_FLIS_match.csv"))
+message("Part 4/4 finished- you did it, here have some .csv's!")
+        

@@ -1,5 +1,6 @@
 ####0 loading libraries ####
 if(!dir.exists("L:/")) message("You need to have L drive mapped")
+
 DPH_packages <- c( "tidyverse", "lubridate", "stringr",
                    "DBI", "odbc", "formatR", "knitr", "MMWRweek","stringdist")
 
@@ -99,4 +100,6 @@ newGEO <- newGEO %>%
 
 
 odbc::dbDisconnect(con)
+
+message("Part 3/4 finished- almost to the finish line!")
 source("cong_setting_part4.R")

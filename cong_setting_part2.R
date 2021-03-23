@@ -2,7 +2,7 @@
 if(!dir.exists("L:/")) message("You need to have L drive mapped")
 
 DPH_packages <- c( "tidyverse", "lubridate", "stringr",
-                   "DBI", "odbc", "formatR", "knitr", "MMWRweek","stringdist", "mgsub", "data.table", )
+                   "DBI", "odbc", "formatR", "knitr", "MMWRweek","stringdist", "mgsub", "data.table", "mgsub")
 
 quiet_load <- function(x) {
   suppressPackageStartupMessages(library(x,
@@ -318,4 +318,6 @@ data <- data %>%
          )
 
 odbc::dbDisconnect(con)
+
+message("Part 2/4 finished- keep it up!")
 source("cong_setting_part3.R")

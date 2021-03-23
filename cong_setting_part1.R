@@ -110,4 +110,6 @@ maybecong <- maybecong %>%
 justran <-tibble("DateRan" = Sys.Date()) 
 DBI::dbWriteTable(conn = con, value = justran, name = SQL("DPH_COVID_IMPORT.dbo.CONG_DATERAN"), overwrite = FALSE, append = TRUE)
 odbc::dbDisconnect(con)
+
+message("Part 1/4 finished- you're off to a good start!")
 source("cong_setting_part2.R")
