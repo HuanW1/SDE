@@ -3,7 +3,7 @@ if(!dir.exists("L:/")) message("You need to have L drive mapped")
 DPH_packages <- c("rmarkdown", "kableExtra", "tidyverse", "lubridate", "sf",
                    "DBI", "odbc", "formatR", "knitr", "MMWRweek",
                   "scales", "english", "flextable", "slider",
-                  "stringdist", "knitr", "rmarkdown", "yaml")
+                  "stringdist", "knitr", "yaml")
 
 quiet_load <- function(x) {
   suppressPackageStartupMessages(library(x,
