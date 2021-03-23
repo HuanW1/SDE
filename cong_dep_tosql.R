@@ -1,11 +1,19 @@
-#creation of cong setting depandancies and sending on up to sql
+####0 loading libraries ####
 if(!dir.exists("L:/")) message("You need to have L drive mapped")
-.libPaths(c("L:/library", .libPaths()))
-library(tidyverse)
-library(DBI)
-library(odbc)
-library(readxl)
-library(lubridate)
+DPH_packages <- c( "tidyverse", "lubridate", "stringr",
+                   "DBI", "odbc", "formatR", "knitr", "MMWRweek","stringdist")
+
+quiet_load <- function(x) {
+  suppressPackageStartupMessages(library(x,
+                                         lib.loc = "l:/newlib/",
+                                         logical.return = TRUE,
+                                         character.only = TRUE,
+                                         warn.conflicts = FALSE,
+                                         quietly = TRUE,
+                                         attach.required = TRUE))
+}
+
+sapply(DPH_packages, quiet_load)
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 #reading in the town codes csv that the report uses as well as cong setting folks

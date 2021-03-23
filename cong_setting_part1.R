@@ -14,7 +14,6 @@ quiet_load <- function(x) {
 }
 
 sapply(DPH_packages, quiet_load)
-
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 ####0. set this epiweek and year####
@@ -60,24 +59,12 @@ check <- cases_14 %>%
 rm(lasttime)
 
 ####4 pulling lastest geocoded data ####
-statement <- paste0("SELECT * FROM DPH_COVID_IMPORT.INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'")
-tabs <-  DBI::dbGetQuery(conn = con , statement = statement)
-tabs <- tibble::as_tibble(tabs) %>% 
-  filter(stringr::str_detect(string = TABLE_NAME, pattern = "Geo_Tract")) %>% 
-  mutate(date = stringr::str_extract(string = TABLE_NAME, pattern = "\\w\\w\\w\\_\\d\\d?"),
-         date = paste0(date,"_",year(Sys.Date())),
-         date = lubridate::mdy(date)
-         ) %>% 
-  arrange(desc(date)) %>% 
-  slice(1L) %>% 
-  select(TABLE_NAME)
-
 statement <- paste0("SELECT [r].[case_id]
                               ,[r].[Name]
                               ,[r].[License__]
                               ,[r].[DBA]
                               ,[r].[type]
-                    FROM [DPH_COVID_IMPORT].[dbo].[", tabs,"] as [r]")
+                    FROM [DPH_COVID_IMPORT].[dbo].[CTEDSS_GEOCODED_RECORDS] as [r]")
 maybecong <-  DBI::dbGetQuery(conn = con , statement = statement)%>% 
   mutate(eventid = as.numeric(case_id))%>% 
   right_join(check, by="eventid") %>% 
