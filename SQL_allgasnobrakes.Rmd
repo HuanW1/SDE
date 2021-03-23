@@ -160,9 +160,25 @@ agtests <- c('SARS CoV 2 Ag rapid IA',
 
 age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
 
-pop <- read_csv("L:/daily_reporting_figures_rdp/population_data/2018_dph_asrh/2018_asrh.csv") %>% 
-  select(age_g, total) %>% 
-  filter(!is.na(age_g))
+# pop <- read_csv("L:/daily_reporting_figures_rdp/population_data/2018_dph_asrh/2018_asrh.csv") %>% 
+#   select(age_g, total) %>% 
+#   filter(!is.na(age_g))
+
+epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
+ghost_data <- tbl(epi_connect, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.RPT_STATE_REA_DENOMS"))
+
+pop <- 
+  ghost_data %>% 
+  select(year:pop) %>%
+  filter(year == 2019) %>%
+  collect() %>%
+  mutate(age_g = cut(age,
+                     breaks = c(-1,9,19,29,39,49,59,69,79, Inf),
+                     labels = age_labels)) %>%
+  group_by(age_g) %>%
+  summarise(total = sum(pop))
+
+odbc::dbDisconnect(epi_connect)
 
 town_pop18 <- read_csv("L:/daily_reporting_figures_rdp/population_data/pop_towns2018.csv") %>% 
   rename(city = Town,
