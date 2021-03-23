@@ -71,50 +71,73 @@ count(casenew, cong_yn)
 
 #6. create community only testing dataset - changing the logic to capture the latest geo coded dataset
 monthday <- format(Sys.Date()-1, "%b_%d_%y")
+
+# con <- DBI::dbConnect(odbc::odbc(), "epicenter")
+# 
+# most_current_geo <- 
+#   odbc::odbcListObjects(con, 
+#                         catalog = "DPH_COVID_IMPORT", 
+#                         schema = "dbo") %>% 
+#   filter(stringr::str_detect(string = name, 
+#                              pattern = "Geo_Tract")) %>%
+#   tidyr::separate(data = .,
+#                   col = name,
+#                   sep = "_",
+#                   into = c("month", "day"),
+#                   extra = "drop",
+#                   remove = FALSE) %>%
+#   mutate(table_date = mdy(paste(month, 
+#                                 day, 
+#                                 year(Sys.Date()), 
+#                                 sep = "-"))) %>%
+#   slice_max(order_by = table_date) %>%
+#   pull(name)
+# 
+# statement <- paste0("SELECT [r].[case_id]
+#                               ,[r].[X]
+#                               ,[r].[Y]
+#                               ,[r].[geoid10]
+#                               ,[r].[Name]
+#                               ,[r].[License__]
+#                               ,[r].[DBA]
+#                               ,[r].[type]
+#                     FROM [DPH_COVID_IMPORT].[dbo].[", most_current_geo,"] as [r]")
+# alltestgeo <-  DBI::dbGetQuery(conn = con , statement = statement)
+# 
+# testgeo <- alltestgeo %>%
+#   mutate(Name = ifelse(Name %in% c("", "NULL"), NA, Name),
+#          DBA = ifelse(DBA %in% c("", "NULL"), NA, DBA),
+#          facil_name = if_else(is.na(Name), DBA, Name),
+#          cong_test = if_else(!is.na(facil_name), "Yes", "No"),
+#          eventid = as.numeric(case_id)) %>%
+#   rename(GEOID10 = geoid10) %>%
+#   select(-c("case_id", "Name", "License__", "DBA")) %>%
+#   group_by(eventid) %>%
+#   arrange(facil_name) %>%
+#   slice(1L) %>%
+#   ungroup()
+
+# Reflects new table from Tom CTEDSS_GEOCODED_RECORDS
+# eliminates expensive group and slice
+# eliminates interim alltestgo df
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
-
-most_current_geo <- 
-  odbc::odbcListObjects(con, 
-                        catalog = "DPH_COVID_IMPORT", 
-                        schema = "dbo") %>% 
-  filter(stringr::str_detect(string = name, 
-                             pattern = "Geo_Tract")) %>%
-  tidyr::separate(data = .,
-                  col = name,
-                  sep = "_",
-                  into = c("month", "day"),
-                  extra = "drop",
-                  remove = FALSE) %>%
-  mutate(table_date = mdy(paste(month, 
-                                day, 
-                                year(Sys.Date()), 
-                                sep = "-"))) %>%
-  slice_max(order_by = table_date) %>%
-  pull(name)
-
-statement <- paste0("SELECT [r].[case_id]
-                              ,[r].[X]
-                              ,[r].[Y]
-                              ,[r].[geoid10]
-                              ,[r].[Name]
-                              ,[r].[License__]
-                              ,[r].[DBA]
-                              ,[r].[type]
-                    FROM [DPH_COVID_IMPORT].[dbo].[", most_current_geo,"] as [r]")
-alltestgeo <-  DBI::dbGetQuery(conn = con , statement = statement)
-
-testgeo <- alltestgeo %>%
-  mutate(Name = ifelse(Name %in% c("", "NULL"), NA, Name),
-         DBA = ifelse(DBA %in% c("", "NULL"), NA, DBA),
-         facil_name = if_else(is.na(Name), DBA, Name),
+ghost_data <- tbl(con, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.CTEDSS_GEOCODED_RECORDS"))
+testgeo <-
+  ghost_data %>%
+  select(case_id, X, Y, geoid10, name, License__, DBA, type) %>%
+  mutate(newName = if_else(name %in% c("", "NULL"), NA_character_, name),
+         DBA = if_else(DBA %in% c("", "NULL"), NA_character_, DBA),
+         facil_name = if_else(is.na(newName), DBA, name),
          cong_test = if_else(!is.na(facil_name), "Yes", "No"),
          eventid = as.numeric(case_id)) %>%
-  rename(GEOID10 = geoid10) %>%
-  select(-c("case_id", "Name", "License__", "DBA")) %>%
-  group_by(eventid) %>%
+  rename(GEOID10 = geoid10, Name = name)  %>%
+  select(-c("case_id", "newName", "License__", "DBA")) %>%
   arrange(facil_name) %>%
-  slice(1L) %>%
-  ungroup()
+  collect()
+
+
+odbc::dbDisconnect(con)
+
 
 elr_linelist <- read_csv(paste0(dir, "elr_linelists//","elr_linelist", Sys.Date(), ".csv")) %>% 
   filter(spec_col_date <= Sys.Date()) %>% 
