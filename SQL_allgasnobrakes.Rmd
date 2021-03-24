@@ -1844,6 +1844,78 @@ ggplot(agegrp, aes(x = mmwrweekdate,
 save(agegrp,
      file = paste0("l:/recent_rdata/for_josh.RData" ))
 
+
+epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
+ghost_data <- tbl(epi_connect, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.RPT_STATE_REA_DENOMS"))
+
+vaccine_pop <-
+  ghost_data %>%
+  filter(year == 2019) %>%
+  group_by(vax_age_groups) %>%
+  summarise(poppy = sum(pop, na.rm = TRUE)) %>%
+  rename(age_g = vax_age_groups,
+         total = poppy) %>%
+  arrange(vax_age_groups)
+
+odbc::dbDisconnect(epi_connect)
+
+vaccine_labels <- c("<=15", "16-24", "25-34", "35-44", "45-54", "55-64", "65-74", "75+")
+
+nagegrp <- case %>%
+  mutate(
+    #year = 2020,
+    year = epiyear(date),
+    mmwrweekdate = MMWRweek2Date(MMWRyear = year, 
+                                 MMWRweek = mmwrweek, 
+                                 MMWRday=7)
+  ) %>% 
+ filter(mmwrweekdate %in% weeks) %>% 
+  mutate(age_group = 
+           cut(age, breaks = c(-1, 15, 24, 34, 44, 54, 64, 74, Inf), 
+               labels = vaccine_labels)) %>% 
+  group_by(age_group, mmwrweekdate) %>% 
+  tally() %>% 
+  filter(!is.na(age_group)) %>% 
+  complete(mmwrweekdate = weeks, fill = list( n = 0)) %>%  
+  mutate(n2 = lag(n)) %>%
+  filter(!is.na(mmwrweekdate) &  !is.na(n2)) %>% 
+  arrange(mmwrweekdate) %>% 
+  mutate(n3 = n + n2) %>% 
+  left_join(vaccine_pop, by=c("age_group" = "age_g")) %>% 
+  ungroup() %>% 
+  mutate(
+    mmwrweekdate = factor(mmwrweekdate),
+    rate_100k = (n3/14/total)*100000,
+    age_group = factor(age_group, labels = vaccine_labels, levels = vaccine_labels )
+         )
+
+ggplot(nagegrp, aes(x = mmwrweekdate, 
+                   y = rate_100k,
+                   color = age_group, 
+                   group = age_group)) +
+  geom_line(size = 1) +
+  ylim(0, maxlim) +
+  scale_color_brewer(palette = "Paired") +
+  theme_minimal() +
+  theme(
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    axis.text.x=element_text(angle=45, hjust=1),
+    legend.background = element_rect(),
+    legend.position = "bottom"
+  ) +
+  labs(
+    title= "Average daily rate of COVID-19 cases by vaccine age group",
+    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
+    x = NULL,
+    y = "Rate per 100,000 population",
+    color = "Age group (years)"
+  ) +
+  guides(
+    col = guide_legend(nrow = 2)
+  )
+
 ```
 
 `r if(thursday){"**Average Daily Incidence by County**"}`
