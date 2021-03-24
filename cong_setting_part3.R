@@ -1,16 +1,21 @@
 ####0 loading libraries ####
 if(!dir.exists("L:/")) message("You need to have L drive mapped")
-.libPaths(c("L:/library", .libPaths()))
-# load libraries
-library(readxl)			# read_excel
-library(dplyr)			# filter
-library(stringr)		# str_to_title
-library(tidyr)
-library(tidyverse)
-library(lubridate)
-library(stringdist) 		# amatch, stringdist
-con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
+DPH_packages <- c( "tidyverse", "lubridate", "stringr",
+                   "DBI", "odbc", "formatR", "knitr", "MMWRweek","stringdist")
+
+quiet_load <- function(x) {
+  suppressPackageStartupMessages(library(x,
+                                         lib.loc = "l:/newlib/",
+                                         logical.return = TRUE,
+                                         character.only = TRUE,
+                                         warn.conflicts = FALSE,
+                                         quietly = TRUE,
+                                         attach.required = TRUE))
+}
+
+sapply(DPH_packages, quiet_load)
+con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 ####1 data read-in####
 newGEO <- data 
@@ -95,4 +100,6 @@ newGEO <- newGEO %>%
 
 
 odbc::dbDisconnect(con)
+
+message("Part 3/4 finished- almost to the finish line!")
 source("cong_setting_part4.R")

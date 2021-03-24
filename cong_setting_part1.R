@@ -1,13 +1,19 @@
 if(!dir.exists("L:/")) message("You need to have L drive mapped")
-.libPaths(c("L:/library", .libPaths()))
 
-#### required packages are on L: ####
-require(tidyverse)
-require(odbc)
-require(lubridate)
-require(MMWRweek)
-require(DBI)
-require(stringr)
+DPH_packages <- c( "tidyverse", "lubridate", "stringr",
+                  "DBI", "odbc", "formatR", "knitr", "MMWRweek","stringdist")
+
+quiet_load <- function(x) {
+  suppressPackageStartupMessages(library(x,
+                                         lib.loc = "l:/newlib/",
+                                         logical.return = TRUE,
+                                         character.only = TRUE,
+                                         warn.conflicts = FALSE,
+                                         quietly = TRUE,
+                                         attach.required = TRUE))
+}
+
+sapply(DPH_packages, quiet_load)
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 ####0. set this epiweek and year####
@@ -53,24 +59,12 @@ check <- cases_14 %>%
 rm(lasttime)
 
 ####4 pulling lastest geocoded data ####
-statement <- paste0("SELECT * FROM DPH_COVID_IMPORT.INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'")
-tabs <-  DBI::dbGetQuery(conn = con , statement = statement)
-tabs <- tibble::as_tibble(tabs) %>% 
-  filter(stringr::str_detect(string = TABLE_NAME, pattern = "Geo_Tract")) %>% 
-  mutate(date = stringr::str_extract(string = TABLE_NAME, pattern = "\\w\\w\\w\\_\\d\\d?"),
-         date = paste0(date,"_",year(Sys.Date())),
-         date = lubridate::mdy(date)
-         ) %>% 
-  arrange(desc(date)) %>% 
-  slice(1L) %>% 
-  select(TABLE_NAME)
-
 statement <- paste0("SELECT [r].[case_id]
                               ,[r].[Name]
                               ,[r].[License__]
                               ,[r].[DBA]
                               ,[r].[type]
-                    FROM [DPH_COVID_IMPORT].[dbo].[", tabs,"] as [r]")
+                    FROM [DPH_COVID_IMPORT].[dbo].[CTEDSS_GEOCODED_RECORDS] as [r]")
 maybecong <-  DBI::dbGetQuery(conn = con , statement = statement)%>% 
   mutate(eventid = as.numeric(case_id))%>% 
   right_join(check, by="eventid") %>% 
@@ -116,4 +110,6 @@ maybecong <- maybecong %>%
 justran <-tibble("DateRan" = Sys.Date()) 
 DBI::dbWriteTable(conn = con, value = justran, name = SQL("DPH_COVID_IMPORT.dbo.CONG_DATERAN"), overwrite = FALSE, append = TRUE)
 odbc::dbDisconnect(con)
+
+message("Part 1/4 finished- you're off to a good start!")
 source("cong_setting_part2.R")

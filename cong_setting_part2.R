@@ -1,17 +1,20 @@
-if(!dir.exists("L:/")) message("You need to have L drive mapped")
-.libPaths(c("L:/library", .libPaths()))
-
 ####0 load packages and create connection ####
-library(stringr)			# str_trim
-library(stringdist)		# amatch, stringdist
-library(readxl)			# read_excel
-library(mgsub)			# mgsub
-library(readr)
-library(data.table)
-require(tidyverse)
-require(odbc)
-require(lubridate)
-require(DBI)
+if(!dir.exists("L:/")) message("You need to have L drive mapped")
+
+DPH_packages <- c( "tidyverse", "lubridate", "stringr",
+                   "DBI", "odbc", "formatR", "knitr", "MMWRweek","stringdist", "mgsub", "data.table", "mgsub")
+
+quiet_load <- function(x) {
+  suppressPackageStartupMessages(library(x,
+                                         lib.loc = "l:/newlib/",
+                                         logical.return = TRUE,
+                                         character.only = TRUE,
+                                         warn.conflicts = FALSE,
+                                         quietly = TRUE,
+                                         attach.required = TRUE))
+}
+
+sapply(DPH_packages, quiet_load)
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 ####1 declare data file for reading ####
@@ -315,4 +318,6 @@ data <- data %>%
          )
 
 odbc::dbDisconnect(con)
+
+message("Part 2/4 finished- keep it up!")
 source("cong_setting_part3.R")
