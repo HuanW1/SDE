@@ -1855,7 +1855,8 @@ vaccine_pop <-
   summarise(poppy = sum(pop, na.rm = TRUE)) %>%
   rename(age_g = vax_age_groups,
          total = poppy) %>%
-  arrange(vax_age_groups)
+  arrange(vax_age_groups) %>%
+  collect()
 
 odbc::dbDisconnect(epi_connect)
 
