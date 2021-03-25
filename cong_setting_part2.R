@@ -1,8 +1,11 @@
 ####0 load packages and create connection ####
 if(!dir.exists("L:/")) message("You need to have L drive mapped")
 
+.libPaths("L:/newlib")
+
 DPH_packages <- c( "tidyverse", "lubridate", "stringr",
-                   "DBI", "odbc", "formatR", "knitr", "MMWRweek","stringdist", "mgsub", "data.table", "mgsub")
+                   "DBI", "odbc", "formatR", "knitr", "MMWRweek", "stringdist",
+                   "mgsub", "data.table")
 
 quiet_load <- function(x) {
   suppressPackageStartupMessages(library(x,
@@ -48,38 +51,38 @@ addr_prisons <-  DBI::dbGetQuery(conn = con , statement = statement)
 #list_addr <- c(addr_nursing$Address,addr_prisons$Address)
 
 #CT boroughs
-ct_boros <- city_file %>% 
-  select(TOWN_LC) %>% 
-  rename(Town = TOWN_LC) %>% 
-  mutate(Boro = Town) %>% 
-  bind_rows(rev(boros_list)) %>% 
+ct_boros <- city_file %>%
+  select(TOWN_LC) %>%
+  rename(Town = TOWN_LC) %>%
+  mutate(Boro = Town) %>%
+  bind_rows(rev(boros_list)) %>%
   unique()
 
 #prisons
-prisons <- addr_prisons %>% 
-  left_join(ct_boros, by = c("City" = "Boro")) %>% 
-  select(-c(City, `CTEDSS Entry Name`)) %>% 
+prisons <- addr_prisons %>%
+  left_join(ct_boros, by = c("City" = "Boro")) %>%
+  select(-c(City, `CTEDSS Entry Name`)) %>%
   rename(City = Town,
          Level_of_Care = `Level of Care`,
          Street = Address,
          Name = `Facility Name`
-         ) %>% 
+         ) %>%
   select(c(City, Street, Name, Level_of_Care))
 
 
 #nursing facilities
-nursing <- addr_nursing %>% 
+nursing <- addr_nursing %>%
   mutate(`Facility City` = str_to_title(`Facility City`),
          `Facility City` =  str_trim(str_remove(`Facility City`, "\\(.*")),
          Address = str_to_title(Address)
-         ) %>% 
-  left_join(ct_boros, by = c("Facility City" = "Boro")) %>% 
-  select(-c(`Facility City`, `CTEDSS Entry Name`)) %>% 
+         ) %>%
+  left_join(ct_boros, by = c("Facility City" = "Boro")) %>%
+  select(-c(`Facility City`, `CTEDSS Entry Name`)) %>%
   rename(City = Town,
          Level_of_Care = `Level of Care`,
          Street = Address,
          Name = `Facility Name`
-  ) %>% 
+  ) %>%
   select(c(City, Street, Name, Level_of_Care))
 
 #subset dataset for mystic items
@@ -119,7 +122,7 @@ nursing$City[mystic_inds]=mystic_final
 rm(mystic,mystic_inds,mystic_addr,last_words,short_words,long_words,repl_words)
 rm(mystic_noLast,mystic_streets,match_inds,eastwest,mystic_final)
 
-nursing <- nursing %>% 
+nursing <- nursing %>%
   mutate(
     Level_of_Care = if_else(Level_of_Care == "Residential Care Facilities", "LTCF", Level_of_Care),
     Level_of_Care = if_else(Level_of_Care == "Nursing Home", "LTCF", Level_of_Care),
@@ -129,7 +132,7 @@ nursing <- nursing %>%
   )
 
 cong <- bind_rows(nursing, prisons)
-#####  probably just save? send up to SQL  
+#####  probably just save? send up to SQL
 
 #extract data from file
 data <- read_file
@@ -141,16 +144,16 @@ rm(city_file,read_file,addr_nursing,addr_prisons, prisons, nursing,statement, ct
 ### 4. dataset conditioning ####
 ### ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ### string operations to facilitate text-comparisons
-data <- data %>% 
-  rename(Street = street, 
-         City = city) %>% 
+data <- data %>%
+  rename(Street = street,
+         City = city) %>%
   mutate(City = str_to_lower(City),
          Street = str_to_lower(Street)
          )
-cong <- cong %>% 
+cong <- cong %>%
   mutate(City = str_to_lower(City),
          Street = str_to_lower(Street)
-  ) %>% 
+  ) %>%
   unique()
 
 #~ 2b. homogenize street designations
@@ -223,16 +226,16 @@ for (i in 1:length(unique_cities)){
 	match_inds=amatch(data_streets,cong_streets,maxDist=100)
 
 	# merge results for this city
-	city_results <- as_tibble(cbind(data_streets,unique_cities[i],cong_streets[match_inds]),.name_repair = "unique") %>% 
+	city_results <- as_tibble(cbind(data_streets,unique_cities[i],cong_streets[match_inds]),.name_repair = "unique") %>%
 	  rename(match_city = ...2,
 	         match_street = ...3
-	         )%>% 
+	         )%>%
 	  mutate(dist_street = stringdist(data_streets, match_street))
-	
+
 	# note the string distance
 	#city_results=cbind(city_results,stringdist(city_results[,1],city_results[,3]))
 
- 
+
 	# populate match information
 	data$match_city[data_inds]=city_results$match_city
 	data$match_street[data_inds]=city_results$match_street
@@ -307,8 +310,8 @@ rm(maybe_diff,maybe_dist,same_side,maybe_diffs,maybe_dists,maybe_inds,yes_inds)#
 
 #~ condition disposition as factor
 data$disposition=factor(data$disposition,levels=c("Yes","Maybe","Unlikely","No"))
-data <- data %>% 
-  select(eventid, fname, lname, age, dob, gender, race, hisp, Street, match_street, City, match_city,geo_cname, match_name,match_LOF, geo_lof, geo_license, match_dist, dist_StreetNumber, dist_StreetName, dist_Characters, intoms, disposition) %>% 
+data <- data %>%
+  select(eventid, fname, lname, age, dob, gender, race, hisp, Street, match_street, City, match_city,geo_cname, match_name,match_LOF, geo_lof, geo_license, match_dist, dist_StreetNumber, dist_StreetName, dist_Characters, intoms, disposition) %>%
   mutate(
     KEEP = NA,
     #KEEP = ifelse(

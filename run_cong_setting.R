@@ -1,7 +1,10 @@
 if(!dir.exists("L:/")) message("You need to have L drive mapped")
 
+.libPaths("L:/newlib")
+
 DPH_packages <- c( "tidyverse", "lubridate", "stringr",
-                   "DBI", "odbc", "formatR", "knitr", "MMWRweek","stringdist")
+                   "DBI", "odbc", "formatR", "knitr", "MMWRweek", "stringdist",
+                   "mgsub", "data.table")
 
 quiet_load <- function(x) {
   suppressPackageStartupMessages(library(x,
