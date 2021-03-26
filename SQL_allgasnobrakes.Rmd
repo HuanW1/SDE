@@ -23,6 +23,7 @@ options(scipen = 999)
 source("helpers/StartMeUp.R")
 source("helpers/testtypes.R")
 source("helpers/outofstatecolleges.R")
+
 #### kable options ####
 options(kableExtra.auto_format = FALSE)
 
@@ -60,96 +61,7 @@ SQL_write <- TRUE
 
 ```
 
-```{r declare_functions, include=FALSE, eval=FALSE}
-# no longer needed since they are in StartMeUp
-df_to_table <- 
-  function(df_name, 
-           table_name = NULL,
-           overwrite = FALSE, 
-           append = TRUE) {
-    
-    ### error checking
-    if(overwrite == append)  stop("You can not append and overwrite at the same time")
-    if(missing(df_name)) stop("You must specify a dataframe")
-    if(!exists(deparse(substitute(df_name))))  stop("Can not find that dataframe")
-    if(is.null(table_name)) stop("You must specify a table in the database")
-    
-    ### main code
-    epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
-    
-    # build the SQL string
-    fqdbn <- paste0("DPH_COVID_IMPORT.dbo.", table_name)
-    
-    DBI::dbWriteTable(epi_connect, 
-                      SQL(fqdbn), 
-                      df_name, 
-                      append = append, 
-                      overwrite = overwrite)
-    
-    odbc::dbDisconnect(epi_connect)
-  }
-
-table_to_df <-
-  function(table_name = NULL) {
-
-    ### error checking
-    if(is.null(table_name)) stop("You must specify a table in the database")
-    sql_table_name <- SQL("DPH_COVID_IMPORT.dbo.report_summary")
-
-    ### main code
-    epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
-
-    # build the SQL string
-    fqdbn <- paste0("select * FROM [DPH_COVID_IMPORT].[dbo].[",
-                    table_name,
-                    "] ")
-
-    results <- DBI::dbGetQuery(epi_connect,
-                               statement = fqdbn)
-
-    odbc::dbDisconnect(epi_connect)
-    return(results)
-  }
-
-```
-
-```{r test_pops_etc, include=FALSE}
-#### list of PCR tests #### 
-# pcrtests <- c('SARS CoV 2 ORF1 resp', 
-#               'SARS CoV 2 RNA nasopharynx', 
-#               'SARS CoV 2 Rapid RdRp gene (AbbottIDNOW)',
-#               'COVID-19 RT-PCR INPATIENT/ED ADMIT',
-#               'COVID-19 RT-PCR OUTPATIENT (VACT)',
-#               'SARS CoV 2 RNA Saliva PCR',
-#               'SARS-CoV-2 PCR XXX', 
-#               'SARS CoV 2 PCR resp',
-#               'Other PCR',
-#               'SARS-CoV-2 RdRp gene resp',
-#               'SARS-CoV-2 RT-PCR-At Home Kits',
-#               'BHD COVID-19 RT-PCR NP',
-#               'RT-PCR',
-#               'SARS CoV 2 N resp',
-#               'SARS CoV 2 RNA (BioFire)',
-#               'SARS CoV 2 Rapid PCR Test RdRp gene result',
-#               'SARS-CoV-2 (COVID19) RNA [Presence] in Nose by NAA with probe detection',
-#               'SARS-CoV-2 (COVID-19) N gene [Cycle Threshold #] in Unspecified specimen by Nucleic acid amplification using CDC primer-probe set N1',
-#               'SARS-CoV-2 N gene Saliva',
-#               'COVID-19 PCR (CEPHEID)',
-#               'SARS CoV 2 NAA resp',
-#               'SARS-CoV-2 specific TCRB gene in Blood by Seq'
-# )
-# 
-# #### list of antigen tests ####
-# agtests <- c('SARS CoV 2 Ag rapid IA',
-#              'SARS-COV + SARS-CoV-2 Antigen resp',
-#              'SARS CoV 2 Ag (Quidel Sofia/Lumira)',
-#              'SARS CoV 2 Ag rapid IA (BD Veritor)',
-#              'SARS CoV 2 Ag rapid IA (BD Veritor/BinaxNOW)'
-# )
-# pop <- read_csv("L:/daily_reporting_figures_rdp/population_data/2018_dph_asrh/2018_asrh.csv") %>% 
-#   select(age_g, total) %>% 
-#   filter(!is.na(age_g))
-
+```{r maps_pops_etc, include=FALSE}
 
 age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
 
@@ -169,30 +81,36 @@ pop <-
 
 odbc::dbDisconnect(epi_connect)
 
-town_pop18 <- read_csv("L:/daily_reporting_figures_rdp/population_data/pop_towns2018.csv") %>% 
+town_pop18 <- read_csv("L:/daily_reporting_figures_rdp/population_data/pop_towns2018.csv",
+                       col_types = "cn") %>% 
   rename(city = Town,
          pop = `Est. Pop.`)
 
 #county city mapping
-cc_map <- read_csv(
-  paste0("L:/daily_reporting_figures_rdp/dependancies/City County Mapping.csv")) %>% 
+cc_map <- 
+  read_csv(paste0("L:/daily_reporting_figures_rdp/dependancies/City County Mapping.csv"),
+           col_types = "cc") %>% 
   mutate(COUNTY = paste0(COUNTY," County"))
+
 #county populations
-county_pop <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv") %>% 
+county_pop <- 
+  read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv",
+           col_types = "cn") %>% 
   mutate(County = paste0(County, " County"))
 
 ```
 
 ```{r read_cha, include=FALSE}
 
-cha_file <- list.files("L:/daily_reporting_figures_rdp/CHA_data_here", pattern = ".csv", full.names = TRUE)
+cha_file <- list.files("L:/daily_reporting_figures_rdp/CHA_data_here", 
+                       pattern = ".csv", full.names = TRUE)
 cha <-  read_csv(cha_file)
 newcha <- cha %>% 
   filter(Type == "Admit" & State == "TOTAL") %>% 
   select(-c(Change, County, State)) %>% 
   pivot_longer(-Type, names_to = "admit_date", values_to = "admissions") %>% 
   select(-Type) %>% 
-  mutate(admit_date = as.Date(admit_date, format = "%m/%d/%Y"))
+  mutate(admit_date = mdy(admit_date))
 
 ```
 
@@ -584,162 +502,8 @@ thursday_pending_address <- thursday_case %>%
 ```
 
 ```{r lab_misc, include= FALSE}
-# outstatecolleges <- c(
-# "Afc Bryn Mawr College",
-# "American University Student",
-# "American Unviersity Student Health Center",
-# "Amherst College",
-# "Anna Maria College",
-# "Arcadia University",
-# "Assumption University",
-# "Babson College",
-# "Bank Street College",
-# "Bard College At Simon's Rock",
-# "Barnard College",
-# "Bay Path University",
-# "Bentley University",
-# "Boston College",
-# "Brandeis University",
-# "Brandeis University Admissions",
-# "Brandeis University Heller",
-# "Bridgewater State University",
-# "Bryant University",
-# "Campbell University Health",
-# "Cc-University of San Diego",
-# "Champlain College",
-# "Chapman University",
-# "Clark University",
-# "Clark University Bts",
-# "Clarkson University",
-# "Coastal Carolina University",
-# "Colby College",
-# "College of the Atlantic",
-# "College of the Holy Cross",
-# "Columbia Univ Hlth Svcs",
-# "Columbia University",
-# "Columbia University- Medical",
-# "Columbia University MC I/F",
-# "Crh/emory University",
-# "Curry College",
-# "Curry Colllege",
-# "Drexel University Student Hlth",
-# "Duke University Screening",
-# "Duquesne University-Student",
-# "Elms College",
-# "Elon University",
-# "Embry Riddle Aeronautical Univ",
-# "Emerson College",
-# "Fisher College",
-# "Fitchburg State University",
-# "Fl Gulf Coast University",
-# "Fordham Bronx Employees",
-# "Fordham Bronx Students",
-# "Fordham University",
-# "Framingham State University",
-# "Frostburg State Univ",
-# "George Mason University",
-# "Gordon College Medical center",
-# "Hamilton College",
-# "Hampshire College",
-# "Health Ctr Landmark College",
-# "High Point University Student",
-# "Hobart And William Smith Colleges",
-# "Hoboken University Medical Ctr",
-# "Husson University",
-# "Interlochen Arts Academy",
-# "James Madison University",
-# "Johnson And Wales University",
-# "Keene State-Bts",
-# "La Salle University",
-# "Lasell University",
-# "Liberty Univ Student Health Ctr",
-# "Lincoln Center Employees",
-# "Lincoln Center Students",
-# "Manhattan College Health Services",
-# "Manhattanville College",
-# "Massachusetts College of Art And Design",
-# "Massachusetts College of Liberal Arts",
-# "Massachusetts Institute of Technology",
-# "Massbio - Mattapan",
-# "McDaniel College",
-# "McPhs-Boston",
-# "McPhs-Manchester",
-# "McPhs-Worcester",
-# "Medexpress - State College",
-# "Medical Univ of South Carolina",
-# "Merrimack College",
-# "Messiah College Health Center",
-# "Middlebury College",
-# "Mount Holyoke College",
-# "Mount Saint Mary College",
-# "Nichols College",
-# "Northeastern University Health And Counseling Services",
-# "Northwestern Univ Hlth Serv",
-# "Norwich University",
-# "Notre Dame At Home",
-# "Nys - Niagra County Community College",
-# "Nys - Rochester Monroe Community College",
-# "Providence College",
-# "Psu-Covid University Park",
-# "Reed College Health and Counseling Center",
-# "Regis College",
-# "Rhode Island School of Design",
-# "Roger Williams University",
-# "Rwu Providence Campus",
-# "Salem State Staff",
-# "Salem State University",
-# "Seton Hill University",
-# "Simmons University",
-# "Smith College",
-# "Springfield College",
-# "St Olaf College",
-# "St Louis University",
-# "St. Thomas More",
-# "Stonehill College",
-# "Stony Brook University Student Health Center",
-# "Suffolk University",
-# "Suffolk University Sargent",
-# "Suffolk University Sawyer",
-# "Suny Maritime College",
-# "Swathmore College",
-# "Syracuse Univ Hlth Srvc",
-# "the Catholic Univ of America",
-# "the University of Vermont Medical Center",
-# "Temple Univ Health Services",
-# "Tuftsuemp (Marathon Health)",
-# "Tuftsugst (Oehn-Provider1)",
-# "Tuftsumst (Student Health Services)",
-# "Tuftsuvnd (Oehn-Provider2)",
-# "Umass Memorial",
-# "Umass University Campus",
-# "Umass University Health",
-# "University of Lynchburg",
-# "University of Maryland",
-# "University of Massachusetts Amherst",
-# "University of Massachusetts Amherst Springfield Center",
-# "University of Massachusetts Boston",
-# "University of Massachusetts Dartmouth",
-# "University of Massachusetts Medical School",
-# "University of Michigan Health System",
-# "University of Missouri-Department of Pathology",
-# "University of Rhode Island",
-# "University of Scranton",
-# "University of Tampa",
-# "University of Vermont",
-# "Villanova University",
-# "Villanova University Shc",
-# "Wake Forest University Student Health Services",
-# "Wagner College",
-# "Washington College Hlth Serv",
-# "Wellesley College",
-# "Westfield State University",
-# "Wheaton College",
-# "Williams College",
-# "Worcester Polytechnic Institute",
-# "Worcester State University"
-# )
 
-outstate<-filter(df, auth_facility %in% outstatecolleges)
+outstate<-filter(df, auth_facility %in% outstatecolleges) # outstatecolleges is sourced
 
 elr <-   df %>% 
   rename(
@@ -1285,57 +1049,6 @@ ggplot(subdat14nc)+
 
 ```{r newcasetable, eval = wedthurs}
 
-# code change Feb 2 to better capture most recent geocode table
-# con <- DBI::dbConnect(odbc::odbc(), "epicenter")
-# most_current_geo <- 
-#   odbc::odbcListObjects(con, 
-#                         catalog = "DPH_COVID_IMPORT", 
-#                         schema = "dbo") %>% 
-#   filter(stringr::str_detect(string = name, 
-#                              pattern = "Geo_Tract")) %>%
-#   tidyr::separate(data = .,
-#                   col = name,
-#                   sep = "_",
-#                   into = c("month", "day"),
-#                   extra = "drop",
-#                   remove = FALSE) %>%
-#   mutate(table_date = mdy(paste(month, 
-#                                 day, 
-#                                 year(Sys.Date()), 
-#                                 sep = "-"))) %>%
-#   slice_max(order_by = table_date) %>%
-#   pull(name)
-# 
-# # table_id <- DBI::Id(catalog = "DPH_COVID_IMPORT", schema = "dbo", table = most_current_geo)
-# # alltestgeo <- DBI::dbReadTable(con, table_id)
-# 
-# statement <- paste0("SELECT [r].[case_id]
-#                               ,[r].[X]
-#                               ,[r].[Y]
-#                               ,[r].[geoid10]
-#                               ,[r].[Name]
-#                               ,[r].[License__]
-#                               ,[r].[DBA]
-#                               ,[r].[type]
-#                     FROM [DPH_COVID_IMPORT].[dbo].[", most_current_geo,"] as [r]")
-# alltestgeo <-  DBI::dbGetQuery(conn = con , statement = statement)
-# 
-# odbc::dbDisconnect(con)
-# 
-# # SLUGGISH Agreed :) I didn't write it haha -AS
-# testgeo <- alltestgeo %>%
-#   mutate(name = ifelse(Name %in% c("", "NULL"), NA, Name),
-#          DBA = ifelse(DBA %in% c("", "NULL"), NA, DBA),
-#          facil_name = if_else(is.na(name), DBA, Name),
-#          cong_test = if_else(!is.na(facil_name), "Yes", "No"),
-#          eventid = as.numeric(case_id)) %>%
-#   rename(GEOID10 = geoid10) %>%
-#   select(-c("case_id", "name", "License__", "DBA")) %>%
-#   group_by(eventid) %>%
-#   arrange(facil_name) %>%
-#   slice(1L) %>%
-#   ungroup()
-
 # Reflects new table from Tom CTEDSS_GEOCODED_RECORDS
 # eliminates expensive group and slice
 # eliminates interim alltestgo df
@@ -1536,15 +1249,6 @@ maxweeks <- max(weeks$mmwrweekdate, na.rm = T)-7
 minweeks <- min(weeks$mmwrweekdate, na.rm = T)
 weeks <- seq.Date(from = minweeks, to =  maxweeks, by= "7 days")
 
-### duplicate????
-
-# age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
-# 
-# pop <- read_csv("L:/daily_reporting_figures_rdp/population_data/2018_dph_asrh/2018_asrh.csv") %>% 
-#   select(age_g, total) %>% 
-#   filter(!is.na(age_g))
-# 
-
 agegrp <- case %>%
   mutate(
     #year = 2020,
@@ -1716,8 +1420,6 @@ wkincidencect <- case %>%
           mmwrweekdate = factor(mmwrweekdate)
          )
 
- 
-
 wkincidence <- case %>%
    mutate(
     #year = 2020,
@@ -1773,6 +1475,7 @@ ggplot(weekincidence, aes(mmwrweekdate, rate, col = County, group = County))+
   guides(
    col = guide_legend(nrow = 3)
   )
+
 ```
 
 
@@ -2027,6 +1730,7 @@ edit_daycare <- case %>%
   mutate(daycare_staff = ifelse(eventid %in% attendee_to_staff$eventid, "YES", daycare_staff))
   
 ## hardcode edits after logic: 12/17:
+## This still needed????
 edit_daycare$daycare_staff[edit_daycare$eventid %in% c(101096038, 102729292, 102939247, 101346815, 102851466, 102755473, 103255551, 101708189, 103226614, 103382925, 103191123, 103315505)]<- "NO"
 
 edit_daycare$daycare_attendee[edit_daycare$eventid %in% c(103382925)]<- "NO"
