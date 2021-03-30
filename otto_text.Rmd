@@ -1,0 +1,15 @@
+---
+author: "Report Team Autobot"
+output: word_document
+---
+
+```{r setup2, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+As of **`r today_text`**, the total of laboratory-confirmed and probable COVID-19 cases reported among Connecticut residents is **`r cases_text`**, including **`r confirmed_text`** laboratory-confirmed and **`r probable_text`** probable cases.  **`r hosp_text `** patients are currently hospitalized with laboratory-confirmed COVID-19. There have been **`r dec`** COVID-19-associated deaths.  
+
+`r mock_table`
+
+
+
