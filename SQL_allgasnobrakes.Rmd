@@ -216,7 +216,8 @@ df <-
       "Reside",
       cong_exposure_type
     ),
-    bigID = str_squish(paste0(fname, lname, dob)),
+#    bigID = str_squish(paste0(fname, lname, dob)),
+    bigID = str_remove_all(paste0(fname, lname, dob), "\\W|\\d"),
     result = str_to_lower(result),
     hospitalized = str_to_sentence(hospitalized),
     hospitalized = case_when(
