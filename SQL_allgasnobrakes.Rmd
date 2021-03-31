@@ -210,6 +210,7 @@ df <-
       difftime(event_date, dob)
       ,unit = "years")
     ),
+    age = if_else(age < 0 | age > 121, NA_real_, age),
     cong_exposure_type = str_to_sentence(cong_exposure_type),
     cong_exposure_type = ifelse(
       is.na(cong_exposure_type) & ptreside == "Yes",
