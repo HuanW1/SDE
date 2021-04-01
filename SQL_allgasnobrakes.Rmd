@@ -1828,33 +1828,44 @@ theme(
 
 
 ```{r plot_pcr_test_by_date,  message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300}
+
 elr_linelist_elronly %>% 
-  filter(spec_col_date >= "2020-02-28" & result %in% c("detected", "not detected")) %>% 
-  mutate(result = ifelse(result == "detected", "Positive", "Negative")) %>% 
+  filter(spec_col_date >= "2020-02-28" & 
+           spec_col_date <= today() & 
+           result %in% c("detected", "not detected")) %>% 
+  mutate(result = if_else(result == "detected", "Positive", "Negative")) %>% 
   group_by(spec_col_date, result) %>% 
   tally() %>% 
-ggplot()+
-  geom_col(aes(spec_col_date, n, fill = result))+
-  geom_rect(aes(xmin = Sys.Date()-4.5, xmax = Sys.Date(), ymax = max(n) , ymin = 0), col = "black", alpha = 0.01, fill = "gray")+
-  #scale_fill_brewer(palette = "Blues")+
-  scale_fill_manual(values = c('#7fcdbb',"#2c7fb8" ))+
-  scale_x_date(date_labels = "%b-%d", date_breaks = "2 weeks", limits = c(ymd("2020-03-03"), Sys.Date()))+
-  theme_minimal()+
+  ggplot() +
+  geom_col(aes(spec_col_date, n, fill = result)) +
+  geom_rect(aes(xmin = today() - 4.5, 
+                xmax = today(), 
+                ymax = max(n), 
+                ymin = 0), 
+            col = "black", 
+            alpha = 0.01, 
+            fill = "gray") +
+  #scale_fill_brewer(palette = "Blues") +
+  scale_fill_manual(values = c('#7fcdbb',"#2c7fb8" )) +
+  scale_x_date(date_labels = "%b-%d", 
+               date_breaks = "2 weeks", 
+               expand = c(0, 0)) +
+  theme_minimal() +
   theme(
-        panel.grid.minor.x = element_blank(),
-        panel.grid.major.x = element_blank(),
-        legend.position = c(0.25,0.8),
-        legend.direction = "horizontal",
-        axis.text.x=element_text(angle=45,hjust=1)
-        )+
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    legend.position = c(0.25,0.8),
+    legend.direction = "horizontal",
+    axis.text.x=element_text(angle=45, hjust=1)) +
   labs(
-    title = "Number of Molecular Laboratory Tests for COVID-19 \nReported via ELR by Specimen Collection Date ",
+    title = "Number of Molecular Laboratory Tests for COVID-19\nReported via ELR by Specimen Collection Date ",
     subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
     y = "Number of Tests",
-    x="Specimen Collection Date",
+    x = "Specimen Collection Date",
     fill = "",
     caption = "Shading indicates data are incomplete for the current week."
-    )
+  )
+
 ```
 `r if(thursday){"*Testing of recently collected specimens is ongoing and does not reflect a decrease in testing. Chart only includes test results received by electronic laboratory reporting.*"}`  
 
