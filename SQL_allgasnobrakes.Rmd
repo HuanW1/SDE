@@ -1425,7 +1425,7 @@ ggplot(nagegrp, aes(x = mmwrweekdate,
 #   mutate(County = paste0(County, " County")) %>%
 #   rename(pop = Total)
 
-countypop <- county_pop
+countypop <- county_pop %>% rename(pop = Total)
 
 
 wkincidencect <- case %>%
