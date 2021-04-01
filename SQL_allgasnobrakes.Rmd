@@ -92,11 +92,30 @@ cc_map <-
            col_types = "cc") %>% 
   mutate(COUNTY = paste0(COUNTY," County"))
 
-#county populations
+# #county populations
+# county_pop <- 
+#   read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv",
+#            col_types = "cn") %>% 
+#   mutate(County = paste0(County, " County"))
+
+### Using SQL 2019 county populations
+epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
+ghost_data <- tbl(epi_connect, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.RPT_COUNTY_REA_DENOMS"))
+
 county_pop <- 
-  read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv",
-           col_types = "cn") %>% 
-  mutate(County = paste0(County, " County"))
+  ghost_data %>% 
+  select(YEAR:POP) %>%
+  filter(YEAR == 2019) %>%
+  group_by(cty_label) %>%
+  summarise(Total = sum(POP, na.rm = TRUE)) %>%
+  mutate(County = paste0(cty_label, " County")) %>%
+  select(County, Total) %>% 
+  arrange(County) %>%
+  collect() 
+
+rm(ghost_data)
+odbc::dbDisconnect(epi_connect)
+
 
 ```
 
