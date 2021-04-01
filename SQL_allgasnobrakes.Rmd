@@ -92,11 +92,30 @@ cc_map <-
            col_types = "cc") %>% 
   mutate(COUNTY = paste0(COUNTY," County"))
 
-#county populations
+# #county populations
+# county_pop <- 
+#   read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv",
+#            col_types = "cn") %>% 
+#   mutate(County = paste0(County, " County"))
+
+### Using SQL 2019 county populations
+epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
+ghost_data <- tbl(epi_connect, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.RPT_COUNTY_REA_DENOMS"))
+
 county_pop <- 
-  read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv",
-           col_types = "cn") %>% 
-  mutate(County = paste0(County, " County"))
+  ghost_data %>% 
+  select(YEAR:POP) %>%
+  filter(YEAR == 2019) %>%
+  group_by(cty_label) %>%
+  summarise(Total = sum(POP, na.rm = TRUE)) %>%
+  mutate(County = paste0(cty_label, " County")) %>%
+  select(County, Total) %>% 
+  arrange(County) %>%
+  collect() 
+
+rm(ghost_data)
+odbc::dbDisconnect(epi_connect)
+
 
 ```
 
@@ -210,13 +229,18 @@ df <-
       difftime(event_date, dob)
       ,unit = "years")
     ),
+    age = if_else(age < 0 | age > 121, NA_real_, age),
     cong_exposure_type = str_to_sentence(cong_exposure_type),
     cong_exposure_type = ifelse(
       is.na(cong_exposure_type) & ptreside == "Yes",
       "Reside",
       cong_exposure_type
     ),
-    bigID = str_squish(paste0(fname, lname, dob)),
+    #    bigID = str_squish(paste0(fname, lname, dob)),
+    bigID = paste0(str_remove_all(paste0(fname,
+                                         lname),
+                                  "\\W|\\d"),
+                   dob),
     result = str_to_lower(result),
     hospitalized = str_to_sentence(hospitalized),
     hospitalized = case_when(
@@ -1393,12 +1417,15 @@ ggplot(nagegrp, aes(x = mmwrweekdate,
 
 `r if(thursday){"The chart below shows the average number of new COVID-19 cases per day per 100,000 population in the state of Connecticut and for each Connecticut county. The rates in this chart are calculated by averaging the number of new cases diagnosed each day during the previous two weeks, dividing by the annual estimated population, and then multiplying by 100,000.  "}`
 
-```{r plot_thurs_cases_county, message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300, fig.height=5, fig.width= 7}
+```{r plot_thurs_cases_county, message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300, fig.height=6, fig.width= 7.5}
 
+#### But why though?
 #incidence by county
-countypop <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv") %>%
-  mutate(County = paste0(County, " County")) %>%
-  rename(pop = Total)
+# countypop <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv") %>%
+#   mutate(County = paste0(County, " County")) %>%
+#   rename(pop = Total)
+
+countypop <- county_pop %>% rename(pop = Total)
 
 
 wkincidencect <- case %>%
@@ -1801,33 +1828,44 @@ theme(
 
 
 ```{r plot_pcr_test_by_date,  message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300}
+
 elr_linelist_elronly %>% 
-  filter(spec_col_date >= "2020-02-28" & result %in% c("detected", "not detected")) %>% 
-  mutate(result = ifelse(result == "detected", "Positive", "Negative")) %>% 
+  filter(spec_col_date >= "2020-02-28" & 
+           spec_col_date <= today() & 
+           result %in% c("detected", "not detected")) %>% 
+  mutate(result = if_else(result == "detected", "Positive", "Negative")) %>% 
   group_by(spec_col_date, result) %>% 
   tally() %>% 
-ggplot()+
-  geom_col(aes(spec_col_date, n, fill = result))+
-  geom_rect(aes(xmin = Sys.Date()-4.5, xmax = Sys.Date(), ymax = max(n) , ymin = 0), col = "black", alpha = 0.01, fill = "gray")+
-  #scale_fill_brewer(palette = "Blues")+
-  scale_fill_manual(values = c('#7fcdbb',"#2c7fb8" ))+
-  scale_x_date(date_labels = "%b-%d", date_breaks = "2 weeks", limits = c(ymd("2020-03-03"), Sys.Date()))+
-  theme_minimal()+
+  ggplot() +
+  geom_col(aes(spec_col_date, n, fill = result)) +
+  geom_rect(aes(xmin = today() - 4.5, 
+                xmax = today(), 
+                ymax = max(n), 
+                ymin = 0), 
+            col = "black", 
+            alpha = 0.01, 
+            fill = "gray") +
+  #scale_fill_brewer(palette = "Blues") +
+  scale_fill_manual(values = c('#7fcdbb',"#2c7fb8" )) +
+  scale_x_date(date_labels = "%b-%d", 
+               date_breaks = "2 weeks", 
+               expand = c(0, 0)) +
+  theme_minimal() +
   theme(
-        panel.grid.minor.x = element_blank(),
-        panel.grid.major.x = element_blank(),
-        legend.position = c(0.25,0.8),
-        legend.direction = "horizontal",
-        axis.text.x=element_text(angle=45,hjust=1)
-        )+
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    legend.position = c(0.25,0.8),
+    legend.direction = "horizontal",
+    axis.text.x=element_text(angle=45, hjust=1)) +
   labs(
-    title = "Number of Molecular Laboratory Tests for COVID-19 \nReported via ELR by Specimen Collection Date ",
+    title = "Number of Molecular Laboratory Tests for COVID-19\nReported via ELR by Specimen Collection Date ",
     subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
     y = "Number of Tests",
-    x="Specimen Collection Date",
+    x = "Specimen Collection Date",
     fill = "",
     caption = "Shading indicates data are incomplete for the current week."
-    )
+  )
+
 ```
 `r if(thursday){"*Testing of recently collected specimens is ongoing and does not reflect a decrease in testing. Chart only includes test results received by electronic laboratory reporting.*"}`  
 
@@ -2398,9 +2436,12 @@ The 2018 Connecticut and 2000 US Standard Million populations were used for age 
 ```{r plot_age_ethnicity, message=FALSE, warning=FALSE, fig.align= "center", dpi = 300}
 stanpopas <- read_csv("L:/daily_reporting_figures_rdp/dependancies/stanpopas.csv")
 
-aamr_lookup <- read_csv("L:/daily_reporting_figures_rdp/dependancies/2018_State-level_ASRH _lookup.csv") %>% 
+aamr_lookup <- 
+  read_csv("L:/daily_reporting_figures_rdp/dependancies/2018_State-level_ASRH _lookup.csv") %>% 
   rename(age_g = "Age Group")
-aamr_lookup <- aamr_lookup %>% 
+
+aamr_lookup <- 
+  aamr_lookup %>% 
   pivot_longer(-age_g, names_to = "hisp_race", values_to = "denominator") %>% 
   mutate(
     gender = str_sub(hisp_race, start = str_length(hisp_race), end  = str_length(hisp_race)),
@@ -2422,67 +2463,21 @@ aamr_lookup <- aamr_lookup %>%
   group_by(hisp_race, age_g) %>% 
   summarize(denominator = sum(denominator))
 
+####
+age_labels2 <- c("<5 yrs", "5-9 yrs", "10-14 yrs", "15-19 yrs", "20-24 yrs",
+                "25-29 yrs", "30-34 yrs", "35-39 yrs", "40-44 yrs", "45-49 yrs",
+                "50-54 yrs", "55-59 yrs", "60-64 yrs", "65-69 yrs", "70-74 yrs",
+                "75-79 yrs", "80-84 yrs", "85+ yrs")
 
-case_by_age <-  case %>% 
+
+case_by_age <-  
+  case %>% 
   select(age, hisp_race) %>% 
-  filter(!is.na(hisp_race) & !is.na(age) & age>=0 & !hisp_race %in% c("NH Other", "Unknown", "NH Multiracial")) %>% 
-  mutate(
-    age_group2 = ifelse(
-      age <5, "<5 yrs",
-      ifelse(
-        age >=5 & age <10, "5-9 yrs",
-        ifelse(
-          age >=10 & age <15, "10-14 yrs",
-          ifelse(
-            age >=15 & age <20, "15-19 yrs",
-            ifelse(
-              age >=20 & age <25, "20-24 yrs",
-              ifelse(
-                age >=25 & age <30, "25-29 yrs",
-                ifelse(
-                  age >=30 & age <35, "30-34 yrs",
-                  ifelse(
-                    age >=35 & age <40, "35-39 yrs",
-                    ifelse(
-                      age >=40 & age <45, "40-44 yrs",
-                      ifelse(
-                        age >=45 & age <50, "45-49 yrs",
-                        ifelse(
-                          age >=50 & age <55, "50-54 yrs",
-                          ifelse(
-                            age >=55 & age <60, "55-59 yrs",
-                            ifelse(
-                              age >=60 & age <65, "60-64 yrs",
-                              ifelse(
-                                age >=65 & age <70, "65-69 yrs",
-                                ifelse(
-                                  age >=70 & age <75, "70-74 yrs",
-                                  ifelse(
-                                    age >=75 & age <80, "75-79 yrs",
-                                    ifelse(
-                                      age >=80 & age <85, "80-84 yrs",
-                                      ifelse(
-                                        age >=85 , "85+ yrs",
-                                        age
-                                      )
-                                    )
-                                  )
-                                )
-                              )
-                            )
-                          )
-                        )
-                      )
-                    )
-                  )
-                )
-              )
-            )
-          )
-        )
-      )
-    )
-  )
+  filter(!is.na(hisp_race) & !is.na(age) & age >= 0 & !hisp_race %in% c("NH Other", "Unknown", "NH Multiracial")) %>% 
+  mutate(age_group2 = cut(age,
+                          breaks = c(-1, 4, 9, 14, 19, 24, 29, 34, 39,
+                                     44, 49, 54, 59, 64, 69, 74, 79, 84, Inf),
+                          labels = age_labels2))
 
 
 case_by_age_grouped <- case_by_age %>% 
@@ -2552,64 +2547,11 @@ ggplot(adj_tbl_long, aes(fill = rate_type, y = n, x = hisp_race))+
 dec_by_age <-  case %>% 
   filter(outcome == "Died") %>% 
   select(age, hisp_race) %>% 
-  filter(!is.na(hisp_race) & !is.na(age) & age>=0 & !hisp_race %in% c("NH Other", "Unknown", "NH Multiracial") ) %>% 
-  mutate(
-    age_group2 = ifelse(
-      age <5, "<5 yrs",
-      ifelse(
-        age >=5 & age <10, "5-9 yrs",
-        ifelse(
-          age >=10 & age <15, "10-14 yrs",
-          ifelse(
-            age >=15 & age <20, "15-19 yrs",
-            ifelse(
-              age >=20 & age <25, "20-24 yrs",
-              ifelse(
-                age >=25 & age <30, "25-29 yrs",
-                ifelse(
-                  age >=30 & age <35, "30-34 yrs",
-                  ifelse(
-                    age >=35 & age <40, "35-39 yrs",
-                    ifelse(
-                      age >=40 & age <45, "40-44 yrs",
-                      ifelse(
-                        age >=45 & age <50, "45-49 yrs",
-                        ifelse(
-                          age >=50 & age <55, "50-54 yrs",
-                          ifelse(
-                            age >=55 & age <60, "55-59 yrs",
-                            ifelse(
-                              age >=60 & age <65, "60-64 yrs",
-                              ifelse(
-                                age >=65 & age <70, "65-69 yrs",
-                                ifelse(
-                                  age >=70 & age <75, "70-74 yrs",
-                                  ifelse(
-                                    age >=75 & age <80, "75-79 yrs",
-                                    ifelse(
-                                      age >=80 & age <85, "80-84 yrs",
-                                      ifelse(
-                                        age >=85 , "85+ yrs",
-                                        age
-                                      )
-                                    )
-                                  )
-                                )
-                              )
-                            )
-                          )
-                        )
-                      )
-                    )
-                  )
-                )
-              )
-            )
-          )
-        )
-      )
-    )
-  )
+  filter(!is.na(hisp_race) & !is.na(age) & age >= 0 & !hisp_race %in% c("NH Other", "Unknown", "NH Multiracial") ) %>% 
+  mutate(age_group2 = cut(age,
+                          breaks = c(-1, 4, 9, 14, 19, 24, 29, 34, 39,
+                                     44, 49, 54, 59, 64, 69, 74, 79, 84, Inf),
+                          labels = age_labels2))
 
 
 dec_by_age_grouped <- dec_by_age %>% 
