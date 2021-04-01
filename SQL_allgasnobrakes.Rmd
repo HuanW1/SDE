@@ -1419,10 +1419,13 @@ ggplot(nagegrp, aes(x = mmwrweekdate,
 
 ```{r plot_thurs_cases_county, message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300, fig.height=5, fig.width= 7}
 
+#### But why though?
 #incidence by county
-countypop <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv") %>%
-  mutate(County = paste0(County, " County")) %>%
-  rename(pop = Total)
+# countypop <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv") %>%
+#   mutate(County = paste0(County, " County")) %>%
+#   rename(pop = Total)
+
+countypop <- county_pop
 
 
 wkincidencect <- case %>%
