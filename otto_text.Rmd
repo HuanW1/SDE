@@ -11,5 +11,5 @@ As of **`r today_text`**, the total of laboratory-confirmed and probable COVID-1
 
 `r mock_table`
 
-
+\*\*Includes confirmed plus probable cases 
 
