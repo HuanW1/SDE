@@ -32,8 +32,8 @@ which_one <-
 
 load(which_one)
 print(mock_table)
-message("Draft table loaded in the Viewer window and as mock_table")
-save_as_docx(mock_table, path = "pre_draft_summary_table.docx")
-message("word version available in this directory as pre_draft_summary_table.docx ")
+message("Draft table loaded in the Viewer window")
+# save_as_docx(mock_table, path = "pre_draft_summary_table.docx")
+rmarkdown::render("otto_text.Rmd", output_file = "otto.docx")
 
-
+message("word version available in this directory as otto.docx ")
