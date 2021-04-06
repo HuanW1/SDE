@@ -1797,25 +1797,27 @@ daycare_staff1 <- edit_daycare %>%
   filter((week > 35 & year ==2020) | (week>= 1 & year==2021)) %>% 
   group_by(year,week)
 
-daycare <- bind_rows(daycare_attendee, daycare_staff)%>%
+daycare <- bind_rows(daycare_attendee, daycare_staff) %>%
   mutate(
     date= MMWRweek2Date(MMWRyear = year, MMWRweek = week, MMWRday = 7)
   ) %>% 
+  filter(date < today()) %>%
   arrange(date) %>% 
   mutate(
         date = format(date, "%b-%d"),
         date = factor(date, levels = date, labels = date)
         )
 
-ggplot(daycare, aes(x=date, y=n, fill=role))+
-  geom_bar(stat = "identity", color="black")+
-  scale_fill_manual(name="",values = c('#7fcdbb',"#2c7fb8" ))+
-  labs(x="Week", y="Number of Cases", title = "Daycare Associated Cases")+
-  theme_classic()+
+ggplot(daycare, aes(x = date, y = n, fill = role)) +
+  geom_bar(stat = "identity", color = "black") +
+  scale_fill_manual(name = "", values = c('#7fcdbb', "#2c7fb8")) +
+  labs(x = "Week", y = "Number of Cases", title = "Daycare Associated Cases") +
+  theme_classic() +
 theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     title = element_text(size = 7.5)
   )
+
 ```
 
 `r if(thursday){"### Laboratory Surveillance"}  `
