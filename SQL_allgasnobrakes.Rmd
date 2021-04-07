@@ -1748,6 +1748,32 @@ ggplot(deadbar)+
 
 `r if(thursday){"Licensed daycare providers are required to report cases of COVID-19 among attendees and staff to the Department of Public Health (DPH) and the local health department. This figure shows the number of cases among daycare attendees and staff reported to DPH since September 1, 2020. Data are preliminary and like other passive surveillance systems, under reporting occurs and the true incidence of disease is more than the number of cases reported."}`
 ```{r plot_daycare_data, message=FALSE, warning=FALSE, fig.align="center", eval=thursday}
+
+# Initial foray into the new repeatable fields CRF April 7
+# Pull the new table
+daycare_pull <- table_to_df("CTEDSS_CRF_DAYCARE")
+
+# join adding new columns but no new rows
+case <-
+  left_join(case,
+            daycare_pull %>% select(Event_ID, CRF_DATE:Daycare_State),
+            by = c("eventid" = "Event_ID"))
+
+# Rather than new logic simply replicate
+# the logic from below by mutate and
+# case_when
+# Daycare_Yes_No goes to daycare_attendee
+# Daycare_Name goes to daycare_staff
+case <-
+  case %>%
+  mutate(daycare_attendee =
+           case_when(Daycare_Yes_No == "YES" ~ "YES",
+                     TRUE                    ~ daycare_attendee),
+         daycare_staff =
+           case_when(Daycare_Yes_No == "YES" ~ Daycare_Name,
+                     TRUE                    ~ daycare_staff)
+         )
+
 ########### DAYCARE EDITS ###############
 ## set logic: no attendees 6+, attendees 18+ are assumed to be staff
 attendee_to_staff <- case %>% 
