@@ -127,8 +127,9 @@ SELECT  [csv_file_version_no]
 --,[ExportEndDate]
 --,[RecID]
 FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]
-WHERE ExportDate = '2021-03-16 08:00:00'")
-
+WHERE ExportDate = '2021-04-07 08:00:00'")
+# 4/7/2021 8:00:00 AM
+# 4/5/2021 8:00:00
 # DBI::dbGetQuery(con2, statement = "select max(exportdate) FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]")
 # latest_report <-
 #   DBI::dbGetQuery(con2,
@@ -193,31 +194,35 @@ if(!dir.exists(first_part)) {
   dir.create(first_part)
 }
 
-zero_pad <-
-  paste0(first_part,
-         "/InterPartner~CELR~CT~AIMSPlatform~Prod~Prod~",
-         which_test_date,
-         "18050000~STOP~COVID")
-
 # "w:\Electronic Laboratory Reporting\Output\CTEDSS\MIF-PROD\CoV testing\CDC related\CELR\Output\Feb 15"
 
 #### Easy lazy way to do multiple test dates in one for loop
 
-which_test_date <- c("20210311", "20210312", "20210313", "20210314", "20210315") # YMD order doesn't matter
+which_test_date <- c("20210405", "20210401", "20210402", "20210403", "20210404") # YMD order doesn't matter
+last_used <- 197
 
-for (idate in which_test_date) {
-  zero_pad <-
-    paste0(first_part,
-           "/InterPartner~CELR~CT~AIMSPlatform~Prod~Prod~",
-           idate,
-           "18050000~STOP~COVID")
 
-  data %>%
-    select(csv_file_version_no:Submitter_unique_sample_ID) %>%
-    filter(Test_date == idate) %>%
-    group_by(grp = rep(row_number(), length.out = n(), each = 25000)) %>%
-    group_walk(~ write_csv(.x, paste0(zero_pad, .y$grp, ".csv"), na=""))
+list_of_dfs <- data %>%
+  select(csv_file_version_no:Submitter_unique_sample_ID) %>%
+  filter(Test_date %in% which_test_date) %>%
+  group_by(Test_date) %>%
+  mutate(grp = rep(row_number(), length.out = n(), each = 25000)) %>%
+  group_by(Test_date, grp) %>%
+  mutate(duh = cur_group_id()) %>%
+  ungroup() %>%
+  split(.$duh) %>%
+  map(~ .x %>% select(-duh, -grp))
 
-}
+nams <- names(list_of_dfs)
+nams %>% walk(~ write_csv(list_of_dfs[[.]],
+                          paste0(first_part,
+                                 "/InterPartner~CELR~CT~AIMSPlatform~Prod~Prod~",
+                                 unique(list_of_dfs[[.]]$Test_date),
+                                 "18050000~STOP~COVID",
+                                 as.numeric(.) + last_used,
+                                 ".csv"),
+                          na = ""))
+
+
 
 
