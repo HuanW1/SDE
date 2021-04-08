@@ -1,4 +1,10 @@
 
+
+#wedthur
+
+####13 CTTown_Alert.csv &  avgdailyincidence.csv####
+
+
 #calculate % positive by town for past 2 weeks
 pctpos14 <- test14nc %>% 
   group_by(city, result) %>% 
@@ -57,10 +63,6 @@ if(csv_write) {
             paste0("L:/daily_reporting_figures_rdp/yesterday/", 
                    Sys.Date(),"/avg_di/avgdailyincidence.csv"))
 }
-
-```
-
-```{r avg_incidence_gary2, eval=wedthurs, message=FALSE, warning=FALSE, include=FALSE}
 lvls <- c("<5 cases per 100,000 or <5 reported cases", "5-9 cases per 100,000", "10-14 cases per 100,000", "15 or more cases per 100,000")
 gdi <- gary_dailyincidence %>%
   mutate(
