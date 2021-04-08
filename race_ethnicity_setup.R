@@ -5,7 +5,6 @@ source("helpers/StartMeUp.R")
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 ####1 lookups ####
-
 statement <- paste0("SELECT *FROM DPH_COVID_IMPORT.dbo.RPT_stanpop2000")
 spop2000 <- DBI::dbGetQuery(conn = con , statement = statement)
 
@@ -73,7 +72,7 @@ race_eth_comb <-  case %>%
          hisp_race = factor(hisp_race, levels = hisp_race_labels, labels = hisp_race_labels))
 
 
-
+####3 Age adjusted  case rates ####
 #line 2437 -2623
 
 aamr_lookup <- more_ages %>% 
@@ -85,25 +84,24 @@ age_labels2 <- c("<5 yrs", "5-9 yrs", "10-14 yrs", "15-19 yrs", "20-24 yrs",
                  "50-54 yrs", "55-59 yrs", "60-64 yrs", "65-69 yrs", "70-74 yrs",
                  "75-79 yrs", "80-84 yrs", "85+ yrs")
 
-
-agg_table <- case %>% 
-  select(age, hisp_race) %>% 
-  filter(!is.na(hisp_race) & !is.na(age) & age >= 0 & !hisp_race %in% c("NH Other", "Unknown", "NH Multiracial")) %>% 
+agg_table <- case %>%
+  select(age, hisp_race) %>%
+  filter(!is.na(hisp_race) & !is.na(age) & age >= 0 & !hisp_race %in% c("NH Other", "Unknown")) %>%
   mutate(age_group = cut(age,
-                          breaks = c(-1, 4, 9, 14, 19, 24, 29, 34, 39,
-                                     44, 49, 54, 59, 64, 69, 74, 79, 84, Inf),
-                          labels = age_labels2)) %>% 
-  group_by(hisp_race,  age_group) %>% 
-  tally() %>% 
-  left_join(aamr_lookup, by = c("hisp_race", "age_group")) %>% 
-  left_join(stanpopas, by = c("age_group" = "age_g")) %>% 
-  replace_na(replace =  list(n= 0)) %>% 
+                         breaks = c(-1, 4, 9, 14, 19, 24, 29, 34, 39,
+                                    44, 49, 54, 59, 64, 69, 74, 79, 84, Inf),
+                         labels = age_labels2)) %>%
+  group_by(hisp_race,  age_group) %>%
+  tally() %>%
+  left_join(aamr_lookup, by = c("hisp_race", "age_group")) %>%
+  left_join(spop2000, by = c("age_group" = "age_g")) %>%
+  replace_na(replace =  list(n= 0)) %>%
   mutate(
     crude_rate = n/pop*100000
-  ) %>% 
-  group_by(age_group) %>% 
-  mutate(standard_age_g = sum(spop2000)) %>% 
-  group_by(hisp_race) %>% 
+  ) %>%
+  group_by(age_group) %>%
+  mutate(standard_age_g = sum(spop2000)) %>%
+  group_by(hisp_race) %>%
   mutate(
     propn = standard_age_g/sum(standard_age_g),
     hisp_race_case_tot = sum(n),
@@ -126,48 +124,38 @@ adj_tbl_long <- adj_table %>%
          n = round(n))
 
 
-
-dec_by_age <-  case %>% 
+####4 Age adjusted  mortality rates ####
+#line 2437 -2623
+agg_table_dec <-  case %>% 
   filter(outcome == "Died") %>% 
-  select(age, hisp_race) %>% 
-  filter(!is.na(hisp_race) & !is.na(age) & age >= 0 & !hisp_race %in% c("NH Other", "Unknown", "NH Multiracial") ) %>% 
-  mutate(age_group2 = cut(age,
-                          breaks = c(-1, 4, 9, 14, 19, 24, 29, 34, 39,
-                                     44, 49, 54, 59, 64, 69, 74, 79, 84, Inf),
-                          labels = age_labels2))
-
-
-dec_by_age_grouped <- dec_by_age %>% 
-  group_by(hisp_race, age_group2) %>% 
-  tally()
-
-aamr_lookup_grouped <- aamr_lookup %>% 
-  group_by(hisp_race, age_g) %>% 
-  summarise(denominator = sum(denominator))
-
-agg_table_dec <- aamr_lookup_grouped%>% 
-  left_join(dec_by_age_grouped, by = c("hisp_race" = "hisp_race", "age_g" = "age_group2")) %>% 
-  left_join(stanpopas, by="age_g") %>%
-  replace_na(replace =  list(n= 0)) %>% 
+  select(age, hisp_race) %>%
+  filter(!is.na(hisp_race) & !is.na(age) & age >= 0 & !hisp_race %in% c("NH Other", "Unknown")) %>%
+  mutate(age_group = cut(age,
+                         breaks = c(-1, 4, 9, 14, 19, 24, 29, 34, 39,
+                                    44, 49, 54, 59, 64, 69, 74, 79, 84, Inf),
+                         labels = age_labels2)) %>%
+  group_by(hisp_race,  age_group) %>%
+  tally() %>%
+  left_join(aamr_lookup, by = c("hisp_race", "age_group")) %>%
+  left_join(spop2000, by = c("age_group" = "age_g")) %>%
+  replace_na(replace =  list(n= 0)) %>%
   mutate(
-    crude_rate = n/denominator*100000
-  ) %>% 
-  group_by(age_g) %>% 
-  mutate(standard_age_g = sum(spop2000)) %>% 
-  group_by(hisp_race) %>% 
+    crude_rate = n/pop*100000
+  ) %>%
+  group_by(age_group) %>%
+  mutate(standard_age_g = sum(spop2000)) %>%
+  group_by(hisp_race) %>%
   mutate(
     propn = standard_age_g/sum(standard_age_g),
     hisp_race_case_tot = sum(n),
-    hisp_race_stan_tot = sum(denominator)
+    hisp_race_stan_tot = sum(pop)
   ) %>% 
   ungroup() %>% 
-  mutate(age_specific_adjusted = ifelse(
-    hisp_race_case_tot >=20, crude_rate * propn, NA
-  ),
-  Crude = hisp_race_case_tot/hisp_race_stan_tot*100000) %>% 
+  mutate(age_specific_adjusted = ifelse(hisp_race_case_tot >=20, crude_rate * propn, NA),
+         Crude = hisp_race_case_tot/hisp_race_stan_tot*100000) %>% 
   group_by(hisp_race) %>% 
   mutate(`Age adjusted` = sum(age_specific_adjusted))
-
+  
 adj_table_dec <- agg_table_dec %>% 
   select(hisp_race, Crude, `Age adjusted`) %>% 
   unique()

@@ -542,40 +542,8 @@ rm(anti_tests, molec_tests)#,TestCounty
 
 ####11 WIP REStateSummary.csv ####
 #summary by race/ethnicity
-
-#replace gender_race_eth <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_re_gender_age.csv")
-#replace race_eth_comb
-
-
-# race_eth_SHA_lookup <- gender_race_eth %>% 
-#   group_by(hisp_race) %>%  
-#   summarize(tot=sum(n))
-# race_eth_SHA_case <- case %>%
-#   group_by(hisp_race) %>% 
-#   tally(name = "case_tot")
-# 
-# race_eth_comb <- race_eth_SHA_case %>% 
-#   left_join(race_eth_SHA_lookup) %>% 
-#   mutate(rate100k = round((case_tot/tot)*100000))
-# 
-# ####dec
-# race_eth_SHA_case_dec <- case %>%
-#   filter(outcome == "Died") %>% 
-#   group_by(hisp_race) %>%  
-#   tally(name = "deaths")
-# 
-# 
-# race_eth_comb <- race_eth_comb %>% 
-#   left_join(race_eth_SHA_case_dec) %>% 
-#   replace_na(replace =list(deaths = 0)) %>% 
-#   rename(caserate100k=rate100k) %>% 
-#   mutate(deathrate100k = round((deaths/tot)*100000))
-# race_eth_comb$hisp_race <- factor(race_eth_comb$hisp_race, levels =c("Hispanic", "NH White", "NH Black", "NH American Indian or Alaskan Native", "NH Asian or Pacific Islander", "NH Other", "NH Multiracial", "Unknown") , labels =c("Hispanic", "NH White", "NH Black", "NH American Indian or Alaskan Native", "NH Asian or Pacific Islander", "NH Other", "NH Multiracial", "Unknown"))
-
-
-
 REStateSummary <- race_eth_comb %>% 
-  select(-c(caserate100k,deathrate100k)) %>% 
+  #select(-c(caserate100k,deathrate100k)) %>% 
   left_join(adj_table) %>% 
   rename(
     CrudeCaseRate = Crude,
@@ -595,6 +563,7 @@ REStateSummary <- race_eth_comb %>%
     DeathAgeAdjusted= round(DeathAgeAdjusted),
     DateUpdated = graphdate
   ) 
+#REStateSummary$tot[REStateSummary$hisp_race == "NH Multiracial"] <- NA
 
 #printing
 if(csv_write){
