@@ -24,6 +24,10 @@ county_rea_denoms$hisp_race[county_rea_denoms$hisp_race %in% c("NH Asian", "NH N
 county_rea_denoms$hisp_race[county_rea_denoms$hisp_race %in% c("NH Two or more races")] <- "NH Multiracial" 
 county_rea_denoms$hisp_race[county_rea_denoms$hisp_race %in% c("NH Black or African American")] <- "NH Black"
 county_rea_denoms$hisp_race[county_rea_denoms$hisp_race == "NH American Indian or Alaska Native"] <- "NH American Indian or Alaskan Native"
+
+more_ages <- county_rea_denoms %>% 
+  mutate(age_group = ifelse(age_group == "0-4 yrs", "<5 yrs", age_group))
+
 county_rea_denoms <- county_rea_denoms %>% 
   mutate(age_group = case_when(
     age_group %in% c("0-4 yrs", "5-9 yrs") ~ "0-9",
@@ -72,78 +76,45 @@ race_eth_comb <-  case %>%
 
 #line 2437 -2623
 
-aamr_lookup <- 
-  read_csv("L:/daily_reporting_figures_rdp/dependancies/2018_State-level_ASRH _lookup.csv") %>% 
-  rename(age_g = "Age Group")
+aamr_lookup <- more_ages %>% 
+  group_by(hisp_race, age_group) %>% 
+  summarize(pop = sum(pop))
 
-aamr_lookup <- 
-  aamr_lookup %>% 
-  pivot_longer(-age_g, names_to = "hisp_race", values_to = "denominator") %>% 
-  mutate(
-    gender = str_sub(hisp_race, start = str_length(hisp_race), end  = str_length(hisp_race)),
-    age_g = ifelse(
-      age_g %in% c("<1 yrs", "1-4 yrs"),
-      "<5 yrs",
-      age_g
-    ),
-    hisp_race = ifelse(
-      str_sub(hisp_race,start = 1L, end = 1L) == "H",
-      "Hispanic",
-      hisp_race
-    ),
-    hisp_race = str_replace(hisp_race, " F| M", ""),
-    hisp_race = str_replace(hisp_race, "AI", "American Indian or Alaskan Native"),
-    hisp_race = str_replace(hisp_race, "API", "Asian or Pacific Islander"),
-    gender = ifelse(gender == "M", "Male", "Female")
-  ) %>% 
-  group_by(hisp_race, age_g) %>% 
-  summarize(denominator = sum(denominator))
-
-####
 age_labels2 <- c("<5 yrs", "5-9 yrs", "10-14 yrs", "15-19 yrs", "20-24 yrs",
                  "25-29 yrs", "30-34 yrs", "35-39 yrs", "40-44 yrs", "45-49 yrs",
                  "50-54 yrs", "55-59 yrs", "60-64 yrs", "65-69 yrs", "70-74 yrs",
                  "75-79 yrs", "80-84 yrs", "85+ yrs")
 
 
-case_by_age <-  
-  case %>% 
+agg_table <- case %>% 
   select(age, hisp_race) %>% 
   filter(!is.na(hisp_race) & !is.na(age) & age >= 0 & !hisp_race %in% c("NH Other", "Unknown", "NH Multiracial")) %>% 
-  mutate(age_group2 = cut(age,
+  mutate(age_group = cut(age,
                           breaks = c(-1, 4, 9, 14, 19, 24, 29, 34, 39,
                                      44, 49, 54, 59, 64, 69, 74, 79, 84, Inf),
-                          labels = age_labels2))
-
-
-case_by_age_grouped <- case_by_age %>% 
-  group_by(hisp_race,  age_group2) %>% 
-  tally()
-
-aamr_lookup_grouped <- aamr_lookup %>% 
-  group_by(hisp_race, age_g) %>% 
-  summarise(denominator = sum(denominator))
-
-agg_table <- aamr_lookup_grouped %>% 
-  left_join(case_by_age_grouped, by = c("hisp_race" = "hisp_race", "age_g" = "age_group2")) %>% 
-  left_join(stanpopas, by = "age_g") %>%
+                          labels = age_labels2)) %>% 
+  group_by(hisp_race,  age_group) %>% 
+  tally() %>% 
+  left_join(aamr_lookup, by = c("hisp_race", "age_group")) %>% 
+  left_join(stanpopas, by = c("age_group" = "age_g")) %>% 
   replace_na(replace =  list(n= 0)) %>% 
   mutate(
-    crude_rate = n/denominator*100000
+    crude_rate = n/pop*100000
   ) %>% 
-  group_by(age_g) %>% 
+  group_by(age_group) %>% 
   mutate(standard_age_g = sum(spop2000)) %>% 
   group_by(hisp_race) %>% 
   mutate(
     propn = standard_age_g/sum(standard_age_g),
     hisp_race_case_tot = sum(n),
-    hisp_race_stan_tot = sum(denominator)
+    hisp_race_stan_tot = sum(pop)
   ) %>% 
   ungroup() %>% 
   mutate(age_specific_adjusted = crude_rate * propn,
          Crude = hisp_race_case_tot/hisp_race_stan_tot*100000) %>% 
   group_by(hisp_race) %>% 
   mutate(`Age adjusted` = sum(age_specific_adjusted))
+
 
 adj_table <- agg_table %>% 
   select(hisp_race, Crude, `Age adjusted`) %>% 
