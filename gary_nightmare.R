@@ -326,7 +326,12 @@ write_csv(StateSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.D
 rm(tableforgary)#,StateSummary
 
 ####7 AgeGroupSummary.csv####
+#setting up the lookup
+pop <- county_rea_denoms %>% 
+  group_by(age_group) %>% 
+  summarise(pop = sum(pop))
 
+#creating the columns of this table
 agstotalcases <- case %>% 
   filter(!is.na(age_group)) %>% 
   group_by(age_group) %>% 
@@ -362,9 +367,10 @@ agstotalrate <- case %>%
   filter(!is.na(age_group)) %>% 
   group_by(age_group) %>% 
   tally(name = "TotalCases") %>% 
-  left_join(pop, by = c("age_group" = "age_g")) %>% 
-  mutate(TotalCaseRate = round((TotalCases/total)*100000))
+  left_join(pop, by = c("age_group" = "age_group")) %>% 
+  mutate(TotalCaseRate = round((TotalCases/pop)*100000))
 
+#binding the columns together
 AgeGroupSummary <- tibble(
   AgeGroups = agstotalcases$age_group,
   TotalCases =agstotalcases$TotalCases,
@@ -379,17 +385,179 @@ AgeGroupSummary <- tibble(
   mutate(AgeGroups = as.character(AgeGroups))
 AgeGroupSummary$AgeGroups[AgeGroupSummary$AgeGroups == ">=80"] <- "80 and older"
 
-
-
 #printing
 if (csv_write) {
   write_csv(AgeGroupSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/AgeGroupSummary.csv"))
 }
 
+#clear trash
+rm(pop, agstotalcases, agsconfcases, agsprobcases, agstotaldeaths, agsprobdeaths, agstotalrate)#,AgeGroupSummary
 
 
+####8 CountySummary.csv####
+#needs cha_c, tbl_cty_sum from county_lab_cases_deaths_table ~line 800ish in allgasnobrakes
+hospsum <- cha_c %>% filter(!is.na(NAME)) %>%  select(today)
+county_pop <- county_rea_denoms %>% 
+  group_by(county) %>% 
+  summarize(pop = sum(pop))
+CountySummary <- tbl_cty_sum %>% 
+  rename(
+    ConfirmedCases = cases.confirmed,
+    ProbableCases = cases.probable,
+    ConfirmedDeaths = dec.confirmed,
+    ProbableDeaths = dec.probable
+  ) %>% 
+  filter(County != "Pending address validation") %>% 
+  bind_cols(county_pop %>% select(-county)) %>%
+  mutate(
+    TotalCases = ConfirmedCases + ProbableCases,
+    TotalDeaths = ConfirmedDeaths + ProbableDeaths,
+    CNTY_COD = factor(County, levels =c(
+      'Fairfield County','Hartford County','Litchfield County','Middlesex County','New Haven County','New London County', 'Tolland County', 'Windham County'), labels = c(1,2,3,4,5,6,7,8 )),
+    CNTY_FIPS = factor(County, levels=c(
+      'Fairfield County','Hartford County','Litchfield County','Middlesex County','New Haven County','New London County', 'Tolland County', 'Windham County'), labels=c("'001", "'003", "'005", "'007", "'009", "'011", "'013", "'015")),
+    Hospitalization =hospsum$today,
+    DateUpdated = graphdate,
+    TotalCaseRate = round(TotalCases/pop*100000)
+  ) %>% 
+  select(CNTY_COD, County, TotalCases, ConfirmedCases,ProbableCases,TotalCaseRate,TotalDeaths,ConfirmedDeaths,ProbableDeaths,Hospitalization,DateUpdated) #CNTY_FIPS removed as of 11/9 per request
 
+if(csv_write){
+write_csv(CountySummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/CountySummary.csv"))
+}
 
+#clear trash
+rm(hospsum, county_pop, tbl_cty_sum)#,Countysummary
+
+####9 DodSummary.csv####
+#deaths by date
+totaldeathsdate <- case %>% 
+  filter(outcome == "Died") %>% 
+  filter(!is.na(death_date) & death_date >="2020-01-01") %>% 
+  group_by(death_date) %>% 
+  tally(name = "TotalDeathCount") %>% 
+  rename(dateofDeath = death_date) %>% 
+  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), fill = list(TotalDeathCount = 0))
+confirmeddeathsdate <- case %>% 
+  filter(outcome == "Died" & disease_status == "Confirmed") %>% 
+  filter(!is.na(death_date) & death_date >="2020-01-01") %>% 
+  group_by(death_date) %>% 
+  tally(name = "ConfDeathCount") %>% 
+  rename(dateofDeath = death_date) %>% 
+  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), fill = list(ConfDeathCount = 0))
+probsdeathdate <- case %>% 
+  filter(outcome == "Died" & disease_status == "Probable") %>% 
+  filter(!is.na(death_date) & death_date >="2020-01-01") %>% 
+  group_by(death_date) %>% 
+  tally(name = "ProbDeathCount") %>% 
+  rename(dateofDeath = death_date) %>% 
+  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), fill = list(ProbDeathCount = 0))
+
+DodSummary <-tibble(
+  dateofDeath = totaldeathsdate$dateofDeath,
+  TotalDeaths = totaldeathsdate$TotalDeathCount,
+  ConfirmedDeaths = confirmeddeathsdate$ConfDeathCount,
+  ProbableDeaths = probsdeathdate$ProbDeathCount
+)
+
+#printing
+if(csv_write){
+  write_csv(death_by_deathdate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/DodSummary.csv"))
+}
+
+#clear trash
+rm(totaldeathsdate, confirmeddeathsdate, probsdeathdate)#,DodSummary
+
+####10 TestCounty.csv ####
+#count positive, negative, indeterminate, total tests by spec date and county for ODP
+anti_tests <- elr_linelist %>% 
+  filter(test_method %in% agtests)
+anti_tests$result[anti_tests$result == "detected"] <- "Positive"
+anti_tests$result[anti_tests$result == "not detected"] <- "Negative"
+anti_tests$result[anti_tests$result == "indeterminate"] <- "Indeterminate"
+
+anti_tests <- anti_tests %>%
+  group_by(county, spec_col_date, result) %>% 
+  tally() %>% 
+  replace_na(replace = list(county= "Pending address validation")) %>%
+  complete(result = c("Positive", "Negative", "Indeterminate"),fill =  list (n = 0)) %>% 
+  pivot_wider(id_cols = c(county, spec_col_date), names_from = result, values_from = n ) %>%
+  replace_na(replace = list('Positive' = 0,'Negative'= 0, 'Indeterminate' = 0)) %>%
+  mutate(state="CT",
+         number_of_ag_tests=sum(Positive, Negative, Indeterminate, na.rm=TRUE)) %>%
+  rename(date = spec_col_date,
+         number_of_ag_positives = Positive,
+         number_of_ag_negatives = Negative,
+         number_of_ag_indeterminates = Indeterminate)%>%
+  select(county,date,number_of_ag_tests,number_of_ag_positives,number_of_ag_negatives,number_of_ag_indeterminates)
+
+molec_tests <- elr_linelist %>% 
+  filter(test_method %in% pcrtests)
+molec_tests$result[molec_tests$result == "detected"] <- "Positive"
+molec_tests$result[molec_tests$result == "not detected"] <- "Negative"
+molec_tests$result[molec_tests$result == "indeterminate"] <- "Indeterminate"
+
+molec_tests <- molec_tests %>%
+  group_by(county, spec_col_date, result) %>% 
+  tally() %>% 
+  replace_na(replace = list(county= "Pending address validation")) %>%
+  complete(result = c("Positive", "Negative", "Indeterminate"),fill =  list (n = 0)) %>% 
+  pivot_wider(id_cols = c(county, spec_col_date), names_from = result, values_from = n ) %>%
+  replace_na(replace = list('Positive' = 0,'Negative'= 0, 'Indeterminate' = 0)) %>%
+  mutate(state="CT",
+         number_of_pcr_tests=sum(Positive, Negative, Indeterminate, na.rm=TRUE)) %>%
+  rename(date = spec_col_date,
+         number_of_pcr_positives = Positive,
+         number_of_pcr_negatives = Negative,
+         number_of_pcr_indeterminates = Indeterminate)%>%
+  select(county,date,number_of_pcr_tests,number_of_pcr_positives,number_of_pcr_negatives,number_of_pcr_indeterminates)
+
+TestCounty <- molec_tests %>%
+  left_join(anti_tests, by = c('county', 'date')) %>% 
+  filter(!is.na(date) & !is.na(county)) 
+TestCounty[is.na(TestCounty)] <- 0
+
+#printing
+if(csv_write){
+  write_csv(TestCounty, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/TestCounty.csv"))
+}
+
+#clear trash
+rm(anti_tests, molec_tests)#,TestCounty
+
+####11 REStateSummary.csv ####
+#summary by race/ethnicity
+
+REStateSummary <- race_eth_comb %>% 
+  select(-c(caserate100k,deathrate100k)) %>% 
+  left_join(adj_table) %>% 
+  rename(
+    CrudeCaseRate = Crude,
+    CaseAgeAdjusted = 'Age adjusted',     
+  ) %>% 
+  mutate(
+    CrudeCaseRate =round(CrudeCaseRate),
+    CaseAgeAdjusted = round(CaseAgeAdjusted)
+  ) %>% 
+  left_join(adj_table_dec) %>% 
+  rename(
+    CrudeDeathRate = Crude,
+    DeathAgeAdjusted = 'Age adjusted',     
+  ) %>% 
+  mutate(
+    CrudeDeathRate =round(CrudeDeathRate ),
+    DeathAgeAdjusted= round(DeathAgeAdjusted),
+    DateUpdated = graphdate
+  ) 
+
+#printing
+if(csv_write){
+  write_csv(REStateSummary , paste0("L:/daily_reporting_figures_rdp/gary_csv/", 
+                                    Sys.Date(), "/REStateSummary.csv"), na = "")
+}
+
+#clear trash
+rm()
 
 
 ##notes ##
@@ -444,163 +612,11 @@ if (csv_write) {
 
 
 
-#agegroup summary
-agstotalcases <- case %>% 
-  filter(!is.na(age_group)) %>% 
-  group_by(age_group) %>% 
-  tally(name = "TotalCases")
-agsconfcases <- case %>% 
-  filter(!is.na(age_group) & disease_status == "Confirmed") %>% 
-  group_by(age_group) %>% 
-  tally(name = "ConfCases")
-
-agsprobcases<- case %>% 
-  filter(!is.na(age_group) & disease_status == "Probable") %>% 
-  group_by(age_group) %>% 
-  tally(name = "ProbCases")
-agstotaldeaths <- case %>% 
-  filter(!is.na(age_group)  & outcome == "Died") %>% 
-  group_by(age_group) %>% 
-  tally(name = "TotalDeaths") %>% 
-  complete(age_group = unique(case$age_group), fill = list("TotalDeaths" = 0))
-
-agsconfdeaths <- case %>% 
-  filter(!is.na(age_group) & disease_status == "Confirmed" & outcome == "Died") %>% 
-  group_by(age_group) %>% 
-  tally(name = "ConfDeaths")%>% 
-  complete(age_group = unique(case$age_group), fill = list("ConfDeaths" = 0))
-
-agsprobdeaths <- case %>% 
-  filter(!is.na(age_group) & disease_status == "Probable" & outcome == "Died") %>% 
-  group_by(age_group) %>% 
-  tally(name = "ProbDeaths") %>% 
-  complete(age_group = unique(case$age_group), fill = list(ProbDeaths = 0))
-
-agstotalrate <- case %>% 
-  filter(!is.na(age_group)) %>% 
-  group_by(age_group) %>% 
-  tally(name = "TotalCases") %>% 
-  left_join(pop, by = c("age_group" = "age_g")) %>% 
-  mutate(TotalCaseRate = round((TotalCases/total)*100000))
-
-AgeGroupSummary <- tibble(
-  AgeGroups = agstotalcases$age_group,
-  TotalCases =agstotalcases$TotalCases,
-  ConfirmedCases = agsconfcases$ConfCases,
-  ProbableCases = agsprobcases$ProbCases,
-  TotalDeaths = agstotaldeaths$TotalDeaths,
-  ConfirmedDeaths = agsconfdeaths$ConfDeaths,
-  ProbableDeaths = agsprobdeaths$ProbDeaths,
-  TotalCaseRate = agstotalrate$TotalCaseRate,
-  DateUpdated = graphdate
-) %>% 
-  mutate(AgeGroups = as.character(AgeGroups))
-AgeGroupSummary$AgeGroups[AgeGroupSummary$AgeGroups == ">=80"] <- "80 and older"
 
 
-###county summary
-hospsum <- cha_c %>% filter(!is.na(NAME)) %>%  select(today)
-CountySummary <- tbl_cty_sum %>% 
-  rename(
-    ConfirmedCases = cases.confirmed,
-    ProbableCases = cases.probable,
-    ConfirmedDeaths = dec.confirmed,
-    ProbableDeaths = dec.probable
-  ) %>% 
-  filter(County != "Pending address validation") %>% 
-  bind_cols(county_pop %>% select(-County)) %>%
-  mutate(
-    TotalCases = ConfirmedCases + ProbableCases,
-    TotalDeaths = ConfirmedDeaths + ProbableDeaths,
-    CNTY_COD = factor(County, levels =c(
-      'Fairfield County','Hartford County','Litchfield County','Middlesex County','New Haven County','New London County', 'Tolland County', 'Windham County'), labels = c(1,2,3,4,5,6,7,8 )),
-    CNTY_FIPS = factor(County, levels=c(
-      'Fairfield County','Hartford County','Litchfield County','Middlesex County','New Haven County','New London County', 'Tolland County', 'Windham County'), labels=c("'001", "'003", "'005", "'007", "'009", "'011", "'013", "'015")),
-    Hospitalization =hospsum$today,
-    DateUpdated = graphdate,
-    TotalCaseRate = round(TotalCases/Total*100000)
-  ) %>% 
-  select(CNTY_COD, County, TotalCases, ConfirmedCases,ProbableCases,TotalCaseRate,TotalDeaths,ConfirmedDeaths,ProbableDeaths,Hospitalization,DateUpdated) #CNTY_FIPS removed as of 11/9 per request
-
-#deaths by date
-totaldeathsdate <- case %>% 
-  filter(outcome == "Died") %>% 
-  filter(!is.na(death_date) & death_date >="2020-01-01") %>% 
-  group_by(death_date) %>% 
-  tally(name = "TotalDeathCount") %>% 
-  rename(dateofDeath = death_date) %>% 
-  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), fill = list(TotalDeathCount = 0))
-confirmeddeathsdate <- case %>% 
-  filter(outcome == "Died" & disease_status == "Confirmed") %>% 
-  filter(!is.na(death_date) & death_date >="2020-01-01") %>% 
-  group_by(death_date) %>% 
-  tally(name = "ConfDeathCount") %>% 
-  rename(dateofDeath = death_date) %>% 
-  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), fill = list(ConfDeathCount = 0))
-probsdeathdate <- case %>% 
-  filter(outcome == "Died" & disease_status == "Probable") %>% 
-  filter(!is.na(death_date) & death_date >="2020-01-01") %>% 
-  group_by(death_date) %>% 
-  tally(name = "ProbDeathCount") %>% 
-  rename(dateofDeath = death_date) %>% 
-  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), fill = list(ProbDeathCount = 0))
-
-death_by_deathdate <-tibble(
-  dateofDeath = totaldeathsdate$dateofDeath,
-  TotalDeaths = totaldeathsdate$TotalDeathCount,
-  ConfirmedDeaths = confirmeddeathsdate$ConfDeathCount,
-  ProbableDeaths = probsdeathdate$ProbDeathCount
-)
-
-#count positive, negative, indeterminate, total tests by spec date and county for ODP
-agg_tests_spec_date_ag <- elr_linelist %>% 
-  filter(test_method %in% agtests)
-agg_tests_spec_date_ag$result[agg_tests_spec_date_ag$result == "detected"] <- "Positive"
-agg_tests_spec_date_ag$result[agg_tests_spec_date_ag$result == "not detected"] <- "Negative"
-agg_tests_spec_date_ag$result[agg_tests_spec_date_ag$result == "indeterminate"] <- "Indeterminate"
 
 
-agg_tests_spec_date_ag <- agg_tests_spec_date_ag %>%
-  group_by(county, spec_col_date, result) %>% 
-  tally() %>% 
-  replace_na(replace = list(county= "Pending address validation")) %>%
-  complete(result = c("Positive", "Negative", "Indeterminate"),fill =  list (n = 0)) %>% 
-  pivot_wider(id_cols = c(county, spec_col_date), names_from = result, values_from = n ) %>%
-  replace_na(replace = list('Positive' = 0,'Negative'= 0, 'Indeterminate' = 0)) %>%
-  mutate(state="CT",
-         number_of_ag_tests=sum(Positive, Negative, Indeterminate, na.rm=TRUE)) %>%
-  rename(date = spec_col_date,
-         number_of_ag_positives = Positive,
-         number_of_ag_negatives = Negative,
-         number_of_ag_indeterminates = Indeterminate)%>%
-  select(county,date,number_of_ag_tests,number_of_ag_positives,number_of_ag_negatives,number_of_ag_indeterminates)
 
-agg_tests_spec_date_pcr <- elr_linelist %>% 
-  filter(test_method %in% pcrtests)
-agg_tests_spec_date_pcr$result[agg_tests_spec_date_pcr$result == "detected"] <- "Positive"
-agg_tests_spec_date_pcr$result[agg_tests_spec_date_pcr$result == "not detected"] <- "Negative"
-agg_tests_spec_date_pcr$result[agg_tests_spec_date_pcr$result == "indeterminate"] <- "Indeterminate"
-
-
-agg_tests_spec_date_pcr <- agg_tests_spec_date_pcr %>%
-  group_by(county, spec_col_date, result) %>% 
-  tally() %>% 
-  replace_na(replace = list(county= "Pending address validation")) %>%
-  complete(result = c("Positive", "Negative", "Indeterminate"),fill =  list (n = 0)) %>% 
-  pivot_wider(id_cols = c(county, spec_col_date), names_from = result, values_from = n ) %>%
-  replace_na(replace = list('Positive' = 0,'Negative'= 0, 'Indeterminate' = 0)) %>%
-  mutate(state="CT",
-         number_of_pcr_tests=sum(Positive, Negative, Indeterminate, na.rm=TRUE)) %>%
-  rename(date = spec_col_date,
-         number_of_pcr_positives = Positive,
-         number_of_pcr_negatives = Negative,
-         number_of_pcr_indeterminates = Indeterminate)%>%
-  select(county,date,number_of_pcr_tests,number_of_pcr_positives,number_of_pcr_negatives,number_of_pcr_indeterminates)
-
-agg_test_gary <- agg_tests_spec_date_pcr %>%
-  left_join(agg_tests_spec_date_ag, by = c('county', 'date')) %>% 
-  filter(!is.na(date) & !is.na(county)) 
-agg_test_gary[is.na(agg_test_gary)] <- 0
 
 
 #summary by race/ethnicity
@@ -644,14 +660,11 @@ countycountDate <- case %>%
 if (csv_write) {
   write_csv(countycountDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", 
                                     Sys.Date(), "/CountySummarybyDate.csv"))
-  write_csv(death_by_deathdate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/DodSummary.csv"))
-
   
 
-  write_csv(CountySummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/CountySummary.csv"))
-  write_csv(REStateSummary , paste0("L:/daily_reporting_figures_rdp/gary_csv/", 
-                                    Sys.Date(), "/REStateSummary.csv"), na = "")
-  write_csv(agg_test_gary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/TestCounty.csv"))
+  
+  
+  
 }
 if (SQL_write) {
   df_to_table(countycountDate, "ODP_CountySummarybyDate", overwrite = TRUE, append = FALSE)
