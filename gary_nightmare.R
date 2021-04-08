@@ -1,17 +1,16 @@
-#dependancies
-#case, elr_linelist, dec, cha_c, cc_map (replaced with city_file), town_codes (city_file), epicurve (from thursday), gener_race_eth
-#  tableforgary
-#connection
+#### Module 5 ####
+#This script will generate the COVID-19 reporting outputs needed for ODP and other stakeholders
+
+####0 libraries and connections ####
+source("helpers/StartMeUp.R")
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
-
-
-#replace gender_race_eth <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_re_gender_age.csv")
-#replace race_eth_comb
-
-#new dependancies
-
-# gary_age_labels <- c("cases_age0_9", "cases_age10_19", "cases_age20_29", "cases_age30_39", "cases_age40_49", "cases_age50_59", "cases_age60_69", "cases_age70_79", "cases_age80_Older" )
+csv_write <- FALSE
+SQL_write <- FALSE
+####1 Load Lookups and Dependancies ####
 age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
+
+gary_age_labels <- c("cases_age0_9", "cases_age10_19", "cases_age20_29", "cases_age30_39", "cases_age40_49", "cases_age50_59", "cases_age60_69", "cases_age70_79", "cases_age80_Older" )
+
 statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[RPT_TOWN_CODES]")
 city_file <-  DBI::dbGetQuery(conn = con , statement = statement)
 
@@ -50,36 +49,13 @@ ct_rea_denoms <- county_rea_denoms %>%
   group_by(hisp_race) %>% 
   summarize(pop = sum(pop))
 
-# race_eth_SHA_lookup <- gender_race_eth %>% 
-#   group_by(hisp_race) %>%  
-#   summarize(tot=sum(n))
-# race_eth_SHA_case <- case %>%
-#   group_by(hisp_race) %>% 
-#   tally(name = "case_tot")
-# 
-# race_eth_comb <- race_eth_SHA_case %>% 
-#   left_join(race_eth_SHA_lookup) %>% 
-#   mutate(rate100k = round((case_tot/tot)*100000))
-# 
-# ####dec
-# race_eth_SHA_case_dec <- case %>%
-#   filter(outcome == "Died") %>% 
-#   group_by(hisp_race) %>%  
-#   tally(name = "deaths")
-# 
-# 
-# race_eth_comb <- race_eth_comb %>% 
-#   left_join(race_eth_SHA_case_dec) %>% 
-#   replace_na(replace =list(deaths = 0)) %>% 
-#   rename(caserate100k=rate100k) %>% 
-#   mutate(deathrate100k = round((deaths/tot)*100000))
-# race_eth_comb$hisp_race <- factor(race_eth_comb$hisp_race, levels =c("Hispanic", "NH White", "NH Black", "NH American Indian or Alaskan Native", "NH Asian or Pacific Islander", "NH Other", "NH Multiracial", "Unknown") , labels =c("Hispanic", "NH White", "NH Black", "NH American Indian or Alaskan Native", "NH Asian or Pacific Islander", "NH Other", "NH Multiracial", "Unknown"))
-
-
-
-
-#these require case and dec and cha_c
 graphdate <- Sys.Date() - 1
+
+#clear trash
+rm(statement)
+
+####2 Gary State File ####
+#these require case and dec and cha_c
 State <- tibble("State" = "CONNECTICUT")
 LastUpdateDate <- tibble("LastUppdateDate" = graphdate)#tibble("LastUppdateDate" = max(as.Date(mdy(case$`Event Date`))))
 TotalCases <- tibble('TotalCases'= nrow(case))
@@ -90,8 +66,6 @@ dec <- case %>% filter(outcome == "Died") %>%  nrow()
 TotalDeaths <- tibble("Deaths" = dec)
 ConfirmedDeaths <- tibble("ConfirmedDeaths" = nrow(case %>%  filter(outcome == "Died" & disease_status == "Confirmed")))
 ProbableDeaths <-  tibble("ProbableDeaths" = nrow(case %>%  filter(outcome == "Died" & disease_status == "Probable")))
-
-gary_age_labels <- c("cases_age0_9", "cases_age10_19", "cases_age20_29", "cases_age30_39", "cases_age40_49", "cases_age50_59", "cases_age60_69", "cases_age70_79", "cases_age80_Older" )
 gary_ages <- case %>%
   group_by(age_group) %>%
   tally() %>%
@@ -99,17 +73,20 @@ gary_ages <- case %>%
   pivot_wider(names_from = age_group, values_from = n)
 gary_state_file <-  bind_cols(State, LastUpdateDate, TotalCases, ConfirmedCases,ProbableCases, HospitalizedCases, TotalDeaths, ConfirmedDeaths, ProbableDeaths,gary_ages)
 
-# if (csv_write) {
-#   write_csv(gary_state_file, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/state_Result.csv"))
-# }
-# if (SQL_write) {
-#   df_to_table(gary_state_file, "ODP_state_Result", overwrite = TRUE, append = FALSE)
-# }
+if (csv_write) {
+  write_csv(gary_state_file, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/state_Result.csv"))
+}
+if (SQL_write) {
+  df_to_table(gary_state_file, "ODP_state_Result", overwrite = TRUE, append = FALSE)
+}
 
-#town
-# town_codes <- read_csv("L:/daily_reporting_figures_rdp/gary_csv/town_codes/Town_ID.csv") %>%
-#   select(ANPSADPI,TOWNNO)
+#clear trash
+rm(State, LastUpdateDate, TotalCases, ConfirmedCases, ProbableCases, HospitalizedCases, dec, TotalDeaths, ConfirmedDeaths,ProbableDeaths, gary_ages)
 
+####3 Gary Town File ####
+#probably some good candidates for a custom function here
+
+#creating the various columns for people related counts by town
 town_total_cases <- case %>% 
   filter(city != "Not_available") %>% 
   group_by(city) %>% 
@@ -162,11 +139,13 @@ TownCaseRate <- case %>%
   ) %>% 
   select(-c(case_n, pop, city)) 
 
+#creating test counts by town and cleaning up names
 town_tests <- elr_linelist
 town_tests$result[town_tests$result == "detected"] <- "Positive"
 town_tests$result[town_tests$result == "not detected"] <- "Negative"
 town_tests$result[town_tests$result == "indeterminate"] <- "Indeterminate"
 
+#grouping and tallying test by town then pivoting it to the expected wide format
 town_tests <- town_tests %>% 
   filter(!is.na(city) & !city %in% c("Not_available", "Pending validation")) %>% 
   group_by(city, result) %>%
@@ -180,9 +159,7 @@ town_tests <- town_tests %>%
          number_of_indeterminates = Indeterminate,
          town = city)
 
-
-#count people tested by town
-#has ag implications
+#Number of people tested by town
 peopletestbytown<- elr_linelist %>% 
   mutate(simple_result = ifelse(result == "detected", 1, 2)) %>%
   group_by(bigID) %>%
@@ -198,7 +175,7 @@ peopletestbytown<- elr_linelist %>%
   mutate(RateTested100k = round(PeopleTested/pop * 100000)) %>% 
   select(-pop)
 
-
+#binding all the columns into gary_town_file
 gary_town_file <- tibble(
   CITY = town_total_cases$CITY,
   LastUpdateDate = graphdate,
@@ -224,12 +201,81 @@ gary_town_file <- tibble(
   filter(!is.na(Town_No)) 
 gary_town_file[is.na(gary_town_file)] <- 0
 
-# if (csv_write) {
-#   write_csv(gary_town_file, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/town_Result.csv"))
-# }
-# if (SQL_write) {
-#   df_to_table(gary_town_file, "ODP_town_Result", overwrite = TRUE, append = FALSE)
-# }
+ if (csv_write) {
+   write_csv(gary_town_file, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/town_Result.csv"))
+ }
+ if (SQL_write) {
+   df_to_table(gary_town_file, "ODP_town_Result", overwrite = TRUE, append = FALSE)
+ }
+
+#clear trash
+
+rm(town_total_cases,town_confirmed_cases,town_probable_cases, town_total_deaths, town_confirmed_deaths, town_probable_deaths, TownCaseRate, peopletestbytown, town_tests)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##notes ##
+#dependancies
+#case, elr_linelist, dec, cha_c, cc_map (replaced with city_file), town_codes (city_file), epicurve (from thursday), gener_race_eth
+#  tableforgary
+#connection
+
+
+
+#replace gender_race_eth <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_re_gender_age.csv")
+#replace race_eth_comb
+
+#new dependancies
+
+# gary_age_labels <- c("cases_age0_9", "cases_age10_19", "cases_age20_29", "cases_age30_39", "cases_age40_49", "cases_age50_59", "cases_age60_69", "cases_age70_79", "cases_age80_Older" )
+
+
+# race_eth_SHA_lookup <- gender_race_eth %>% 
+#   group_by(hisp_race) %>%  
+#   summarize(tot=sum(n))
+# race_eth_SHA_case <- case %>%
+#   group_by(hisp_race) %>% 
+#   tally(name = "case_tot")
+# 
+# race_eth_comb <- race_eth_SHA_case %>% 
+#   left_join(race_eth_SHA_lookup) %>% 
+#   mutate(rate100k = round((case_tot/tot)*100000))
+# 
+# ####dec
+# race_eth_SHA_case_dec <- case %>%
+#   filter(outcome == "Died") %>% 
+#   group_by(hisp_race) %>%  
+#   tally(name = "deaths")
+# 
+# 
+# race_eth_comb <- race_eth_comb %>% 
+#   left_join(race_eth_SHA_case_dec) %>% 
+#   replace_na(replace =list(deaths = 0)) %>% 
+#   rename(caserate100k=rate100k) %>% 
+#   mutate(deathrate100k = round((deaths/tot)*100000))
+# race_eth_comb$hisp_race <- factor(race_eth_comb$hisp_race, levels =c("Hispanic", "NH White", "NH Black", "NH American Indian or Alaskan Native", "NH Asian or Pacific Islander", "NH Other", "NH Multiracial", "Unknown") , labels =c("Hispanic", "NH White", "NH Black", "NH American Indian or Alaskan Native", "NH Asian or Pacific Islander", "NH Other", "NH Multiracial", "Unknown"))
+
+
+
+
+
 
 #ConProbByDate.csv
 ConProbByDate <- epicurve %>%
