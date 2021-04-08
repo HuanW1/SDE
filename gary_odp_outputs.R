@@ -298,7 +298,9 @@ GenderSummary <- tibble(
 if (csv_write) {
 write_csv(GenderSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/GenderSummary.csv"))
 }
-
+if(SQL_write){
+  df_to_table(GenderSummary, "ODP_GenderSummary", overwrite = TRUE, append = FALSE)
+}
 #clear trash
 rm(gstotalcase, gsconfirmedcase, gsprobcase, gstotaldeaths, gsconfdeaths, gsprobdeaths, gstotalcaserate, gender_tots)#,GenderSummary
 
@@ -321,7 +323,9 @@ StateSummary <- tableforgary %>%
 if (csv_write) {
 write_csv(StateSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/StateSummary.csv"))
 }
-
+if(SQL_write){
+  df_to_table(StateSummary, "ODP_StateSummary", overwrite = FALSE, append = TRUE)
+}
 #clear trash
 rm(tableforgary)#,StateSummary
 
@@ -389,7 +393,9 @@ AgeGroupSummary$AgeGroups[AgeGroupSummary$AgeGroups == ">=80"] <- "80 and older"
 if (csv_write) {
   write_csv(AgeGroupSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/AgeGroupSummary.csv"))
 }
-
+if(SQL_write){
+  df_to_table(AgeGroupSummary, "ODP_AgeGroupSummary", overwrite = TRUE, append = FALSE)
+}
 #clear trash
 rm(pop, agstotalcases, agsconfcases, agsprobcases, agstotaldeaths, agsprobdeaths, agstotalrate)#,AgeGroupSummary
 
@@ -426,6 +432,9 @@ if(csv_write){
 write_csv(CountySummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/CountySummary.csv"))
 }
 
+if(SQL_write){
+  df_to_table(CountySummary, "ODP_CountySummary", overwrite = TRUE, append = FALSE)
+}
 #clear trash
 rm(hospsum, county_pop, tbl_cty_sum)#,Countysummary
 
@@ -462,7 +471,10 @@ DodSummary <-tibble(
 
 #printing
 if(csv_write){
-  write_csv(death_by_deathdate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/DodSummary.csv"))
+  write_csv(DodSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/DodSummary.csv"))
+}
+if(SQL_write){
+  df_to_table(DodSummary, "ODP_DodSummary", overwrite = TRUE, append = FALSE)
 }
 
 #clear trash
@@ -521,59 +533,18 @@ TestCounty[is.na(TestCounty)] <- 0
 if(csv_write){
   write_csv(TestCounty, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/TestCounty.csv"))
 }
+if(SQL_write){
+  df_to_table(TestCounty, "ODP_TestCounty", overwrite = TRUE, append = FALSE)
+}
 
 #clear trash
 rm(anti_tests, molec_tests)#,TestCounty
 
-####11 REStateSummary.csv ####
+####11 WIP REStateSummary.csv ####
 #summary by race/ethnicity
-
-REStateSummary <- race_eth_comb %>% 
-  select(-c(caserate100k,deathrate100k)) %>% 
-  left_join(adj_table) %>% 
-  rename(
-    CrudeCaseRate = Crude,
-    CaseAgeAdjusted = 'Age adjusted',     
-  ) %>% 
-  mutate(
-    CrudeCaseRate =round(CrudeCaseRate),
-    CaseAgeAdjusted = round(CaseAgeAdjusted)
-  ) %>% 
-  left_join(adj_table_dec) %>% 
-  rename(
-    CrudeDeathRate = Crude,
-    DeathAgeAdjusted = 'Age adjusted',     
-  ) %>% 
-  mutate(
-    CrudeDeathRate =round(CrudeDeathRate ),
-    DeathAgeAdjusted= round(DeathAgeAdjusted),
-    DateUpdated = graphdate
-  ) 
-
-#printing
-if(csv_write){
-  write_csv(REStateSummary , paste0("L:/daily_reporting_figures_rdp/gary_csv/", 
-                                    Sys.Date(), "/REStateSummary.csv"), na = "")
-}
-
-#clear trash
-rm()
-
-
-##notes ##
-#dependancies
-#case, elr_linelist, dec, cha_c, cc_map (replaced with city_file), town_codes (city_file), epicurve (from thursday), gener_race_eth
-#  tableforgary
-#connection
-
-
 
 #replace gender_race_eth <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_re_gender_age.csv")
 #replace race_eth_comb
-
-#new dependancies
-
-# gary_age_labels <- c("cases_age0_9", "cases_age10_19", "cases_age20_29", "cases_age30_39", "cases_age40_49", "cases_age50_59", "cases_age60_69", "cases_age70_79", "cases_age80_Older" )
 
 
 # race_eth_SHA_lookup <- gender_race_eth %>% 
@@ -603,23 +574,6 @@ rm()
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#summary by race/ethnicity
 REStateSummary <- race_eth_comb %>% 
   select(-c(caserate100k,deathrate100k)) %>% 
   left_join(adj_table) %>% 
@@ -642,9 +596,22 @@ REStateSummary <- race_eth_comb %>%
     DateUpdated = graphdate
   ) 
 
+#printing
+if(csv_write){
+  write_csv(REStateSummary , paste0("L:/daily_reporting_figures_rdp/gary_csv/", 
+                                    Sys.Date(), "/REStateSummary.csv"), na = "")
+}
+if(SQL_write){
+  df_to_table(REStateSummary, "ODP_REStateSummary", overwrite = TRUE, append = FALSE)
+}
 
+#clear trash
+rm()#race_eth_comb
+
+
+####12 CountySummarybyDate.csv####
 #cases by date by county
-countycountDate <- case %>% 
+CountySummarybyDate <- case %>% 
   group_by(date, county) %>% 
   tally(name = "Count") %>% 
   mutate(UpdateDate = Sys.Date()) %>% 
@@ -655,84 +622,14 @@ countycountDate <- case %>%
   ungroup() %>% 
   filter(!is.na(County) & !is.na(Date))
 
-####old writes ####
-
+#printing
 if (csv_write) {
-  write_csv(countycountDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", 
+  write_csv(CountySummarybyDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", 
                                     Sys.Date(), "/CountySummarybyDate.csv"))
-  
-
-  
-  
-  
 }
-if (SQL_write) {
-  df_to_table(countycountDate, "ODP_CountySummarybyDate", overwrite = TRUE, append = FALSE)
-  df_to_table(death_by_deathdate, "ODP_DodSummary", overwrite = TRUE, append = FALSE)
-  df_to_table(GenderSummary, "ODP_GenderSummary", overwrite = TRUE, append = FALSE)
-  df_to_table(StateSummary, "ODP_StateSummary", overwrite = FALSE, append = TRUE)
-  df_to_table(AgeGroupSummary, "ODP_AgeGroupSummary", overwrite = TRUE, append = FALSE)
-  df_to_table(CountySummary, "ODP_CountySummary", overwrite = TRUE, append = FALSE)
-  df_to_table(REStateSummary, "ODP_REStateSummary", overwrite = TRUE, append = FALSE)
-  df_to_table(agg_test_gary, "ODP_TestCounty", overwrite = TRUE, append = FALSE)
+if(SQL_write){
+  df_to_table(CountySummarybyDate, "ODP_CountySummarybyDate", overwrite = TRUE, append = FALSE)
 }
 
-
-#calculate % positive by town for past 2 weeks
-pctpos14 <- test14nc %>% 
-  group_by(city, result) %>% 
-  tally() %>%
-  pivot_wider(names_from=result, values_from=n) %>% 
-  replace_na(replace=list(detected=0, `not detected`=0, indeterminate=0)) %>%
-  mutate(PercentPositive = round(detected/(detected+`not detected`)*100, 1),
-         TotalTests=detected+`not detected`+indeterminate) %>% 
-  select(city, TotalTests,PercentPositive) %>% 
-  filter(city != "Not Available")
-
-#community cases in the past 2 weeks with rates by town, case count for each week
-gary_dailyincidence <- 
-  cases_14_nc %>% 
-  group_by(week, city) %>% 
-  tally() %>%  
-  pivot_wider(names_from = week,  
-              values_from = n, 
-              values_fill = list(n = 0)) %>% 
-  rename(casesweek1 = 2,
-         casesweek2 = 3) %>% 
-  right_join(c14nc_count, by=c("city" = "NAME")) %>% 
-  replace_na(replace=list(casesweek1 = 0, 
-                          casesweek2 = 0, 
-                          n = 0)) %>% 
-  mutate(RateCategory = ifelse(avgrate =="<5 cases per 100,000 or <5 reported cases", 
-                               "1. <5 cases per 100,000 or <5 reported cases",
-                               ifelse(avgrate=="5-9 cases per 100,000", 
-                                      "2. 5-9 cases per 100,000", 
-                                      ifelse(avgrate=="10-14 cases per 100,000", 
-                                             "3. 10-14 cases per 100,000",
-                                             ifelse(avgrate=="15 or more cases per 100,000", 
-                                                    "4. 15 or more cases per 100,000", 
-                                                    "other")))),
-         UpdateDate = Sys.Date(),
-         ReportPeriodStartDate = thursday_range_start,
-         ReportPeriodEndDate = thursday_range_end,
-         townname=paste0(city, " town")) %>%
-  rename(totalcases = n,
-         NAME = city) %>% 
-  left_join(pctpos14, by = c("NAME" = "city")) %>% 
-  left_join(town_codes, by = c("townname" = "ANPSADPI")) %>%
-  rename(Town_No = TOWNNO) %>% 
-  select(Town_No, NAME, pop, casesweek1, casesweek2, totalcases, CaseRate, 
-         RateCategory, TotalTests, PercentPositive, UpdateDate, 
-         ReportPeriodStartDate, ReportPeriodEndDate) %>%
-  filter(!NAME == "Not Available")
-
-### Why do we write the same thing to two different places?
-
-# if(csv_write) {
-#   write_csv(gary_dailyincidence, 
-#             paste0("L:/daily_reporting_figures_rdp/gary_csv/CTTown_Alert.csv"))
-#   dir.create(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date(), "/avg_di"))
-#   write_csv(gary_dailyincidence, 
-#             paste0("L:/daily_reporting_figures_rdp/yesterday/", 
-#                    Sys.Date(),"/avg_di/avgdailyincidence.csv"))
-# }
+#clear trash
+rm()#CountySummarybyDate
