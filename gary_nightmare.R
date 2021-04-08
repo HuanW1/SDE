@@ -54,7 +54,7 @@ graphdate <- Sys.Date() - 1
 #clear trash
 rm(statement)
 
-####2 Gary State File ####
+####2 state_Result.csv ####
 #these require case and dec and cha_c
 State <- tibble("State" = "CONNECTICUT")
 LastUpdateDate <- tibble("LastUppdateDate" = graphdate)#tibble("LastUppdateDate" = max(as.Date(mdy(case$`Event Date`))))
@@ -71,19 +71,20 @@ gary_ages <- case %>%
   tally() %>%
   filter(!is.na(age_group)) %>%
   pivot_wider(names_from = age_group, values_from = n)
-gary_state_file <-  bind_cols(State, LastUpdateDate, TotalCases, ConfirmedCases,ProbableCases, HospitalizedCases, TotalDeaths, ConfirmedDeaths, ProbableDeaths,gary_ages)
+state_Result <-  bind_cols(State, LastUpdateDate, TotalCases, ConfirmedCases,ProbableCases, HospitalizedCases, TotalDeaths, ConfirmedDeaths, ProbableDeaths,gary_ages)
 
+#printing
 if (csv_write) {
-  write_csv(gary_state_file, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/state_Result.csv"))
+  write_csv(state_Result, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/state_Result.csv"))
 }
 if (SQL_write) {
-  df_to_table(gary_state_file, "ODP_state_Result", overwrite = TRUE, append = FALSE)
+  df_to_table(state_Result, "ODP_state_Result", overwrite = TRUE, append = FALSE)
 }
 
 #clear trash
-rm(State, LastUpdateDate, TotalCases, ConfirmedCases, ProbableCases, HospitalizedCases, dec, TotalDeaths, ConfirmedDeaths,ProbableDeaths, gary_ages)
+rm(State, LastUpdateDate, TotalCases, ConfirmedCases, ProbableCases, HospitalizedCases, dec, TotalDeaths, ConfirmedDeaths,ProbableDeaths, gary_ages)#,state_Result
 
-####3 Gary Town File ####
+####3 town_Result.csv ####
 #probably some good candidates for a custom function here
 
 #creating the various columns for people related counts by town
@@ -133,11 +134,12 @@ TownCaseRate <- case %>%
   group_by(city) %>% 
   tally(name ='case_n') %>% 
   complete(city = city_file$TOWN_LC, fill = list(case_n = 0)) %>% 
-  left_join(town_pop18, by = c( "city" = "city")) %>% 
-  mutate(CaseRate = round((case_n/pop)*100000),
+  left_join(city_file %>% select(TOWN_LC,pop_2019),
+            by = c("city" = "TOWN_LC")) %>% 
+  mutate(CaseRate = round((case_n/pop_2019)*100000),
          CITY = paste0(city, " town")
   ) %>% 
-  select(-c(case_n, pop, city)) 
+  select(-c(case_n, pop_2019, city)) 
 
 #creating test counts by town and cleaning up names
 town_tests <- elr_linelist
@@ -171,12 +173,13 @@ peopletestbytown<- elr_linelist %>%
   tally(name = "PeopleTested") %>% 
   filter(Town != "Not_available") %>% 
   mutate(Town = str_to_title(Town)) %>% 
-  left_join(town_pop18, by = c("Town" = "city")) %>% 
-  mutate(RateTested100k = round(PeopleTested/pop * 100000)) %>% 
-  select(-pop)
+  left_join(city_file %>% select(TOWN_LC,pop_2019),
+            by = c("Town" = "TOWN_LC")) %>% 
+  mutate(RateTested100k = round(PeopleTested/pop_2019 * 100000)) %>% 
+  select(-pop_2019)
 
 #binding all the columns into gary_town_file
-gary_town_file <- tibble(
+town_Result <- tibble(
   CITY = town_total_cases$CITY,
   LastUpdateDate = graphdate,
   TownTotalCases = town_total_cases$n,
@@ -193,37 +196,195 @@ gary_town_file <- tibble(
   NumberofIndeterminates = town_tests$number_of_indeterminates,
   RateTested100k = peopletestbytown$RateTested100k
 ) %>%
-  mutate(CITY = paste0(CITY," town")) %>%
   left_join(city_file, by = c("CITY" = "TOWN_LC"))%>%
   rename(Town_No = TOWNNO,
          Town = CITY) %>%
   select(Town_No, everything()) %>%
   filter(!is.na(Town_No)) 
-gary_town_file[is.na(gary_town_file)] <- 0
+town_Result[is.na(town_Result)] <- 0
 
+#printing
  if (csv_write) {
-   write_csv(gary_town_file, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/town_Result.csv"))
+   write_csv(town_Result, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/town_Result.csv"))
  }
  if (SQL_write) {
-   df_to_table(gary_town_file, "ODP_town_Result", overwrite = TRUE, append = FALSE)
+   df_to_table(town_Result, "ODP_town_Result", overwrite = TRUE, append = FALSE)
  }
 
 #clear trash
+rm(town_total_cases,town_confirmed_cases,town_probable_cases, town_total_deaths, town_confirmed_deaths, town_probable_deaths, TownCaseRate, peopletestbytown, town_tests)#,town_Result
 
-rm(town_total_cases,town_confirmed_cases,town_probable_cases, town_total_deaths, town_confirmed_deaths, town_probable_deaths, TownCaseRate, peopletestbytown, town_tests)
+####4 ConProbByDate.csv ####
+# Confirmed and Probable cases by date
+ConProbByDate <- epicurve %>%
+  filter(!is.na(date) & date >= "2020-03-05") %>%
+  rename(Date = date, CaseCount = n ) %>% 
+  pivot_wider(id_cols = Date, names_from = type, values_from = CaseCount) 
+ConProbByDate[is.na(ConProbByDate)] <- 0
+ConProbByDate <- ConProbByDate %>% 
+  mutate(Total =  Confirmed + Probable)
+
+#printing
+if (csv_write) {
+  write_csv(ConProbByDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/ConProbByDate.csv"))
+}
+if (SQL_write) {
+  df_to_table(ConProbByDate, "ODP_ConProbByDate", overwrite = TRUE, append = FALSE)
+}
+
+####5 GenderSummary.csv####
+#set up the lookup to be gender only
+gender_tots <- county_rea_denoms %>% 
+  group_by(gender) %>% 
+  summarize(n=sum(pop)) %>% 
+  mutate(gender = ifelse(gender == "M",
+                         "Male",
+                         "Female"
+  ))
+#creating the columns for this table 
+gstotalcase <- case %>% 
+  group_by(gender) %>% 
+  tally(name = "Cases") %>% 
+  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
+gsconfirmedcase <- case %>% 
+  filter(disease_status == "Confirmed") %>% 
+  group_by(gender) %>% 
+  tally(name = "Cases") %>% 
+  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
+gsprobcase <- case %>% 
+  filter(disease_status == "Probable") %>% 
+  group_by(gender) %>% 
+  tally(name = "Cases") %>% 
+  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))  
+gstotaldeaths <- case %>% 
+  filter(outcome =="Died") %>% 
+  group_by(gender) %>% 
+  tally(name = "Deaths")  %>% 
+  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
+gstotaldeaths <- case %>% 
+  filter(outcome =="Died") %>% 
+  group_by(gender) %>% 
+  tally(name = "Deaths")  %>% 
+  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
+gsconfdeaths <- case %>% 
+  filter(disease_status == "Confirmed" & outcome =="Died") %>% 
+  group_by(gender) %>% 
+  tally(name = "Deaths")  %>% 
+  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
+gsprobdeaths <- case %>% 
+  filter(disease_status == "Probable" & outcome =="Died") %>% 
+  group_by(gender) %>% 
+  tally(name = "Deaths")  %>% 
+  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
+gstotalcaserate <- gstotalcase %>% 
+  left_join(gender_tots, by= c("gender" = "gender")) %>% 
+  mutate(TotalCaseRate = round((Cases/n)*100000)) %>% 
+  select(TotalCaseRate)
+
+#bind all the columns together
+GenderSummary <- tibble(
+  Gender = gstotalcase$gender,
+  TotalCases = gstotalcase$Cases,
+  ConfirmedCases = gsconfirmedcase$Cases,
+  ProbableCases = gsprobcase$Cases,
+  TotalDeaths = gstotaldeaths$Deaths,
+  ConfirmedDeaths = gsconfdeaths$Deaths,
+  ProbableDeaths = gsprobdeaths$Deaths,
+  TotalCaseRate = gstotalcaserate$TotalCaseRate,
+  DateUpdated = format(graphdate, "%m/%d/%Y")
+) 
+
+#printing
+if (csv_write) {
+write_csv(GenderSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/GenderSummary.csv"))
+}
+
+#clear trash
+rm(gstotalcase, gsconfirmedcase, gsprobcase, gstotaldeaths, gsconfdeaths, gsprobdeaths, gstotalcaserate, gender_tots)#,GenderSummary
+
+
+####6 StateSummary.csv ####
+StateSummary <- tableforgary %>%
+  rename(
+    Measure ='Overall Summary',
+    Total = "Total**",
+    Change = 'Change Since Yesterday'
+  ) %>% 
+  mutate(ChangeDirection = str_extract(Change, pattern = "\\+|\\-"),
+         DateUpdated = graphdate,
+         Change = str_remove(Change,pattern = "\\+|\\-|%")
+  ) %>% 
+  select(Measure, Total, ChangeDirection, Change, DateUpdated)%>% 
+  replace_na(replace = list(ChangeDirection = ""))
+
+#printing
+if (csv_write) {
+write_csv(StateSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/StateSummary.csv"))
+}
+
+#clear trash
+rm(tableforgary)#,StateSummary
+
+####7 AgeGroupSummary.csv####
+
+agstotalcases <- case %>% 
+  filter(!is.na(age_group)) %>% 
+  group_by(age_group) %>% 
+  tally(name = "TotalCases")
+agsconfcases <- case %>% 
+  filter(!is.na(age_group) & disease_status == "Confirmed") %>% 
+  group_by(age_group) %>% 
+  tally(name = "ConfCases")
+
+agsprobcases<- case %>% 
+  filter(!is.na(age_group) & disease_status == "Probable") %>% 
+  group_by(age_group) %>% 
+  tally(name = "ProbCases")
+agstotaldeaths <- case %>% 
+  filter(!is.na(age_group)  & outcome == "Died") %>% 
+  group_by(age_group) %>% 
+  tally(name = "TotalDeaths") %>% 
+  complete(age_group = unique(case$age_group), fill = list("TotalDeaths" = 0))
+
+agsconfdeaths <- case %>% 
+  filter(!is.na(age_group) & disease_status == "Confirmed" & outcome == "Died") %>% 
+  group_by(age_group) %>% 
+  tally(name = "ConfDeaths")%>% 
+  complete(age_group = unique(case$age_group), fill = list("ConfDeaths" = 0))
+
+agsprobdeaths <- case %>% 
+  filter(!is.na(age_group) & disease_status == "Probable" & outcome == "Died") %>% 
+  group_by(age_group) %>% 
+  tally(name = "ProbDeaths") %>% 
+  complete(age_group = unique(case$age_group), fill = list(ProbDeaths = 0))
+
+agstotalrate <- case %>% 
+  filter(!is.na(age_group)) %>% 
+  group_by(age_group) %>% 
+  tally(name = "TotalCases") %>% 
+  left_join(pop, by = c("age_group" = "age_g")) %>% 
+  mutate(TotalCaseRate = round((TotalCases/total)*100000))
+
+AgeGroupSummary <- tibble(
+  AgeGroups = agstotalcases$age_group,
+  TotalCases =agstotalcases$TotalCases,
+  ConfirmedCases = agsconfcases$ConfCases,
+  ProbableCases = agsprobcases$ProbCases,
+  TotalDeaths = agstotaldeaths$TotalDeaths,
+  ConfirmedDeaths = agsconfdeaths$ConfDeaths,
+  ProbableDeaths = agsprobdeaths$ProbDeaths,
+  TotalCaseRate = agstotalrate$TotalCaseRate,
+  DateUpdated = graphdate
+) %>% 
+  mutate(AgeGroups = as.character(AgeGroups))
+AgeGroupSummary$AgeGroups[AgeGroupSummary$AgeGroups == ">=80"] <- "80 and older"
 
 
 
-
-
-
-
-
-
-
-
-
-
+#printing
+if (csv_write) {
+  write_csv(AgeGroupSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/AgeGroupSummary.csv"))
+}
 
 
 
@@ -277,95 +438,11 @@ rm(town_total_cases,town_confirmed_cases,town_probable_cases, town_total_deaths,
 
 
 
-#ConProbByDate.csv
-ConProbByDate <- epicurve %>%
-  filter(!is.na(date) & date >= "2020-03-05") %>%
-  rename(Date = date, CaseCount = n ) %>% 
-  pivot_wider(id_cols = Date, names_from = type, values_from = CaseCount) 
-ConProbByDate[is.na(ConProbByDate)] <- 0
-ConProbByDate <- ConProbByDate %>% 
-  mutate(Total =  Confirmed + Probable)
 
 
-# if (csv_write) {
-#   write_csv(ConProbByDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/ConProbByDate.csv"))
-# }
-# if (SQL_write) {
-#   df_to_table(ConProbByDate, "ODP_ConProbByDate", overwrite = TRUE, append = FALSE)
-# }
-
-#gendersummary
-gender_tots <- gender_race_eth %>% 
-  group_by(gender) %>% 
-  summarize(n=sum(n)) %>% 
-  mutate(gender = ifelse(gender == "m",
-                         "Male",
-                         "Female"
-  ))
-gstotalcase <- case %>% 
-  group_by(gender) %>% 
-  tally(name = "Cases") %>% 
-  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gsconfirmedcase <- case %>% 
-  filter(disease_status == "Confirmed") %>% 
-  group_by(gender) %>% 
-  tally(name = "Cases") %>% 
-  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gsprobcase <- case %>% 
-  filter(disease_status == "Probable") %>% 
-  group_by(gender) %>% 
-  tally(name = "Cases") %>% 
-  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))  
-gstotaldeaths <- case %>% 
-  filter(outcome =="Died") %>% 
-  group_by(gender) %>% 
-  tally(name = "Deaths")  %>% 
-  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gstotaldeaths <- case %>% 
-  filter(outcome =="Died") %>% 
-  group_by(gender) %>% 
-  tally(name = "Deaths")  %>% 
-  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gsconfdeaths <- case %>% 
-  filter(disease_status == "Confirmed" & outcome =="Died") %>% 
-  group_by(gender) %>% 
-  tally(name = "Deaths")  %>% 
-  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gsprobdeaths <- case %>% 
-  filter(disease_status == "Probable" & outcome =="Died") %>% 
-  group_by(gender) %>% 
-  tally(name = "Deaths")  %>% 
-  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gstotalcaserate <- gstotalcase %>% 
-  left_join(gender_tots, by= c("gender" = "gender")) %>% 
-  mutate(TotalCaseRate = round((Cases/n)*100000)) %>% 
-  select(TotalCaseRate)
 
 
-GenderSummary <- tibble(
-  Gender = gstotalcase$gender,
-  TotalCases = gstotalcase$Cases,
-  ConfirmedCases = gsconfirmedcase$Cases,
-  ProbableCases = gsprobcase$Cases,
-  TotalDeaths = gstotaldeaths$Deaths,
-  ConfirmedDeaths = gsconfdeaths$Deaths,
-  ProbableDeaths = gsprobdeaths$Deaths,
-  TotalCaseRate = gstotalcaserate$TotalCaseRate,
-  DateUpdated = format(graphdate, "%m/%d/%Y")
-) 
 
-StateSummary <- tableforgary %>%
-  rename(
-    Measure ='Overall Summary',
-    Total = "Total**",
-    Change = 'Change Since Yesterday'
-  ) %>% 
-  mutate(ChangeDirection = str_extract(Change, pattern = "\\+|\\-"),
-         DateUpdated = graphdate,
-         Change = str_remove(Change,pattern = "\\+|\\-|%")
-  ) %>% 
-  select(Measure, Total, ChangeDirection, Change, DateUpdated)%>% 
-  replace_na(replace = list(ChangeDirection = ""))
 
 #agegroup summary
 agstotalcases <- case %>% 
@@ -562,14 +639,15 @@ countycountDate <- case %>%
   ungroup() %>% 
   filter(!is.na(County) & !is.na(Date))
 
+####old writes ####
 
 if (csv_write) {
   write_csv(countycountDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", 
                                     Sys.Date(), "/CountySummarybyDate.csv"))
   write_csv(death_by_deathdate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/DodSummary.csv"))
-  write_csv(GenderSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/GenderSummary.csv"))
-  write_csv(StateSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/StateSummary.csv"))
-  write_csv(AgeGroupSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/AgeGroupSummary.csv"))
+
+  
+
   write_csv(CountySummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/CountySummary.csv"))
   write_csv(REStateSummary , paste0("L:/daily_reporting_figures_rdp/gary_csv/", 
                                     Sys.Date(), "/REStateSummary.csv"), na = "")
