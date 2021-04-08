@@ -68,5 +68,63 @@ table_to_df <-
     return(results)
   }
 
+summarise_column <- function(dfname, colname) {
+  dfname %>%
+    group_by({{ colname }}, .drop = FALSE) %>%
+    summarise(Count = n()) %>%
+    mutate(Pct = Count / sum(Count) * 100) %>%
+    arrange(desc(Count))
+}
+
+make_comp_table <- function(before_df, after_df, by_what) {
+  left_join(before_df, after_df,
+            by = by_what,
+            suffix = c(".before", ".after")) %>%
+    select(-Pct.before, -Pct.after) %>%
+    mutate(Count.after = replace_na(Count.after, 0),
+           Count.before = replace_na(Count.before, 0),
+           Change = Count.after - Count.before) %>%
+    arrange(desc(Count.after))
+}
+
+getAllThursdays <-
+  function(start_date = "2020-02-28",
+           end_date = lubridate::today(),
+           day_of_week = 5,
+           how_many = 99999,
+           every_n = 1) {
+
+    if(!is.Date(start_date)) {
+      start_date <- as_date(start_date)
+    }
+
+    if(!is.Date(end_date)) {
+      end_date <- as_date(end_date)
+    }
+
+    if(!day_of_week %in% 1:7) {
+      day_of_week <- 5
+    }
+
+    all_days <- seq(start_date, end_date, by = "day")
+    thursdays <- all_days[wday(all_days) == day_of_week]
+
+    if(every_n %in% 2:7) {
+      thursdays <- rev(seq(max(thursdays), min(thursdays),
+                           by = paste0("-", every_n, " weeks")))
+    }
+
+    how_many <-
+      case_when(
+        how_many <= 0                 ~ length(thursdays),
+        how_many >= length(thursdays) ~ length(thursdays),
+        TRUE                          ~ as.integer(how_many)
+      )
+
+    thursdays <- thursdays[seq.int(to = length(thursdays), length.out = how_many)]
+    return(thursdays)
+
+  }
+
 
 message("All set! The usual packages and functions are loaded")
