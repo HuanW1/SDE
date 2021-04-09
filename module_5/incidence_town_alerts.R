@@ -1,8 +1,21 @@
+#### Module 5 / incidence and town alerts ####
+#This script will generate the thursday incidence tables with town alert table which is also used for the map
+
+####0 libraries and connections ####
+source("helpers/StartMeUp.R")
+con <- DBI::dbConnect(odbc::odbc(), "epicenter")
+csv_write <- FALSE
+SQL_write <- FALSE
+####1 Load Lookups and Dependancies ####
 
 
-#wedthur
+
 
 ####13 CTTown_Alert.csv &  avgdailyincidence.csv####
+
+
+#test14nc is non-cong tests from ct joined to the geo-coded tests
+
 
 
 #calculate % positive by town for past 2 weeks
@@ -10,15 +23,14 @@ pctpos14 <- test14nc %>%
   group_by(city, result) %>% 
   tally() %>%
   pivot_wider(names_from=result, values_from=n) %>% 
-  replace_na(replace=list(detected=0, `not detected`=0, indeterminate=0)) %>%
-  mutate(PercentPositive = round(detected/(detected+`not detected`)*100, 1),
-         TotalTests=detected+`not detected`+indeterminate) %>% 
+  replace_na(replace = list(detected = 0, `not detected` = 0, indeterminate = 0)) %>%
+  mutate(PercentPositive = round(detected/(detected +`not detected`)*100, 1),
+         TotalTests = detected +`not detected`+ indeterminate) %>% 
   select(city, TotalTests,PercentPositive) %>% 
   filter(city != "Not Available")
 
 #community cases in the past 2 weeks with rates by town, case count for each week
-gary_dailyincidence <- 
-  cases_14_nc %>% 
+gary_dailyincidence <- cases_14_nc %>% 
   group_by(week, city) %>% 
   tally() %>%  
   pivot_wider(names_from = week,  
@@ -123,9 +135,7 @@ if(csv_write) {
                    Sys.Date(),"/TownAlertLevelsTable.csv"))
 }
 
-```
 
-```{r town_alert_summary,  eval=wedthurs, message=FALSE, warning=FALSE, include=FALSE}
 towncatthisweek <- gdi2 %>%  group_by(RateCategory) %>%  tally(name = "Towns This Week") %>% 
   mutate(Category= factor(RateCategory, levels = lvls, labels = c("Grey", "Yellow", "Orange", "Red"))) %>% 
   select(-RateCategory)
