@@ -290,9 +290,11 @@ df <-
                    "Asian or Pacific Islander", "Other", "Unknown") ~ "Multiracial",
       TRUE ~ race
     ),
-    hisp_race = paste0(hisp, " ", race),
-    hisp_race = ifelse(hisp == "H", "Hispanic", hisp_race),
-    hisp_race = ifelse(hisp_race == "NH Unknown", "Unknown", hisp_race),
+    hisp_race = case_when(
+      hisp == "H"  ~ "Hispanic",
+      race == "Unknown" ~ "Unknown",
+      TRUE ~ paste0(hisp, " ", race)
+    ),
     age_group = cut(age,
                     breaks = c(-1,9,19,29,39,49,59,69,79, Inf),
                     labels = age_labels)
