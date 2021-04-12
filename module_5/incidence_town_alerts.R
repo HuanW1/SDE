@@ -6,11 +6,14 @@ source("helpers/StartMeUp.R")
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 csv_write <- FALSE
 SQL_write <- FALSE
+
+
 ####1 Load Lookups and Dependancies ####
+statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[RPT_TOWN_CODES]")
+city_file <-  DBI::dbGetQuery(conn = con , statement = statement)
 
 
-
-
+#starts at line 3136 ish
 ####13 CTTown_Alert.csv &  avgdailyincidence.csv####
 
 
@@ -58,7 +61,7 @@ gary_dailyincidence <- cases_14_nc %>%
   rename(totalcases = n,
          NAME = city) %>% 
   left_join(pctpos14, by = c("NAME" = "city")) %>% 
-  left_join(town_codes, by = c("townname" = "ANPSADPI")) %>%
+  left_join(city_file, by = c("townname" = "ANPSADPI")) %>%  #replace with city list
   rename(Town_No = TOWNNO) %>% 
   select(Town_No, NAME, pop, casesweek1, casesweek2, totalcases, CaseRate, 
          RateCategory, TotalTests, PercentPositive, UpdateDate, 
