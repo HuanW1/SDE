@@ -487,6 +487,37 @@ case <- df %>%
   slice(1L) %>%
   ungroup() 
 
+### YAK April 13th
+# Pull in the new table and condition it
+congregate_pull <-
+  table_to_df("CTEDSS_CRF_CONGREGATE") %>%
+  select(Event_ID, cong_yn:cong_facility) %>%
+  mutate(cong_yn = str_to_sentence(cong_yn),
+         cong_setting = if_else(cong_setting == "NA", "Other", cong_setting),
+         cong_facility = if_else(cong_facility == "NA", "Unknown", cong_facility))
+
+# glimpse(congregate_pull)
+
+# Do a left_join and replace
+# cong_yn, cong_facility, cong_setting
+# with updated values
+# end result same number of case rows and columns
+
+case <-
+  left_join(case, congregate_pull, by = c("eventid" = "Event_ID")) %>%
+  mutate(cong_setting.x = if_else(!is.na(cong_setting.y),
+                                  cong_setting.y,
+                                  cong_setting.x),
+         cong_facility.x = if_else(!is.na(cong_facility.y),
+                                   cong_facility.y,
+                                   cong_facility.x),
+         cong_yn.x = if_else(!is.na(cong_yn.y),
+                             cong_yn.y,
+                             cong_yn.x)) %>%
+  rename(cong_yn = cong_yn.x, cong_facility = cong_facility.x, cong_setting = cong_setting.x) %>%
+  select(-cong_yn.y, -cong_facility.y, -cong_setting.y)
+
+
 #Outcome and Covid Death Cleanup
 #case$covid_death[case$eventid %in% untouchable_conf$eventid] <- "YES"  pulls in too many wrong.
 case$covid_death[is.na(case$outcome) & case$covid_death == "NO" | case$covid_death == "UNKNOWN"] <- NA
