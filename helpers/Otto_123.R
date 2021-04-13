@@ -57,7 +57,7 @@ if (monthsame) {
 #### setting what we write out ####
 csv_write <- FALSE
 SQL_write <- FALSE
-do_DQ <- FALSE
+do_DQ <- TRUE
 
 
 ## ----declare_functions, include=FALSE------------------------------------------------------------------------------------
@@ -133,6 +133,7 @@ pcrtests <- c('SARS CoV 2 ORF1 resp',
               'SARS-CoV-2 N gene Saliva',
               'COVID-19 PCR (CEPHEID)',
               'SARS CoV 2 NAA resp',
+              'SARS-CoV-2 (COVID19) N gene [Presence] in Nose by NAA with probe detection',
               'SARS-CoV-2 specific TCRB gene in Blood by Seq'
 )
 
@@ -384,9 +385,11 @@ df <-
                    "Asian or Pacific Islander", "Other", "Unknown") ~ "Multiracial",
       TRUE ~ race
     ),
-    hisp_race = paste0(hisp, " ", race),
-    hisp_race = ifelse(hisp == "H", "Hispanic", hisp_race),
-    hisp_race = ifelse(hisp_race == "NH Unknown", "Unknown", hisp_race),
+    hisp_race = case_when(
+      hisp == "H"  ~ "Hispanic",
+      race == "Unknown" ~ "Unknown",
+      TRUE ~ paste0(hisp, " ", race)
+    ),
     age_group = cut(age,
                     breaks = c(-1,9,19,29,39,49,59,69,79, Inf),
                     labels = age_labels)
@@ -586,6 +589,48 @@ df_suspect <- df %>%
   filter(disease_status == "Suspect") %>%
   filter(state == "CT"| is.na(state))
 
+# two_or_more_symps <- df_suspect %>%
+#   select(eventid, disease_status, fever, chills, rigors, myalgia, headache, sorethroat, new_olfact_taste) %>%
+#   pivot_longer(-c(eventid, disease_status), names_to = "symptom", values_to = "symp_pres") %>%
+#   filter(symp_pres == "Yes") %>%
+#   group_by(eventid, disease_status) %>%
+#   tally() %>%
+#   filter(!disease_status %in% c("Confirmed", "Probable")  & n >= 2) %>%
+#   select(eventid) %>%
+#   distinct()
+# 
+# one_of_symps <- df_suspect %>%
+#   select(eventid, disease_status, cough, sob, ards, pneumonia) %>%
+#   pivot_longer(-c(eventid, disease_status), names_to = "symptom", values_to = "symp_pres") %>%
+#   filter(symp_pres == "Yes") %>%
+#   group_by(eventid, disease_status) %>%
+#   tally() %>%
+#   filter(!disease_status %in% c("Confirmed", "Probable")) %>%
+#   select(eventid) %>%
+#   distinct()
+# 
+# suspect_probable <- df_suspect %>%
+#   filter((eventid %in% one_of_symps$eventid | eventid %in% two_or_more_symps$eventid)) %>%
+#   distinct()
+# 
+# if(do_DQ) {
+#   #add in after suspect_probable creation, and before mutate the disease_status changes
+#   dq_diseasestatus_check_table <- df %>%
+#     mutate(pcr_notconfirmed = ifelse((state == "CT"| is.na(state)) & test %in% pcrtests & !disease_status %in% c("Confirmed", "Not a case") & result == "detected", 1, 0),
+#            confirmed_nPCR = ifelse(eventid %in% conf_bad_result$eventid & !eventid %in% conf_good_result$eventid & !eventid %in% untouchable_conf$eventid & !eventid %in% mostly_untouchable_prob$eventid, 1, 0),
+#            ag_probable = ifelse((state == "CT"| is.na(state)) & !eventid %in% pcr_confirmed$eventid & test %in% agtests & !disease_status %in% c("Probable") & result == "detected" & outcome != "Died", 1, 0),
+#            probable_butwhy = ifelse((state == "CT"| is.na(state)) & disease_status %in% c("Probable") & test %in% pcrtests & result %in% c(NA, 'not detected'), 1, 0),
+#            suspect_butpro = ifelse((eventid %in% one_of_symps$eventid|eventid %in% two_or_more_symps$eventid), 1, 0)) %>%
+#     distinct(eventid, .keep_all=TRUE)%>%
+#     select(eventid, bigID, pcr_notconfirmed, confirmed_nPCR, ag_probable, probable_butwhy, suspect_butpro)%>%
+#     filter(pcr_notconfirmed==1 | confirmed_nPCR==1 | ag_probable==1 | probable_butwhy==1 | suspect_butpro==1)
+#   
+#   df_to_table(df_name = dq_diseasestatus_check_table,
+#               table_name = "DQ_statustable",
+#               overwrite = TRUE,
+#               append = FALSE)
+# }
+
 two_or_more_symps <- df_suspect %>%
   select(eventid, disease_status, fever, chills, rigors, myalgia, headache, sorethroat, new_olfact_taste) %>%
   pivot_longer(-c(eventid, disease_status), names_to = "symptom", values_to = "symp_pres") %>%
@@ -593,6 +638,16 @@ two_or_more_symps <- df_suspect %>%
   group_by(eventid, disease_status) %>%
   tally() %>%
   filter(!disease_status %in% c("Confirmed", "Probable")  & n >= 2) %>%
+  select(eventid) %>%
+  distinct()
+
+all_two_or_more_symps <- df %>%
+  select(eventid, disease_status, fever, chills, rigors, myalgia, headache, sorethroat, new_olfact_taste) %>%
+  pivot_longer(-c(eventid, disease_status), names_to = "symptom", values_to = "symp_pres") %>%
+  filter(symp_pres == "Yes") %>%
+  group_by(eventid, disease_status) %>%
+  tally() %>%
+  filter(n >= 2) %>%
   select(eventid) %>%
   distinct()
 
@@ -606,6 +661,24 @@ one_of_symps <- df_suspect %>%
   select(eventid) %>%
   distinct()
 
+all_one_of_symps <- df %>%
+  select(eventid, disease_status, cough, sob, ards, pneumonia) %>%
+  pivot_longer(-c(eventid, disease_status), names_to = "symptom", values_to = "symp_pres") %>%
+  filter(symp_pres == "Yes") %>%
+  group_by(eventid, disease_status) %>%
+  tally() %>%
+  select(eventid) %>%
+  distinct()
+
+probable_but_why <- df %>%
+  group_by(eventid)%>%
+  filter(!any(result == "detected"))%>%
+  ungroup()%>%
+  filter(disease_status == "Probable")%>%
+  filter(!eventid %in% all_one_of_symps$eventid)%>%
+  filter(!eventid %in% all_two_or_more_symps$eventid)%>%
+  filter(!outcome %in% "Died")
+
 suspect_probable <- df_suspect %>%
   filter((eventid %in% one_of_symps$eventid | eventid %in% two_or_more_symps$eventid)) %>%
   distinct()
@@ -613,14 +686,18 @@ suspect_probable <- df_suspect %>%
 if(do_DQ) {
   #add in after suspect_probable creation, and before mutate the disease_status changes
   dq_diseasestatus_check_table <- df %>%
-    mutate(pcr_notconfirmed = ifelse((state == "CT"| is.na(state)) & test %in% pcrtests & !disease_status %in% c("Confirmed", "Not a case") & result == "detected", 1, 0),
-           confirmed_nPCR = ifelse(eventid %in% conf_bad_result$eventid & !eventid %in% conf_good_result$eventid & !eventid %in% untouchable_conf$eventid & !eventid %in% mostly_untouchable_prob$eventid, 1, 0),
-           ag_probable = ifelse((state == "CT"| is.na(state)) & !eventid %in% pcr_confirmed$eventid & test %in% agtests & !disease_status %in% c("Probable") & result == "detected" & outcome != "Died", 1, 0),
-           probable_butwhy = ifelse((state == "CT"| is.na(state)) & disease_status %in% c("Probable") & test %in% pcrtests & result %in% c(NA, 'not detected'), 1, 0),
-           suspect_butpro = ifelse((eventid %in% one_of_symps$eventid|eventid %in% two_or_more_symps$eventid), 1, 0)) %>%
+    mutate(pcr_not_confirmed = ifelse(eventid %in% pcr_not_confirmed$eventid,  1, 0),
+           confirmed_not_pcr = ifelse(eventid %in% conf_bad_result$eventid, 1, 0),
+           ag_not_probable = ifelse(eventid %in% ag_probable$eventid,  1, 0),
+           probable_but_why = ifelse(eventid %in% probable_but_why$eventid, 1, 0),
+           suspect_but_symptoms = ifelse(eventid %in% suspect_probable$eventid, 1,0),
+           ocme_to_probable = ifelse(eventid %in% ocmeprob$eventid, 1, 0)) %>%
     distinct(eventid, .keep_all=TRUE)%>%
-    select(eventid, bigID, pcr_notconfirmed, confirmed_nPCR, ag_probable, probable_butwhy, suspect_butpro)%>%
-    filter(pcr_notconfirmed==1 | confirmed_nPCR==1 | ag_probable==1 | probable_butwhy==1 | suspect_butpro==1)
+    filter(state == "CT" | is.na(state))%>%
+    select(eventid, pcr_not_confirmed, ag_not_probable, confirmed_not_pcr, probable_but_why, suspect_but_symptoms, ocme_to_probable)%>%
+    filter(pcr_not_confirmed==1 | confirmed_not_pcr==1 | ag_not_probable==1 | probable_but_why==1 | suspect_but_symptoms==1 | ocme_to_probable==1)
+  
+#  write_csv(dq_diseasestatus_check_table, "dq_status_table.csv")
   
   df_to_table(df_name = dq_diseasestatus_check_table,
               table_name = "DQ_statustable",
@@ -1287,6 +1364,13 @@ save(mock_table,
      hosp_text,
      dec,
      file = paste0("l:/draft_table_", timey, ".RData" ))
+
+timey <- Sys.time()
+timey <- gsub(pattern = " |:", replacement = "-", x = timey)
+
+save(case,
+     file = paste0("l:/recent_rdata/case_", timey, ".RData" ))
+
 
 
 # janitor::compare_df_cols_same(df, df2)
