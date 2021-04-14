@@ -3054,27 +3054,38 @@ CountySummary <- tbl_cty_sum %>%
 #deaths by date
 totaldeathsdate <- case %>% 
   filter(outcome == "Died") %>% 
-  filter(!is.na(death_date) & death_date >="2020-01-01") %>% 
+  filter(!is.na(death_date) & death_date >= "2020-01-01" & death_date < today()) %>% 
   group_by(death_date) %>% 
   tally(name = "TotalDeathCount") %>% 
   rename(dateofDeath = death_date) %>% 
-  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), fill = list(TotalDeathCount = 0))
+  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), 
+                                  today() - 1, 
+                                  by = "day"), 
+           fill = list(TotalDeathCount = 0))
+
 confirmeddeathsdate <- case %>% 
   filter(outcome == "Died" & disease_status == "Confirmed") %>% 
-  filter(!is.na(death_date) & death_date >="2020-01-01") %>% 
+  filter(!is.na(death_date) & death_date >= "2020-01-01" & death_date < today()) %>% 
   group_by(death_date) %>% 
   tally(name = "ConfDeathCount") %>% 
   rename(dateofDeath = death_date) %>% 
-  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), fill = list(ConfDeathCount = 0))
+  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), 
+                                  today() - 1, 
+                                  by = "day"), 
+           fill = list(ConfDeathCount = 0))
+
 probsdeathdate <- case %>% 
   filter(outcome == "Died" & disease_status == "Probable") %>% 
   filter(!is.na(death_date) & death_date >="2020-01-01") %>% 
   group_by(death_date) %>% 
   tally(name = "ProbDeathCount") %>% 
   rename(dateofDeath = death_date) %>% 
-  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), fill = list(ProbDeathCount = 0))
+  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), 
+                                  today() - 1, 
+                                  by = "day"), 
+           fill = list(ProbDeathCount = 0))
 
-death_by_deathdate <-tibble(
+death_by_deathdate <- tibble(
   dateofDeath = totaldeathsdate$dateofDeath,
   TotalDeaths = totaldeathsdate$TotalDeathCount,
   ConfirmedDeaths = confirmeddeathsdate$ConfDeathCount,
@@ -3095,16 +3106,17 @@ agg_tests_spec_date_ag <- agg_tests_spec_date_ag %>%
   replace_na(replace = list(county= "Pending address validation")) %>%
   complete(result = c("Positive", "Negative", "Indeterminate"),fill =  list (n = 0)) %>% 
   pivot_wider(id_cols = c(county, spec_col_date), names_from = result, values_from = n ) %>%
-  replace_na(replace = list('Positive' = 0,'Negative'= 0, 'Indeterminate' = 0)) %>%
+  replace_na(replace = list('Positive' = 0, 'Negative'= 0, 'Indeterminate' = 0)) %>%
   mutate(state="CT",
-         number_of_ag_tests=sum(Positive, Negative, Indeterminate, na.rm=TRUE)) %>%
+         number_of_ag_tests=sum(Positive, Negative, Indeterminate, na.rm = TRUE)) %>%
   rename(date = spec_col_date,
          number_of_ag_positives = Positive,
          number_of_ag_negatives = Negative,
-         number_of_ag_indeterminates = Indeterminate)%>%
-    select(county,date,number_of_ag_tests,number_of_ag_positives,number_of_ag_negatives,number_of_ag_indeterminates)
+         number_of_ag_indeterminates = Indeterminate) %>%
+    select(county,date, number_of_ag_tests, number_of_ag_positives, number_of_ag_negatives, number_of_ag_indeterminates)
 
-agg_tests_spec_date_pcr <- elr_linelist %>% 
+agg_tests_spec_date_pcr <- 
+  elr_linelist %>% 
   filter(test_method %in% pcrtests)
 agg_tests_spec_date_pcr$result[agg_tests_spec_date_pcr$result == "detected"] <- "Positive"
 agg_tests_spec_date_pcr$result[agg_tests_spec_date_pcr$result == "not detected"] <- "Negative"
