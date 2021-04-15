@@ -1,18 +1,17 @@
 #Processing race_concat variable
 
-#insert before raw_cases is dropped and just change the var names to just amatch original
-
-####0 libraries and connection ####
-source("helpers/StartMeUp.R")
-con <- DBI::dbConnect(odbc::odbc(), "epicenter")
-
-statement <-paste0("SELECT * FROM DPH_COVID_IMPORT.dbo.LOOKUP_HL7")
-hl7_lookup <- DBI::dbGetQuery(conn = con , statement = statement)
-
-####1 Pull Race values from DF ####
 #trying to do a stepped approach to reduce the number rows and values being processed
 #easy joins are left as is, and the rest move on through the process
 
+#insert before raw_cases is dropped and just change the var names to just amatch original
+
+####0 connection ####
+hl7con <- DBI::dbConnect(odbc::odbc(), "epicenter")
+statement <-paste0("SELECT * FROM DPH_COVID_IMPORT.dbo.LOOKUP_HL7")
+hl7_lookup <- DBI::dbGetQuery(conn = hl7con , statement = statement)
+odbc::dbDisconnect(hl7con)
+
+####1 Pull Race values from DF ####
 #easy creation and medium setup
 race_easy <- tibble(raw_cases) %>% 
   select(eventid, race_concat) %>% 
@@ -60,7 +59,8 @@ race_medium <- race_medium %>%
 total_race <- bind_rows(race_easy, race_medium, race_hard) %>% 
   unique() %>% 
   group_by(eventid) %>% 
-  add_tally()
+  add_tally() %>%  
+  ungroup()
 
 #process possible multi races further  
 poss_multi <- total_race %>% 
@@ -69,7 +69,8 @@ poss_multi <- total_race %>%
   add_tally(name = 'multi') %>% 
   mutate(race = ifelse(multi >1, "Multiracial", race)) %>% 
   select(-c(n, multi)) %>% 
-  unique()
+  unique() %>% 
+  ungroup()
   
 single <- total_race %>% 
   filter(n<2) %>% 
@@ -83,4 +84,4 @@ raw_cases <- raw_cases %>%
   left_join(new_raw_race, by = "eventid")
 
 #clear trash
-rm(single, multi, race_easy, race_medium, race_hard, total_race, new_raw_race) 
+rm(single, multi, race_easy, race_medium, race_hard, total_race, new_raw_race, statment)
