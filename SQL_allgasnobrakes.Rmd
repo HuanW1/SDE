@@ -1422,7 +1422,7 @@ ggplot(nagegrp, aes(x = mmwrweekdate,
                    color = age_group, 
                    group = age_group)) +
   geom_line(size = 1) +
-  ylim(0, maxlim) +
+  expand_limits(y = 0) +
   scale_color_brewer(palette = "Paired") +
   theme_minimal() +
   theme(
