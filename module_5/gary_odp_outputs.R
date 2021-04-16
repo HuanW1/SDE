@@ -3,16 +3,15 @@
 
 ####0 libraries and connections ####
 source("helpers/StartMeUp.R")
-con <- DBI::dbConnect(odbc::odbc(), "epicenter")
-csv_write <- FALSE
-SQL_write <- FALSE
+gary_con <- DBI::dbConnect(odbc::odbc(), "epicenter")
+
 ####1 Load Lookups and Dependancies ####
 age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
 
 gary_age_labels <- c("cases_age0_9", "cases_age10_19", "cases_age20_29", "cases_age30_39", "cases_age40_49", "cases_age50_59", "cases_age60_69", "cases_age70_79", "cases_age80_Older" )
 
 statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[RPT_TOWN_CODES]")
-city_file <-  DBI::dbGetQuery(conn = con , statement = statement)
+city_file <-  DBI::dbGetQuery(conn = gary_con , statement = statement)
 
 statement <- paste0("SELECT cty_label AS county
                     ,agegp18_label AS age_group
@@ -22,7 +21,7 @@ statement <- paste0("SELECT cty_label AS county
                     ,POP AS pop
                     FROM DPH_COVID_IMPORT.dbo.RPT_COUNTY_REA_DENOMS
                     WHERE YEAR = 2019")
-county_rea_denoms <- DBI::dbGetQuery(conn = con , statement = statement) %>% 
+county_rea_denoms <- DBI::dbGetQuery(conn = gary_con , statement = statement) %>% 
   mutate(hisp_race = ifelse(hisp == 1, "Hispanic", paste0("NH ", race))) 
 county_rea_denoms$hisp_race[county_rea_denoms$hisp_race %in% c("NH Asian", "NH Native Hawaiian and Other Pacific Islander")] <- "NH Asian or Pacific Islander"
 county_rea_denoms$hisp_race[county_rea_denoms$hisp_race %in% c("NH Two or more races")] <- "Multiple Races" 
@@ -52,6 +51,7 @@ ct_rea_denoms <- county_rea_denoms %>%
 graphdate <- Sys.Date() - 1
 
 #clear trash
+odbc::dbDisconnect(gary_con)
 rm(statement)
 
 ####2 state_Result.csv ####
