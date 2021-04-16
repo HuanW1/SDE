@@ -462,7 +462,7 @@ if(do_DQ) {
 
 ##########  Death Cleanup     #############
 
-df$outcome[df$covid_death == "No"] <- NA
+df$outcome[df$covid_death %in% c("Unknown", "No")] <- NA
 #df$death_date[df$covid_death == "No"] <- NA
 
 test_people <- df %>%
