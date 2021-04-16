@@ -3,23 +3,18 @@
 
 ####0 libraries and connections ####
 source("helpers/StartMeUp.R")
-con <- DBI::dbConnect(odbc::odbc(), "epicenter")
+inc_con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 csv_write <- FALSE
 SQL_write <- FALSE
-
-
 ####1 Load Lookups and Dependancies ####
 statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[RPT_TOWN_CODES]")
-city_file <-  DBI::dbGetQuery(conn = con , statement = statement)
+city_file <-  DBI::dbGetQuery(conn = inc_con, statement = statement)
 
-
+odbc::dbDisconnect(inc_con)
 #starts at line 3136 ish
-####13 CTTown_Alert.csv &  avgdailyincidence.csv####
 
-
+####2 CTTown_Alert.csv &  avgdailyincidence.csv####
 #test14nc is non-cong tests from ct joined to the geo-coded tests
-
-
 
 #calculate % positive by town for past 2 weeks
 pctpos14 <- test14nc %>% 

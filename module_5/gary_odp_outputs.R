@@ -4,6 +4,8 @@
 ####0 libraries and connections ####
 source("helpers/StartMeUp.R")
 gary_con <- DBI::dbConnect(odbc::odbc(), "epicenter")
+csv_write <- FALSE
+SQL_write <- FALSE
 
 ####1 Load Lookups and Dependancies ####
 age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
