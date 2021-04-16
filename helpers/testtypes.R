@@ -1,12 +1,12 @@
 #### list of PCR tests ####
 
-pcrtests <- c('SARS CoV 2 ORF1 resp', 
-              'SARS CoV 2 RNA nasopharynx', 
+pcrtests <- c('SARS CoV 2 ORF1 resp',
+              'SARS CoV 2 RNA nasopharynx',
               'SARS CoV 2 Rapid RdRp gene (AbbottIDNOW)',
               'COVID-19 RT-PCR INPATIENT/ED ADMIT',
               'COVID-19 RT-PCR OUTPATIENT (VACT)',
               'SARS CoV 2 RNA Saliva PCR',
-              'SARS-CoV-2 PCR XXX', 
+              'SARS-CoV-2 PCR XXX',
               'SARS CoV 2 PCR resp',
               'Other PCR',
               'SARS-CoV-2 RdRp gene resp',
@@ -21,6 +21,7 @@ pcrtests <- c('SARS CoV 2 ORF1 resp',
               'SARS-CoV-2 N gene Saliva',
               'COVID-19 PCR (CEPHEID)',
               'SARS CoV 2 NAA resp',
+              'SARS-CoV-2 (COVID19) N gene [Presence] in Nose by NAA with probe detection',
               'SARS-CoV-2 specific TCRB gene in Blood by Seq'
 )
 

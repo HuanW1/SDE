@@ -290,9 +290,11 @@ df <-
                    "Asian or Pacific Islander", "Other", "Unknown") ~ "Multiracial",
       TRUE ~ race
     ),
-    hisp_race = paste0(hisp, " ", race),
-    hisp_race = ifelse(hisp == "H", "Hispanic", hisp_race),
-    hisp_race = ifelse(hisp_race == "NH Unknown", "Unknown", hisp_race),
+    hisp_race = case_when(
+      hisp == "H"  ~ "Hispanic",
+      race == "Unknown" ~ "Unknown",
+      TRUE ~ paste0(hisp, " ", race)
+    ),
     age_group = cut(age,
                     breaks = c(-1,9,19,29,39,49,59,69,79, Inf),
                     labels = age_labels)
@@ -317,7 +319,7 @@ df <-
 
 ##########  Death Cleanup     #############
 
-df$outcome[df$covid_death == "No"] <- NA
+df$outcome[df$covid_death %in% c("Unknown", "No")] <- NA
 #df$death_date[df$covid_death == "No"] <- NA
 
 test_people <- df %>% 
@@ -484,6 +486,37 @@ case <- df %>%
   arrange(simple_result,pcrtest,date) %>% # detected, first priority, and then the pcr test or ag if no pcr, then earliest date, date is spec_col_Date for tests with that or eventdate if none listed or is a non ag+ prob
   slice(1L) %>%
   ungroup() 
+
+### YAK April 13th
+# Pull in the new table and condition it
+congregate_pull <-
+  table_to_df("CTEDSS_CRF_CONGREGATE") %>%
+  select(Event_ID, cong_yn:cong_facility) %>%
+  mutate(cong_yn = str_to_sentence(cong_yn),
+         cong_setting = if_else(cong_setting == "NA", "Other", cong_setting),
+         cong_facility = if_else(cong_facility == "NA", "Unknown", cong_facility))
+
+# glimpse(congregate_pull)
+
+# Do a left_join and replace
+# cong_yn, cong_facility, cong_setting
+# with updated values
+# end result same number of case rows and columns
+
+case <-
+  left_join(case, congregate_pull, by = c("eventid" = "Event_ID")) %>%
+  mutate(cong_setting.x = if_else(!is.na(cong_setting.y),
+                                  cong_setting.y,
+                                  cong_setting.x),
+         cong_facility.x = if_else(!is.na(cong_facility.y),
+                                   cong_facility.y,
+                                   cong_facility.x),
+         cong_yn.x = if_else(!is.na(cong_yn.y),
+                             cong_yn.y,
+                             cong_yn.x)) %>%
+  rename(cong_yn = cong_yn.x, cong_facility = cong_facility.x, cong_setting = cong_setting.x) %>%
+  select(-cong_yn.y, -cong_facility.y, -cong_setting.y)
+
 
 #Outcome and Covid Death Cleanup
 #case$covid_death[case$eventid %in% untouchable_conf$eventid] <- "YES"  pulls in too many wrong.
@@ -1389,7 +1422,7 @@ ggplot(nagegrp, aes(x = mmwrweekdate,
                    color = age_group, 
                    group = age_group)) +
   geom_line(size = 1) +
-  ylim(0, maxlim) +
+  expand_limits(y = 0) +
   scale_color_brewer(palette = "Paired") +
   theme_minimal() +
   theme(
@@ -1748,6 +1781,32 @@ ggplot(deadbar)+
 
 `r if(thursday){"Licensed daycare providers are required to report cases of COVID-19 among attendees and staff to the Department of Public Health (DPH) and the local health department. This figure shows the number of cases among daycare attendees and staff reported to DPH since September 1, 2020. Data are preliminary and like other passive surveillance systems, under reporting occurs and the true incidence of disease is more than the number of cases reported."}`
 ```{r plot_daycare_data, message=FALSE, warning=FALSE, fig.align="center", eval=thursday}
+
+# Initial foray into the new repeatable fields CRF April 7
+# Pull the new table
+daycare_pull <- table_to_df("CTEDSS_CRF_DAYCARE")
+
+# join adding new columns but no new rows
+case <-
+  left_join(case,
+            daycare_pull %>% select(Event_ID, CRF_DATE:Daycare_State),
+            by = c("eventid" = "Event_ID"))
+
+# Rather than new logic simply replicate
+# the logic from below by mutate and
+# case_when
+# Daycare_Yes_No goes to daycare_attendee
+# Daycare_Name goes to daycare_staff
+case <-
+  case %>%
+  mutate(daycare_attendee =
+           case_when(Daycare_Yes_No == "YES" ~ "YES",
+                     TRUE                    ~ daycare_attendee),
+         daycare_staff =
+           case_when(Daycare_Yes_No == "YES" ~ Daycare_Name,
+                     TRUE                    ~ daycare_staff)
+         )
+
 ########### DAYCARE EDITS ###############
 ## set logic: no attendees 6+, attendees 18+ are assumed to be staff
 attendee_to_staff <- case %>% 
@@ -1797,25 +1856,27 @@ daycare_staff1 <- edit_daycare %>%
   filter((week > 35 & year ==2020) | (week>= 1 & year==2021)) %>% 
   group_by(year,week)
 
-daycare <- bind_rows(daycare_attendee, daycare_staff)%>%
+daycare <- bind_rows(daycare_attendee, daycare_staff) %>%
   mutate(
     date= MMWRweek2Date(MMWRyear = year, MMWRweek = week, MMWRday = 7)
   ) %>% 
+  filter(date < today()) %>%
   arrange(date) %>% 
   mutate(
         date = format(date, "%b-%d"),
         date = factor(date, levels = date, labels = date)
         )
 
-ggplot(daycare, aes(x=date, y=n, fill=role))+
-  geom_bar(stat = "identity", color="black")+
-  scale_fill_manual(name="",values = c('#7fcdbb',"#2c7fb8" ))+
-  labs(x="Week", y="Number of Cases", title = "Daycare Associated Cases")+
-  theme_classic()+
+ggplot(daycare, aes(x = date, y = n, fill = role)) +
+  geom_bar(stat = "identity", color = "black") +
+  scale_fill_manual(name = "", values = c('#7fcdbb', "#2c7fb8")) +
+  labs(x = "Week", y = "Number of Cases", title = "Daycare Associated Cases") +
+  theme_classic() +
 theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     title = element_text(size = 7.5)
   )
+
 ```
 
 `r if(thursday){"### Laboratory Surveillance"}  `
@@ -2993,27 +3054,38 @@ CountySummary <- tbl_cty_sum %>%
 #deaths by date
 totaldeathsdate <- case %>% 
   filter(outcome == "Died") %>% 
-  filter(!is.na(death_date) & death_date >="2020-01-01") %>% 
+  filter(!is.na(death_date) & death_date >= "2020-01-01" & death_date < today()) %>% 
   group_by(death_date) %>% 
   tally(name = "TotalDeathCount") %>% 
   rename(dateofDeath = death_date) %>% 
-  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), fill = list(TotalDeathCount = 0))
+  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), 
+                                  today() - 1, 
+                                  by = "day"), 
+           fill = list(TotalDeathCount = 0))
+
 confirmeddeathsdate <- case %>% 
   filter(outcome == "Died" & disease_status == "Confirmed") %>% 
-  filter(!is.na(death_date) & death_date >="2020-01-01") %>% 
+  filter(!is.na(death_date) & death_date >= "2020-01-01" & death_date < today()) %>% 
   group_by(death_date) %>% 
   tally(name = "ConfDeathCount") %>% 
   rename(dateofDeath = death_date) %>% 
-  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), fill = list(ConfDeathCount = 0))
+  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), 
+                                  today() - 1, 
+                                  by = "day"), 
+           fill = list(ConfDeathCount = 0))
+
 probsdeathdate <- case %>% 
   filter(outcome == "Died" & disease_status == "Probable") %>% 
   filter(!is.na(death_date) & death_date >="2020-01-01") %>% 
   group_by(death_date) %>% 
   tally(name = "ProbDeathCount") %>% 
   rename(dateofDeath = death_date) %>% 
-  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), fill = list(ProbDeathCount = 0))
+  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), 
+                                  today() - 1, 
+                                  by = "day"), 
+           fill = list(ProbDeathCount = 0))
 
-death_by_deathdate <-tibble(
+death_by_deathdate <- tibble(
   dateofDeath = totaldeathsdate$dateofDeath,
   TotalDeaths = totaldeathsdate$TotalDeathCount,
   ConfirmedDeaths = confirmeddeathsdate$ConfDeathCount,
@@ -3034,16 +3106,17 @@ agg_tests_spec_date_ag <- agg_tests_spec_date_ag %>%
   replace_na(replace = list(county= "Pending address validation")) %>%
   complete(result = c("Positive", "Negative", "Indeterminate"),fill =  list (n = 0)) %>% 
   pivot_wider(id_cols = c(county, spec_col_date), names_from = result, values_from = n ) %>%
-  replace_na(replace = list('Positive' = 0,'Negative'= 0, 'Indeterminate' = 0)) %>%
+  replace_na(replace = list('Positive' = 0, 'Negative'= 0, 'Indeterminate' = 0)) %>%
   mutate(state="CT",
-         number_of_ag_tests=sum(Positive, Negative, Indeterminate, na.rm=TRUE)) %>%
+         number_of_ag_tests=sum(Positive, Negative, Indeterminate, na.rm = TRUE)) %>%
   rename(date = spec_col_date,
          number_of_ag_positives = Positive,
          number_of_ag_negatives = Negative,
-         number_of_ag_indeterminates = Indeterminate)%>%
-    select(county,date,number_of_ag_tests,number_of_ag_positives,number_of_ag_negatives,number_of_ag_indeterminates)
+         number_of_ag_indeterminates = Indeterminate) %>%
+    select(county,date, number_of_ag_tests, number_of_ag_positives, number_of_ag_negatives, number_of_ag_indeterminates)
 
-agg_tests_spec_date_pcr <- elr_linelist %>% 
+agg_tests_spec_date_pcr <- 
+  elr_linelist %>% 
   filter(test_method %in% pcrtests)
 agg_tests_spec_date_pcr$result[agg_tests_spec_date_pcr$result == "detected"] <- "Positive"
 agg_tests_spec_date_pcr$result[agg_tests_spec_date_pcr$result == "not detected"] <- "Negative"

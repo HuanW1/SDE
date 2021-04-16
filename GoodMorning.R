@@ -9,7 +9,12 @@ library("lubridate",
         quietly = TRUE,
         warn.conflicts = FALSE,
         logical.return = TRUE)
-library(flextable,
+library("flextable",
+        lib.loc = "L:/newlib",
+        quietly = TRUE,
+        warn.conflicts = FALSE,
+        logical.return = TRUE)
+library("rmarkdown",
         lib.loc = "L:/newlib",
         quietly = TRUE,
         warn.conflicts = FALSE,

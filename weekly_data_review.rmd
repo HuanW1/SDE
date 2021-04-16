@@ -152,6 +152,7 @@ testgeo2 <- elr_linelist %>%
     mmwrweek = epiweek(date)
     )
 
+# get rid of elr_linelist
 communitytest <- testgeo2 %>%
   filter(!cong_test %in% "Yes")
 
@@ -391,8 +392,9 @@ kable(twoweekcommcases) %>%
 #manually set new admits on days where data definitions changed
 chanewadmit <- chalong %>%
   filter(County=="Connecticut" & Type=="CumAdmit" & !is.na(date) ) %>%
-  mutate(newadmit = ifelse(date==mdy("07-18-2020"), 18, ifelse(
-    date==mdy("05-29-2020"), 35, (value - lag(value)))),
+  mutate(newadmit = ifelse(date==mdy("07-18-2020"), 18, 
+                           ifelse(date==mdy("05-29-2020"), 35, 
+                                  ifelse(date==mdy("03-22-2021"), 60, (value - lag(value))))),
          count7 = slide_dbl(newadmit, sum, .before=3, .after=3, .complete=TRUE), 
          avgcount7 = count7/7,
          avgrate7 = (avgcount7/3572665)*100000) %>%
@@ -402,7 +404,7 @@ ggplot(chanewadmit)+
   geom_col(aes(x=date, y=newadmit), fill="lightgrey")+
   geom_line(aes(x=date, y=avgcount7), size=2)+
   theme_classic()+
-  xlim(ymd("2020-03-01"), Sys.Date()-7)+
+  xlim(ymd("2020-04-13"), Sys.Date()-7)+
   labs(
     y = "New COVID-19 Admissions",
     x="Date") +
