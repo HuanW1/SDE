@@ -14,7 +14,6 @@ source("helpers/Fetch_case.R")
 source("helpers/Fetch_ELR.R")
 source("helpers/Fetch_cha_c.R")
 
-
 ####1 Load Lookups and Dependancies ####
 age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
 
@@ -22,6 +21,9 @@ gary_age_labels <- c("cases_age0_9", "cases_age10_19", "cases_age20_29", "cases_
 
 statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[RPT_TOWN_CODES]")
 city_file <-  DBI::dbGetQuery(conn = gary_con , statement = statement)
+
+HospitalizedCases <- tibble(HospitalizedCases = cha_c$today[9])
+dec <- case %>% filter(outcome == "Died") %>%  nrow()
 
 #sets up rea tables and percents
 source("race_ethnicity/race_ethnicity_setup.R")
@@ -46,22 +48,26 @@ rm(adj_tbl_long, adj_tbl_long_dec, agg_table, agg_table_dec, more_ages, spop2000
 
 ####2 state_Result.csv ####
 #these require case and dec and cha_c
-State <- tibble("State" = "CONNECTICUT")
-LastUpdateDate <- tibble("LastUppdateDate" = graphdate)#tibble("LastUppdateDate" = max(as.Date(mdy(case$`Event Date`))))
-TotalCases <- tibble('TotalCases'= nrow(case))
-ConfirmedCases <- tibble("ConfirmedCases" = nrow(case %>% filter(disease_status == "Confirmed")))
-ProbableCases <- tibble("ProbableCases" = nrow(case %>% filter(disease_status == "Probable")))
-HospitalizedCases <- tibble(HospitalizedCases = cha_c$today[9])
-dec <- case %>% filter(outcome == "Died") %>%  nrow()
-TotalDeaths <- tibble("Deaths" = dec)
-ConfirmedDeaths <- tibble("ConfirmedDeaths" = nrow(case %>%  filter(outcome == "Died" & disease_status == "Confirmed")))
-ProbableDeaths <-  tibble("ProbableDeaths" = nrow(case %>%  filter(outcome == "Died" & disease_status == "Probable")))
-gary_ages <- case %>%
-  group_by(age_group) %>%
-  tally() %>%
-  filter(!is.na(age_group)) %>%
-  pivot_wider(names_from = age_group, values_from = n)
-state_Result <-  bind_cols(State, LastUpdateDate, TotalCases, ConfirmedCases,ProbableCases, HospitalizedCases, TotalDeaths, ConfirmedDeaths, ProbableDeaths,gary_ages)
+state_Result <- case %>% 
+  group_by(disease_status,outcome, age_group) %>% 
+  tally() %>% 
+  mutate(outcome = ifelse(is.na(outcome), "Survived", outcome)) 
+
+state_Result <- tibble(`State` = "CONNECTICUT",
+                       `LastUppdateDate` = graphdate,
+                       TotalCases = sum(state_Result$n),
+                       ConfirmedCases = sum(state_Result %>% filter(disease_status == "Confirmed") %>%  pull(n)),
+                       ProbableCases = sum(state_Result %>% filter(disease_status == "Probable") %>%  pull(n)),
+                       HospitalizedCases = HospitalizedCases,
+                       TotalDeaths = sum(state_Result %>% filter(outcome == "Died") %>%  pull(n)),
+                       ConfirmedDeaths = sum(state_Result %>% filter(disease_status == "Confirmed" & outcome == "Died") %>%  pull(n)),
+                       ProbableDeaths = sum(state_Result %>% filter(disease_status == "Probable" & outcome == "Died") %>%  pull(n)),
+                       ) %>% 
+  bind_cols(case %>%
+              filter(!is.na(age_group)) %>%
+              group_by(age_group) %>%
+              tally() %>%
+              pivot_wider(names_from = age_group, values_from = n))
 
 #printing
 if (csv_write) {
@@ -72,64 +78,35 @@ if (SQL_write) {
 }
 message("Table 1/11 complete, printed and pushed to SQL")
 #clear trash
-rm(State, LastUpdateDate, TotalCases, ConfirmedCases, ProbableCases,  TotalDeaths, ConfirmedDeaths,ProbableDeaths, gary_ages)#,state_Result
+rm(state_Result)
 
 ####3 town_Result.csv ####
-#probably some good candidates for a custom function here
 
-#creating the various columns for people related counts by town
-town_total_cases <- case %>% 
-  filter(city != "Not_available") %>% 
-  group_by(city) %>% 
-  tally() %>%
-  rename(CITY = city) %>% 
-  complete(CITY = city_file$TOWN_LC, fill = list(n = 0))
-town_confirmed_cases <- case %>% 
-  filter(disease_status == "Confirmed") %>% 
-  filter(city != "Not_available") %>% 
-  group_by(city) %>% 
-  tally() %>%
-  rename(CITY = city) %>% 
-  complete(CITY = city_file$TOWN_LC, fill = list(n = 0))
-town_probable_cases <- case %>% 
-  filter(disease_status == "Probable") %>% 
-  filter(city != "Not_available") %>% 
-  group_by(city) %>% 
-  tally() %>%
-  rename(CITY = city) %>% 
-  complete(CITY = city_file$TOWN_LC, fill = list(n = 0))
-town_total_deaths <- case %>%
-  filter(outcome == "Died")%>%
-  filter(city != "Not_available") %>% 
-  group_by(city) %>%
-  tally(name = "Deaths") %>% 
-  rename(CITY = city)%>% 
-  complete(CITY = city_file$TOWN_LC, fill = list(n = 0))
-town_confirmed_deaths <- case %>%
-  filter(outcome == "Died" & disease_status == "Confirmed")%>%
-  filter(city != "Not_available") %>% 
-  group_by(city) %>%
-  tally(name = "Deaths") %>% 
-  rename(CITY = city)%>% 
-  complete(CITY = city_file$TOWN_LC, fill = list(n = 0))
-town_probable_deaths <- case %>%
-  filter(outcome == "Died" & disease_status == "Probable")%>%
-  filter(city != "Not_available") %>% 
-  group_by(city) %>%
-  tally(name = "Deaths") %>% 
-  rename(CITY = city) %>% 
-  complete(CITY = city_file$TOWN_LC, fill = list(n = 0))
-TownCaseRate <- case %>%
-  filter(!is.na(city) & city != "Not_available") %>% 
-  group_by(city) %>% 
-  tally(name ='case_n') %>% 
-  complete(city = city_file$TOWN_LC, fill = list(case_n = 0)) %>% 
-  left_join(city_file %>% select(TOWN_LC,pop_2019),
-            by = c("city" = "TOWN_LC")) %>% 
-  mutate(CaseRate = round((case_n/pop_2019)*100000),
-         CITY = paste0(city, " town")
-  ) %>% 
-  select(-c(case_n, pop_2019, city)) 
+  town_cases <- case %>% 
+    filter(!is.na(city) & city != "Not_available") %>% 
+    group_by(city, disease_status,outcome) %>% 
+    tally() %>%
+    mutate(outcome = ifelse(is.na(outcome), "Survived", outcome)) %>% 
+    rename(Town = city) %>% 
+    ungroup() %>% 
+    complete(Town = city_file$TOWN_LC, outcome = c("Died", "Survived"),disease_status = c("Confirmed", "Probable"), fill = list(n = 0)) %>% 
+    left_join(city_file %>% select(TOWNNO, TOWN_LC,pop_2019),
+                by = c("Town" = "TOWN_LC")) %>% 
+    group_by(Town) %>% 
+    mutate(TownTotalCases = sum(n),
+           TownCaseRate = round((TownTotalCases/pop_2019)*100000)) %>% 
+    ungroup() %>% 
+    pivot_wider(id_cols = c(Town, outcome, disease_status,TownTotalCases, TownCaseRate, TOWNNO ), names_from = c(outcome, disease_status), values_from = n) %>% 
+    mutate(TownTotalDeaths = Died_Confirmed + Died_Probable,
+           LastUpdateDate = graphdate,
+           TownConfirmedCases = Died_Confirmed + Survived_Confirmed,
+           TownProbableCases = Died_Probable + Survived_Probable) %>% 
+  rename(Town_No = TOWNNO,
+         TownConfirmedDeaths = Died_Confirmed,
+         TownProbableDeaths = Died_Probable) %>% 
+  select(Town_No, Town, LastUpdateDate, TownTotalCases, TownConfirmedCases, TownProbableCases, TownTotalDeaths, TownConfirmedDeaths, TownProbableDeaths, TownCaseRate)
+
+
 
 #creating test counts by town and cleaning up names
 town_tests <- elr_linelist
@@ -144,15 +121,16 @@ town_tests <- town_tests %>%
   tally() %>%
   pivot_wider(id_cols = city, names_from = result, values_from = n) %>%
   replace_na(replace = list(Positive = 0, Negative= 0, Indeterminate = 0)) %>%
-  mutate(state="CT",
-         number_of_tests=sum(Positive, Negative, Indeterminate, na.rm=TRUE)) %>%
-  rename(number_of_positives = Positive,
-         number_of_negatives = Negative,
-         number_of_indeterminates = Indeterminate,
-         town = city)
+  mutate(NumberofTests=sum(Positive, Negative, Indeterminate, na.rm=TRUE)) %>%
+  rename(NumberofPositives = Positive,
+         NumberofNegatives = Negative,
+         NumberofIndeterminates = Indeterminate,
+         Town = city)
 
 #Number of people tested by town
-peopletestbytown<- elr_linelist %>% 
+town_people<- elr_linelist %>% 
+  filter(!city %in% c("Not_available", "Pending validation") & !is.na(city) & !is.na(spec_col_date) & city %in% city_file$TOWN_LC) %>%
+  select(bigID, result, spec_col_date, city) %>% 
   mutate(simple_result = ifelse(result == "detected", 1, 2)) %>%
   group_by(bigID) %>%
   arrange(simple_result,spec_col_date) %>%
@@ -161,7 +139,6 @@ peopletestbytown<- elr_linelist %>%
   rename(Town = city, SpecimenCollectionDate = spec_col_date) %>% 
   group_by(Town) %>% 
   tally(name = "PeopleTested") %>% 
-  filter(Town != "Not_available") %>% 
   mutate(Town = str_to_title(Town)) %>% 
   left_join(city_file %>% select(TOWN_LC,pop_2019),
             by = c("Town" = "TOWN_LC")) %>% 
@@ -169,29 +146,9 @@ peopletestbytown<- elr_linelist %>%
   select(-pop_2019)
 
 #binding all the columns into gary_town_file
-town_Result <- tibble(
-  CITY = town_total_cases$CITY,
-  LastUpdateDate = graphdate,
-  TownTotalCases = town_total_cases$n,
-  TownConfirmedCases = town_confirmed_cases$n,
-  TownProbableCases = town_probable_cases$n,
-  TownTotalDeaths = town_total_deaths$Deaths,
-  TownConfirmedDeaths = town_confirmed_deaths$Deaths,
-  TownProbableDeaths = town_probable_deaths$Deaths,
-  TownCaseRate = TownCaseRate$CaseRate,
-  PeopleTested = peopletestbytown$PeopleTested,
-  NumberofTests = town_tests$number_of_tests,
-  NumberofPositives = town_tests$number_of_positives,
-  NumberofNegatives = town_tests$number_of_negatives,
-  NumberofIndeterminates = town_tests$number_of_indeterminates,
-  RateTested100k = peopletestbytown$RateTested100k
-) %>%
-  left_join(city_file, by = c("CITY" = "TOWN_LC"))%>%
-  rename(Town_No = TOWNNO,
-         Town = CITY) %>%
-  select(Town_No, everything()) %>%
-  filter(!is.na(Town_No)) 
-town_Result[is.na(town_Result)] <- 0
+town_Result <- town_cases %>% 
+  inner_join(town_tests, by = "Town") %>% 
+  inner_join(town_people, by = "Town")
 
 #printing
  if (csv_write) {
@@ -241,6 +198,15 @@ gender_tots <- county_rea_denoms %>%
                          "Female"
   ))
 #creating the columns for this table 
+#testing
+gs <- case %>%
+  filter(!is.na(gender) & !gender %in% c("Unknown", "Other")) %>% 
+  mutate(outcome = ifelse(is.na(outcome), "Survived", outcome)) %>% 
+  group_by(gender, disease_status,outcome) %>% 
+  tally()
+  
+
+
 gstotalcase <- case %>% 
   group_by(gender) %>% 
   tally(name = "Cases") %>% 
