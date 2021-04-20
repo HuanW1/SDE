@@ -261,14 +261,11 @@ statement <-
       SPEC_SOURCE as source, AUTH_FACILITY as auth_facility,
       ORDERING_PROVIDER_NAME as ordering_provider_name,
       LAB_NAME as lab_name, FACILITY_NAME as facility_name,
-      ORDERING_PROVIDER_FNAME as ordering_provider_fname,
-      ORDERING_PROVIDER_LNAME as ordering_provider_lname,
       CASE_MODIFICATION_DATE as case_modification_date,
-      result_rpt_date, Device_ID as device_id,
+      result_rpt_date, 
       SPEC_SOURCE_SNOMED as spec_source_snomed,
-      RESULT_FREE_TEXT as result_free_text,
       ORDER_LAB_FACILITY as order_lab_facility,
-      TESTING_LAB_CLIA as testing_lab_clia, NOTES2 as notes2
+      TESTING_LAB_CLIA as testing_lab_clia
     FROM [DPH_COVID_IMPORT].[dbo].[DAILY_Reports_ALL_COVID_TESTS]"
   )
 
@@ -461,6 +458,16 @@ if(do_DQ) {
 }
 
 ##########  Death Cleanup     #############
+if (!dir.exists(paste0("L:/daily_reporting_figures_rdp/csv/", today()))) {
+  dir.create(paste0("L:/daily_reporting_figures_rdp/csv/", today()))
+}
+
+future_deaths <- df %>%
+  filter(outcome == "Died" & death_date > today())
+
+write_csv(future_deaths, paste0("L:/daily_reporting_figures_rdp/csv/", 
+                                today(), 
+                                "/future_deaths.csv"))
 
 df$outcome[df$covid_death %in% c("Unknown", "No")] <- NA
 #df$death_date[df$covid_death == "No"] <- NA
