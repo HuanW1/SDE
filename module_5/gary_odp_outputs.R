@@ -1,11 +1,17 @@
 #### Module 5 / gary_odp_outputs ####
 #This script will generate the COVID-19 reporting outputs needed for ODP and other stakeholders
 
-####0 libraries and connections ####
+####0 libraries, connections and data, oh my ####
 source("helpers/StartMeUp.R")
 gary_con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 csv_write <- FALSE
 SQL_write <- FALSE
+
+source("helpers/testtypes.R")
+source("helpers/Fetch_case.R")
+source("helpers/Fetch_ELR.R")
+source("helpers/Fetch_cha_c.R")
+source("race_ethnicity/race_ethnicity_setup.R")
 
 ####1 Load Lookups and Dependancies ####
 age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
@@ -26,7 +32,7 @@ statement <- paste0("SELECT cty_label AS county
 county_rea_denoms <- DBI::dbGetQuery(conn = gary_con , statement = statement) %>% 
   mutate(hisp_race = ifelse(hisp == 1, "Hispanic", paste0("NH ", race))) 
 county_rea_denoms$hisp_race[county_rea_denoms$hisp_race %in% c("NH Asian", "NH Native Hawaiian and Other Pacific Islander")] <- "NH Asian or Pacific Islander"
-county_rea_denoms$hisp_race[county_rea_denoms$hisp_race %in% c("NH Two or more races")] <- "Multiple Races" 
+county_rea_denoms$hisp_race[county_rea_denoms$hisp_race %in% c("NH Two or more races")] <- "Multiracial" 
 county_rea_denoms$hisp_race[county_rea_denoms$hisp_race %in% c("NH Black or African American")] <- "NH Black"
 
 county_rea_denoms <- county_rea_denoms %>% 
@@ -44,7 +50,6 @@ county_rea_denoms <- county_rea_denoms %>%
   group_by(county, age_group, gender, hisp_race) %>% 
   summarize(pop = sum(pop)) %>% 
   ungroup()
-
 
 ct_rea_denoms <- county_rea_denoms %>%
   group_by(hisp_race) %>% 
@@ -84,7 +89,7 @@ if (SQL_write) {
 }
 
 #clear trash
-rm(State, LastUpdateDate, TotalCases, ConfirmedCases, ProbableCases, HospitalizedCases, dec, TotalDeaths, ConfirmedDeaths,ProbableDeaths, gary_ages)#,state_Result
+rm(State, LastUpdateDate, TotalCases, ConfirmedCases, ProbableCases,  TotalDeaths, ConfirmedDeaths,ProbableDeaths, gary_ages)#,state_Result
 
 ####3 town_Result.csv ####
 #probably some good candidates for a custom function here
@@ -217,6 +222,15 @@ town_Result[is.na(town_Result)] <- 0
 rm(town_total_cases,town_confirmed_cases,town_probable_cases, town_total_deaths, town_confirmed_deaths, town_probable_deaths, TownCaseRate, peopletestbytown, town_tests)#,town_Result
 
 ####4 ConProbByDate.csv ####
+#but first, epicurve
+epicurve <- case %>% filter(date >= "2020-03-01" & date < Sys.Date()) %>% 
+  group_by(disease_status, date) %>% 
+  tally() %>% 
+  filter(!is.na(date)) %>% 
+  rename(type = disease_status) %>% 
+  mutate(type = factor(type, levels = c("Probable", "Confirmed"), labels = c("Probable", "Confirmed"))) %>% 
+  arrange(date)
+
 # Confirmed and Probable cases by date
 ConProbByDate <- epicurve %>%
   filter(!is.na(date) & date >= "2020-03-05") %>%
@@ -308,6 +322,57 @@ rm(gstotalcase, gsconfirmedcase, gsprobcase, gstotaldeaths, gsconfdeaths, gsprob
 
 
 ####6 StateSummary.csv ####
+# hospitalized_totals <-  cha_c %>%  filter(State== "TOTAL") %>% select(today)
+ncases <- nrow(case)
+ntests <- nrow(elr_linelist)
+
+mock_table <-
+  tibble(`Overall Summary` = c("COVID-19 Cases (confirmed and probable)",
+                               "COVID-19 Tests Reported (molecular and antigen)",
+                               "Daily Test Positivity*",
+                               "Patients Currently Hospitalized with COVID-19",
+                               "COVID-19-Associated Deaths"),
+         `Total**` = c("", "", "", "", ""),
+         `Change Since Yesterday` = c("", "", "", "", ""))
+
+tbl_total_col <-
+  c(as.character(ncases),
+    as.character(ntests),
+    "",
+    as.character(HospitalizedCases$HospitalizedCases),
+    as.character(dec))
+
+mock_table$`Total**` <- tbl_total_col
+
+### Temporary logic to get last report
+when_was_last_report <-
+  case_when(weekdays(today()) %in% c("Monday", "Sunday") ~ "Friday",
+            TRUE ~ weekdays(today() - 1))
+
+last_rpt_data <-
+  table_to_df("RPT_summary_bydate") %>%
+  filter(dow_report_date == when_was_last_report) %>%
+  filter(report_date == max(report_date))
+
+Positivity <- (ncases - last_rpt_data$Cases)/(ntests - last_rpt_data$Tests)
+
+yesterday_col <-
+  c(
+    paste0("+", ncases - last_rpt_data$Cases),
+    paste0("+", ntests - last_rpt_data$Tests),
+    paste0(round(Positivity * 100, 2), "%"),
+    ifelse(HospitalizedCases$HospitalizedCases - last_rpt_data$Hospitalized > 0,
+           paste0("+", HospitalizedCases$HospitalizedCases - last_rpt_data$Hospitalized),
+           paste0(HospitalizedCases$HospitalizedCases - last_rpt_data$Hospitalized)),
+    ifelse(dec - last_rpt_data$Deaths > 0,
+           paste0("+", dec - last_rpt_data$Deaths),
+           paste0(dec - last_rpt_data$Deaths))
+  )
+
+mock_table$`Change Since Yesterday` <- yesterday_col
+
+tableforgary <- mock_table
+
 StateSummary <- tableforgary %>%
   rename(
     Measure ='Overall Summary',
@@ -329,7 +394,7 @@ if(SQL_write){
   df_to_table(StateSummary, "ODP_StateSummary", overwrite = FALSE, append = TRUE)
 }
 #clear trash
-rm(tableforgary)#,StateSummary
+rm(tableforgary, mock_table)#,StateSummary
 
 ####7 AgeGroupSummary.csv####
 #setting up the lookup
@@ -404,31 +469,39 @@ rm(pop, agstotalcases, agsconfcases, agsprobcases, agstotaldeaths, agsprobdeaths
 
 ####8 CountySummary.csv####
 #needs cha_c, tbl_cty_sum from county_lab_cases_deaths_table ~line 800ish in allgasnobrakes
-hospsum <- cha_c %>% filter(!is.na(NAME)) %>%  select(today)
-county_pop <- county_rea_denoms %>% 
-  group_by(county) %>% 
-  summarize(pop = sum(pop))
-CountySummary <- tbl_cty_sum %>% 
-  rename(
-    ConfirmedCases = cases.confirmed,
-    ProbableCases = cases.probable,
-    ConfirmedDeaths = dec.confirmed,
-    ProbableDeaths = dec.probable
-  ) %>% 
+hospsum <- cha_c %>% filter(!is.na(NAME)) %>%  pull(today)
+counties <- tibble::tibble(County = forcats::as_factor(c("Fairfield County", "Hartford County", "Litchfield County", "Middlesex County", "New Haven County", "New London County", "Tolland County", "Windham County"))) %>% pull(County)
+
+CountySummary<- case %>%
+  rename(ds = disease_status, c = county, o = outcome) %>% 
+  group_by(ds,c,o) %>% 
+  tally() %>% 
+  ungroup() %>% 
+  replace_na(replace = list(o = "Survived")) %>%
+  filter(!is.na(c)) %>% 
+  complete(c = counties, o = c("Died", "Survived"), ds = c("Confirmed", "Probable"),
+           fill = list(n = 0)) %>% 
+  mutate(c = factor(c, level = counties, labels = counties))
+
+CountySummary <- tibble(
+  'County' = counties,
+  'ConfirmedCases' = CountySummary %>% filter(ds == "Confirmed") %>% group_by(c) %>%  summarize(n =sum(n)) %>%  pull(n),
+  'ProbableCases' = CountySummary %>% filter(ds == "Probable") %>% group_by(c) %>%  summarize(n =sum(n)) %>%  pull(n),
+  'ConfirmedDeaths' = CountySummary %>% filter(ds == "Confirmed" & o == "Died") %>% group_by(c) %>%  summarize(n =sum(n)) %>%  pull(n),
+  'ProbableDeaths' = CountySummary %>% filter(ds == "Probable" & o == "Died") %>% group_by(c) %>%  summarize(n =sum(n)) %>%  pull(n)
+) %>% 
   filter(County != "Pending address validation") %>% 
-  bind_cols(county_pop %>% select(-county)) %>%
+  left_join(county_rea_denoms %>% group_by(county) %>% summarize(pop = sum(pop)) %>% mutate(county = paste0(county, " County")),
+            by = c("County" = "county")) %>% 
   mutate(
     TotalCases = ConfirmedCases + ProbableCases,
     TotalDeaths = ConfirmedDeaths + ProbableDeaths,
-    CNTY_COD = factor(County, levels =c(
-      'Fairfield County','Hartford County','Litchfield County','Middlesex County','New Haven County','New London County', 'Tolland County', 'Windham County'), labels = c(1,2,3,4,5,6,7,8 )),
-    CNTY_FIPS = factor(County, levels=c(
-      'Fairfield County','Hartford County','Litchfield County','Middlesex County','New Haven County','New London County', 'Tolland County', 'Windham County'), labels=c("'001", "'003", "'005", "'007", "'009", "'011", "'013", "'015")),
-    Hospitalization =hospsum$today,
+    CNTY_COD = factor(County, levels = , labels = c(1,2,3,4,5,6,7,8 )),
+    Hospitalization =hospsum,
     DateUpdated = graphdate,
     TotalCaseRate = round(TotalCases/pop*100000)
   ) %>% 
-  select(CNTY_COD, County, TotalCases, ConfirmedCases,ProbableCases,TotalCaseRate,TotalDeaths,ConfirmedDeaths,ProbableDeaths,Hospitalization,DateUpdated) #CNTY_FIPS removed as of 11/9 per request
+  select(CNTY_COD, County, TotalCases, ConfirmedCases,ProbableCases,TotalCaseRate,TotalDeaths,ConfirmedDeaths,ProbableDeaths,Hospitalization,DateUpdated) 
 
 if(csv_write){
 write_csv(CountySummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/CountySummary.csv"))
@@ -438,7 +511,7 @@ if(SQL_write){
   df_to_table(CountySummary, "ODP_CountySummary", overwrite = TRUE, append = FALSE)
 }
 #clear trash
-rm(hospsum, county_pop, tbl_cty_sum)#,Countysummary
+rm(hospsum, counties)#,Countysummary
 
 ####9 DodSummary.csv####
 #deaths by date
@@ -543,6 +616,8 @@ if(SQL_write){
 rm(anti_tests, molec_tests)#,TestCounty
 
 ####11 WIP REStateSummary.csv ####
+
+
 #summary by race/ethnicity
 REStateSummary <- race_eth_comb %>% 
   #select(-c(caserate100k,deathrate100k)) %>% 
