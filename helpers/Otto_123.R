@@ -242,7 +242,7 @@ statement <-
           cong_exposure_type, cong_facility, cong_yn as ptreside, daycare_yn as daycare_attendee,
           daycare_occu as daycare_staff, case_create_date, case_mod_date, case_effective_date,
           case_eff_From_date as case_eff_from_date, event_date, facilityName,
-          zip_code, race_concat
+          zip_code, race_concat, mname, suffix, COVID_EIP_ID as covid_eip_id
          FROM [DPH_COVID_IMPORT].[dbo].[CTEDSS_DAILY_REPORT_ALL_Cases]")
 
 raw_cases <- DBI::dbGetQuery(conn = con2 , statement = statement)
@@ -596,48 +596,6 @@ df_suspect <- df %>%
   filter(disease_status == "Suspect") %>%
   filter(state == "CT"| is.na(state))
 
-# two_or_more_symps <- df_suspect %>%
-#   select(eventid, disease_status, fever, chills, rigors, myalgia, headache, sorethroat, new_olfact_taste) %>%
-#   pivot_longer(-c(eventid, disease_status), names_to = "symptom", values_to = "symp_pres") %>%
-#   filter(symp_pres == "Yes") %>%
-#   group_by(eventid, disease_status) %>%
-#   tally() %>%
-#   filter(!disease_status %in% c("Confirmed", "Probable")  & n >= 2) %>%
-#   select(eventid) %>%
-#   distinct()
-# 
-# one_of_symps <- df_suspect %>%
-#   select(eventid, disease_status, cough, sob, ards, pneumonia) %>%
-#   pivot_longer(-c(eventid, disease_status), names_to = "symptom", values_to = "symp_pres") %>%
-#   filter(symp_pres == "Yes") %>%
-#   group_by(eventid, disease_status) %>%
-#   tally() %>%
-#   filter(!disease_status %in% c("Confirmed", "Probable")) %>%
-#   select(eventid) %>%
-#   distinct()
-# 
-# suspect_probable <- df_suspect %>%
-#   filter((eventid %in% one_of_symps$eventid | eventid %in% two_or_more_symps$eventid)) %>%
-#   distinct()
-# 
-# if(do_DQ) {
-#   #add in after suspect_probable creation, and before mutate the disease_status changes
-#   dq_diseasestatus_check_table <- df %>%
-#     mutate(pcr_notconfirmed = ifelse((state == "CT"| is.na(state)) & test %in% pcrtests & !disease_status %in% c("Confirmed", "Not a case") & result == "detected", 1, 0),
-#            confirmed_nPCR = ifelse(eventid %in% conf_bad_result$eventid & !eventid %in% conf_good_result$eventid & !eventid %in% untouchable_conf$eventid & !eventid %in% mostly_untouchable_prob$eventid, 1, 0),
-#            ag_probable = ifelse((state == "CT"| is.na(state)) & !eventid %in% pcr_confirmed$eventid & test %in% agtests & !disease_status %in% c("Probable") & result == "detected" & outcome != "Died", 1, 0),
-#            probable_butwhy = ifelse((state == "CT"| is.na(state)) & disease_status %in% c("Probable") & test %in% pcrtests & result %in% c(NA, 'not detected'), 1, 0),
-#            suspect_butpro = ifelse((eventid %in% one_of_symps$eventid|eventid %in% two_or_more_symps$eventid), 1, 0)) %>%
-#     distinct(eventid, .keep_all=TRUE)%>%
-#     select(eventid, bigID, pcr_notconfirmed, confirmed_nPCR, ag_probable, probable_butwhy, suspect_butpro)%>%
-#     filter(pcr_notconfirmed==1 | confirmed_nPCR==1 | ag_probable==1 | probable_butwhy==1 | suspect_butpro==1)
-#   
-#   df_to_table(df_name = dq_diseasestatus_check_table,
-#               table_name = "DQ_statustable",
-#               overwrite = TRUE,
-#               append = FALSE)
-# }
-
 two_or_more_symps <- df_suspect %>%
   select(eventid, disease_status, fever, chills, rigors, myalgia, headache, sorethroat, new_olfact_taste) %>%
   pivot_longer(-c(eventid, disease_status), names_to = "symptom", values_to = "symp_pres") %>%
@@ -729,14 +687,8 @@ df_dim <- dim(df)
 timey <- Sys.time()
 timey <- gsub(pattern = " |:", replacement = "-", x = timey)
 
-# save(started_df,
-#      finished_df,
-#      df_dim,
-#      file = paste0("l:/df_creation_", timey, ".RData" ))
-
 save(df,
      file = paste0("l:/recent_rdata/raw_data_", timey, ".RData" ))
-
 
 ######case pt 1############
 case <- df %>%
@@ -781,7 +733,14 @@ thursday_case <- case %>%
   filter(date >= thursday_range_start & date <= thursday_range_end )
 
 case3 <- case %>%
-  select(eventid,fname, lname, dob, phone, disease_status, age, gender, street, city, county, state, hisp_race, race, hisp,hospitalized, admit_date, discharge_date, icu, preg, symptoms, symp_onset_date, spec_col_date, fever, fatigue, sob, headache, cough, myalgia, new_olfact_taste, rigors, pneumonia, ards, outcome, covid_death, vrn, ocme_reported, ocmeid, death_date, healthcare_worker, cong_setting, cong_exposure_type, cong_facility,cong_yn, case_create_date, event_date, test, result, lab_name, mmwrweek)
+  select(eventid, fname, lname, dob, phone, disease_status, age, gender, street, 
+         city, county, state, hisp_race, race, hisp,hospitalized, admit_date, 
+         discharge_date, icu, preg, symptoms, symp_onset_date, spec_col_date, 
+         fever, fatigue, sob, headache, cough, myalgia, new_olfact_taste, 
+         rigors, pneumonia, ards, outcome, covid_death, vrn, ocme_reported, 
+         ocmeid, death_date, healthcare_worker, cong_setting, cong_exposure_type, 
+         cong_facility,cong_yn, case_create_date, event_date, test, result, 
+         lab_name, mmwrweek, mname, suffix, covid_eip_id)
 
 if(csv_write){
   write_csv(case3, paste0("L:/daily_reporting_figures_rdp/csv/",
