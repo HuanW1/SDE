@@ -308,7 +308,6 @@ pop <- county_rea_denoms %>%
 
 AgeGroupSummary <- case %>% 
   filter(!is.na(age_group)) %>% 
-  mutate(outcome = ifelse(is.na(outcome), "Survived", outcome)) %>% 
   group_by(age_group, disease_status,outcome) %>% 
   tally() %>% 
   ungroup() %>%
@@ -345,38 +344,29 @@ rm(pop, agstotalcases, agsconfcases, agsprobcases, agstotaldeaths, agsprobdeaths
 ####8 CountySummary.csv####
 #needs cha_c, tbl_cty_sum from county_lab_cases_deaths_table ~line 800ish in allgasnobrakes
 hospsum <- cha_c %>% filter(!is.na(NAME)) %>%  pull(today)
-counties <- tibble::tibble(County = forcats::as_factor(c("Fairfield County", "Hartford County", "Litchfield County", "Middlesex County", "New Haven County", "New London County", "Tolland County", "Windham County"))) %>% pull(County)
+counties <-c("Fairfield County", "Hartford County", "Litchfield County", "Middlesex County", "New Haven County", "New London County", "Tolland County", "Windham County")
 
 CountySummary<- case %>%
-  rename(ds = disease_status, c = county, o = outcome) %>% 
-  group_by(ds,c,o) %>% 
+  filter(!is.na(county)) %>% 
+  group_by(county, disease_status,outcome) %>% 
   tally() %>% 
-  ungroup() %>% 
-  replace_na(replace = list(o = "Survived")) %>%
-  filter(!is.na(c)) %>% 
-  complete(c = counties, o = c("Died", "Survived"), ds = c("Confirmed", "Probable"),
-           fill = list(n = 0)) %>% 
-  mutate(c = factor(c, level = counties, labels = counties))
-
-CountySummary <- tibble(
-  'County' = counties,
-  'ConfirmedCases' = CountySummary %>% filter(ds == "Confirmed") %>% group_by(c) %>%  summarize(n =sum(n)) %>%  pull(n),
-  'ProbableCases' = CountySummary %>% filter(ds == "Probable") %>% group_by(c) %>%  summarize(n =sum(n)) %>%  pull(n),
-  'ConfirmedDeaths' = CountySummary %>% filter(ds == "Confirmed" & o == "Died") %>% group_by(c) %>%  summarize(n =sum(n)) %>%  pull(n),
-  'ProbableDeaths' = CountySummary %>% filter(ds == "Probable" & o == "Died") %>% group_by(c) %>%  summarize(n =sum(n)) %>%  pull(n)
-) %>% 
-  filter(County != "Pending address validation") %>% 
+  ungroup() %>%
+  complete(county = counties, disease_status = c("Confirmed", "Probable"), outcome = c("Died", "Survived"), fill = list(n = 0)) %>% 
+  pivot_wider(id_cols = c(county, disease_status, outcome), names_from = c(disease_status, outcome), values_from = n) %>% 
+  mutate(ConfirmedCases = Confirmed_Survived + Confirmed_Died,
+         ProbableCases = Probable_Survived + Probable_Died,
+         TotalDeaths = Confirmed_Died + Probable_Died,
+         TotalCases = ConfirmedCases + ProbableCases,
+         DateUpdated = graphdate) %>% 
   left_join(county_rea_denoms %>% group_by(county) %>% summarize(pop = sum(pop)) %>% mutate(county = paste0(county, " County")),
-            by = c("County" = "county")) %>% 
-  mutate(
-    TotalCases = ConfirmedCases + ProbableCases,
-    TotalDeaths = ConfirmedDeaths + ProbableDeaths,
-    CNTY_COD = factor(County, levels = , labels = c(1,2,3,4,5,6,7,8 )),
-    Hospitalization =hospsum,
-    DateUpdated = graphdate,
-    TotalCaseRate = round(TotalCases/pop*100000)
-  ) %>% 
-  select(CNTY_COD, County, TotalCases, ConfirmedCases,ProbableCases,TotalCaseRate,TotalDeaths,ConfirmedDeaths,ProbableDeaths,Hospitalization,DateUpdated) 
+            by = c("county" = "county")) %>% 
+  mutate(TotalCaseRate = round((TotalCases/pop)*100000),
+         DateUpdated = graphdate,
+         county = factor(county, levels = counties, labels = counties),
+         Hospitalizations = hospsum) %>% 
+  rename(County = county, ProbableDeaths = Probable_Died, 
+         ConfirmedDeaths = Confirmed_Died) %>% 
+  select(County, TotalCases, ConfirmedCases, ProbableCases,TotalCaseRate, TotalDeaths, ConfirmedDeaths, ProbableDeaths, Hospitalizations,DateUpdated) 
 
 if(csv_write){
 write_csv(CountySummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/CountySummary.csv"))
