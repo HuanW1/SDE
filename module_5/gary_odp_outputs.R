@@ -193,72 +193,26 @@ message("Table 3/11 complete, printed and pushed to SQL")
 gender_tots <- county_rea_denoms %>% 
   group_by(gender) %>% 
   summarize(n=sum(pop)) %>% 
-  mutate(gender = ifelse(gender == "M",
-                         "Male",
-                         "Female"
-  ))
-#creating the columns for this table 
-#testing
-gs <- case %>%
+  mutate(gender = ifelse(gender == "M","Male","Female"))
+
+GenderSummary <- case %>%
   filter(!is.na(gender) & !gender %in% c("Unknown", "Other")) %>% 
   mutate(outcome = ifelse(is.na(outcome), "Survived", outcome)) %>% 
   group_by(gender, disease_status,outcome) %>% 
-  tally()
+  tally() %>% 
+  ungroup() %>%
+  pivot_wider(id_cols = c(gender, disease_status, outcome), names_from = c(disease_status, outcome), values_from = n) %>% 
+  mutate(ConfirmedCases = Confirmed_Survived + Confirmed_Died,
+         ProbableCases = Probable_Survived + Probable_Died,
+         TotalDeaths = Confirmed_Died + Probable_Died,
+         TotalCases = ConfirmedCases + ProbableCases,
+         DateUpdated = graphdate) %>% 
+  rename(Gender = gender, ProbableDeaths = Probable_Died, 
+         ConfirmedDeaths = Confirmed_Died) %>% 
+  left_join(gender_tots, by= c("Gender" = "gender")) %>% 
+  mutate(TotalCaseRate = round((TotalCases/n)*100000)) %>% 
+  select(Gender, TotalCases, ConfirmedCases, ProbableCases,TotalDeaths, ConfirmedDeaths, ProbableDeaths, TotalCaseRate, DateUpdated) 
   
-
-
-gstotalcase <- case %>% 
-  group_by(gender) %>% 
-  tally(name = "Cases") %>% 
-  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gsconfirmedcase <- case %>% 
-  filter(disease_status == "Confirmed") %>% 
-  group_by(gender) %>% 
-  tally(name = "Cases") %>% 
-  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gsprobcase <- case %>% 
-  filter(disease_status == "Probable") %>% 
-  group_by(gender) %>% 
-  tally(name = "Cases") %>% 
-  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))  
-gstotaldeaths <- case %>% 
-  filter(outcome =="Died") %>% 
-  group_by(gender) %>% 
-  tally(name = "Deaths")  %>% 
-  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gstotaldeaths <- case %>% 
-  filter(outcome =="Died") %>% 
-  group_by(gender) %>% 
-  tally(name = "Deaths")  %>% 
-  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gsconfdeaths <- case %>% 
-  filter(disease_status == "Confirmed" & outcome =="Died") %>% 
-  group_by(gender) %>% 
-  tally(name = "Deaths")  %>% 
-  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gsprobdeaths <- case %>% 
-  filter(disease_status == "Probable" & outcome =="Died") %>% 
-  group_by(gender) %>% 
-  tally(name = "Deaths")  %>% 
-  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gstotalcaserate <- gstotalcase %>% 
-  left_join(gender_tots, by= c("gender" = "gender")) %>% 
-  mutate(TotalCaseRate = round((Cases/n)*100000)) %>% 
-  select(TotalCaseRate)
-
-#bind all the columns together
-GenderSummary <- tibble(
-  Gender = gstotalcase$gender,
-  TotalCases = gstotalcase$Cases,
-  ConfirmedCases = gsconfirmedcase$Cases,
-  ProbableCases = gsprobcase$Cases,
-  TotalDeaths = gstotaldeaths$Deaths,
-  ConfirmedDeaths = gsconfdeaths$Deaths,
-  ProbableDeaths = gsprobdeaths$Deaths,
-  TotalCaseRate = gstotalcaserate$TotalCaseRate,
-  DateUpdated = format(graphdate, "%m/%d/%Y")
-) 
-
 #printing
 if (csv_write) {
 write_csv(GenderSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/GenderSummary.csv"))
