@@ -1,5 +1,6 @@
 #### Module 5 / gary_odp_outputs ####
 #This script will generate the COVID-19 reporting outputs needed for ODP and other stakeholders
+message("Gary's ODP output process will now begin.  This usually takes 3.5 minutes")
 
 ####0 libraries, connections and data, oh my ####
 source("helpers/StartMeUp.R")
@@ -7,11 +8,12 @@ gary_con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 csv_write <- FALSE
 SQL_write <- FALSE
 
+#grab relevant test names, cases data, test data, and CHA data
 source("helpers/testtypes.R")
 source("helpers/Fetch_case.R")
 source("helpers/Fetch_ELR.R")
 source("helpers/Fetch_cha_c.R")
-source("race_ethnicity/race_ethnicity_setup.R")
+
 
 ####1 Load Lookups and Dependancies ####
 age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
@@ -21,45 +23,26 @@ gary_age_labels <- c("cases_age0_9", "cases_age10_19", "cases_age20_29", "cases_
 statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[RPT_TOWN_CODES]")
 city_file <-  DBI::dbGetQuery(conn = gary_con , statement = statement)
 
-statement <- paste0("SELECT cty_label AS county
-                    ,agegp18_label AS age_group
-                    ,sex_label AS gender
-                    ,race6_label AS race
-                    ,hisp2 AS hisp
-                    ,POP AS pop
-                    FROM DPH_COVID_IMPORT.dbo.RPT_COUNTY_REA_DENOMS
-                    WHERE YEAR = 2019")
-county_rea_denoms <- DBI::dbGetQuery(conn = gary_con , statement = statement) %>% 
-  mutate(hisp_race = ifelse(hisp == 1, "Hispanic", paste0("NH ", race))) 
-county_rea_denoms$hisp_race[county_rea_denoms$hisp_race %in% c("NH Asian", "NH Native Hawaiian and Other Pacific Islander")] <- "NH Asian or Pacific Islander"
-county_rea_denoms$hisp_race[county_rea_denoms$hisp_race %in% c("NH Two or more races")] <- "Multiracial" 
-county_rea_denoms$hisp_race[county_rea_denoms$hisp_race %in% c("NH Black or African American")] <- "NH Black"
+#sets up rea tables and percents
+source("race_ethnicity/race_ethnicity_setup.R")
 
-county_rea_denoms <- county_rea_denoms %>% 
-  mutate(age_group = case_when(
-    age_group %in% c("0-4 yrs", "5-9 yrs") ~ "0-9",
-    age_group %in% c("10-14 yrs", "15-19 yrs") ~ "10-19",
-    age_group %in% c("20-24 yrs", "25-29 yrs") ~ "20-29",
-    age_group %in% c("30-34 yrs" , "35-39 yrs") ~ "30-39",
-    age_group %in% c("40-44 yrs", "45-49 yrs") ~ "40-49",
-    age_group %in% c("50-54 yrs", "55-59 yrs") ~ "50-59",
-    age_group %in% c("60-64 yrs", "65-69 yrs") ~ "60-69",
-    age_group %in% c("70-74 yrs", "75-79 yrs") ~ "70-79",
-    age_group %in% c("80-84 yrs", "85+ yrs") ~ ">=80"
-  )) %>% 
-  group_by(county, age_group, gender, hisp_race) %>% 
-  summarize(pop = sum(pop)) %>% 
-  ungroup()
-
+#state denoms
 ct_rea_denoms <- county_rea_denoms %>%
   group_by(hisp_race) %>% 
   summarize(pop = sum(pop))
 
 graphdate <- Sys.Date() - 1
 
+#only keep what we need
+case <- case %>% 
+  select(c(bigID,eventid,disease_status,age,gender,street, city,county, state,zip_code, hisp_race,outcome, spec_col_date,date, age_group,death_date))
+
+elr_linelist <- elr_linelist %>% 
+  select(c(eventid, bigID, city,county, test_method, result,spec_col_date))
+
 #clear trash
 odbc::dbDisconnect(gary_con)
-rm(statement)
+rm(adj_tbl_long, adj_tbl_long_dec, agg_table, agg_table_dec, more_ages, spop2000)
 
 ####2 state_Result.csv ####
 #these require case and dec and cha_c
@@ -87,7 +70,7 @@ if (csv_write) {
 if (SQL_write) {
   df_to_table(state_Result, "ODP_state_Result", overwrite = TRUE, append = FALSE)
 }
-
+message("Table 1/11 complete, printed and pushed to SQL")
 #clear trash
 rm(State, LastUpdateDate, TotalCases, ConfirmedCases, ProbableCases,  TotalDeaths, ConfirmedDeaths,ProbableDeaths, gary_ages)#,state_Result
 
@@ -217,7 +200,7 @@ town_Result[is.na(town_Result)] <- 0
  if (SQL_write) {
    df_to_table(town_Result, "ODP_town_Result", overwrite = TRUE, append = FALSE)
  }
-
+message("Table 2/11 complete, printed and pushed to SQL")
 #clear trash
 rm(town_total_cases,town_confirmed_cases,town_probable_cases, town_total_deaths, town_confirmed_deaths, town_probable_deaths, TownCaseRate, peopletestbytown, town_tests)#,town_Result
 
@@ -247,7 +230,7 @@ if (csv_write) {
 if (SQL_write) {
   df_to_table(ConProbByDate, "ODP_ConProbByDate", overwrite = TRUE, append = FALSE)
 }
-
+message("Table 3/11 complete, printed and pushed to SQL")
 ####5 GenderSummary.csv####
 #set up the lookup to be gender only
 gender_tots <- county_rea_denoms %>% 
@@ -317,6 +300,7 @@ write_csv(GenderSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.
 if(SQL_write){
   df_to_table(GenderSummary, "ODP_GenderSummary", overwrite = TRUE, append = FALSE)
 }
+message("Table 4/11 complete, printed and pushed to SQL")
 #clear trash
 rm(gstotalcase, gsconfirmedcase, gsprobcase, gstotaldeaths, gsconfdeaths, gsprobdeaths, gstotalcaserate, gender_tots)#,GenderSummary
 
@@ -393,6 +377,7 @@ write_csv(StateSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.D
 if(SQL_write){
   df_to_table(StateSummary, "ODP_StateSummary", overwrite = FALSE, append = TRUE)
 }
+message("Table 5/11 complete, printed and pushed to SQL")
 #clear trash
 rm(tableforgary, mock_table)#,StateSummary
 
@@ -463,6 +448,7 @@ if (csv_write) {
 if(SQL_write){
   df_to_table(AgeGroupSummary, "ODP_AgeGroupSummary", overwrite = TRUE, append = FALSE)
 }
+message("Table 6/11 complete, printed and pushed to SQL")
 #clear trash
 rm(pop, agstotalcases, agsconfcases, agsprobcases, agstotaldeaths, agsprobdeaths, agstotalrate)#,AgeGroupSummary
 
@@ -510,6 +496,7 @@ write_csv(CountySummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.
 if(SQL_write){
   df_to_table(CountySummary, "ODP_CountySummary", overwrite = TRUE, append = FALSE)
 }
+message("Table 7/11 complete, printed and pushed to SQL")
 #clear trash
 rm(hospsum, counties)#,Countysummary
 
@@ -551,7 +538,7 @@ if(csv_write){
 if(SQL_write){
   df_to_table(DodSummary, "ODP_DodSummary", overwrite = TRUE, append = FALSE)
 }
-
+message("Table 8/11 complete, printed and pushed to SQL")
 #clear trash
 rm(totaldeathsdate, confirmeddeathsdate, probsdeathdate)#,DodSummary
 
@@ -611,16 +598,14 @@ if(csv_write){
 if(SQL_write){
   df_to_table(TestCounty, "ODP_TestCounty", overwrite = TRUE, append = FALSE)
 }
+message("Table 9/11 complete, printed and pushed to SQL")
 
 #clear trash
 rm(anti_tests, molec_tests)#,TestCounty
 
-####11 WIP REStateSummary.csv ####
-
-
+####11 REStateSummary.csv ####
 #summary by race/ethnicity
 REStateSummary <- race_eth_comb %>% 
-  #select(-c(caserate100k,deathrate100k)) %>% 
   left_join(adj_table) %>% 
   rename(
     CrudeCaseRate = Crude,
@@ -650,6 +635,7 @@ if(csv_write){
 if(SQL_write){
   df_to_table(REStateSummary, "ODP_REStateSummary", overwrite = TRUE, append = FALSE)
 }
+message("Table 10/11 complete, printed and pushed to SQL")
 
 #clear trash
 rm()#race_eth_comb
@@ -676,6 +662,8 @@ if (csv_write) {
 if(SQL_write){
   df_to_table(CountySummarybyDate, "ODP_CountySummarybyDate", overwrite = TRUE, append = FALSE)
 }
+message("Table 11/11 complete, printed and pushed to SQL")
 
 #clear trash
 rm()#CountySummarybyDate
+message("Gary's ODP Output process complete")
