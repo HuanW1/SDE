@@ -37,7 +37,8 @@ graphdate <- Sys.Date() - 1
 
 #only keep what we need
 case <- case %>% 
-  select(c(bigID,eventid,disease_status,age,gender,street, city,county, state,zip_code, hisp_race,outcome, spec_col_date,date, age_group,death_date))
+  select(c(bigID,eventid,disease_status,age,gender,street, city,county, state,zip_code, hisp_race,outcome, spec_col_date,date, age_group,death_date)) %>% 
+  mutate(outcome = ifelse(is.na(outcome), "Survived", outcome)) 
 
 elr_linelist <- elr_linelist %>% 
   select(c(eventid, bigID, city,county, test_method, result,spec_col_date))
@@ -86,7 +87,6 @@ rm(state_Result)
     filter(!is.na(city) & city != "Not_available") %>% 
     group_by(city, disease_status,outcome) %>% 
     tally() %>%
-    mutate(outcome = ifelse(is.na(outcome), "Survived", outcome)) %>% 
     rename(Town = city) %>% 
     ungroup() %>% 
     complete(Town = city_file$TOWN_LC, outcome = c("Died", "Survived"),disease_status = c("Confirmed", "Probable"), fill = list(n = 0)) %>% 
@@ -197,7 +197,6 @@ gender_tots <- county_rea_denoms %>%
 
 GenderSummary <- case %>%
   filter(!is.na(gender) & !gender %in% c("Unknown", "Other")) %>% 
-  mutate(outcome = ifelse(is.na(outcome), "Survived", outcome)) %>% 
   group_by(gender, disease_status,outcome) %>% 
   tally() %>% 
   ungroup() %>%
@@ -307,59 +306,29 @@ pop <- county_rea_denoms %>%
   group_by(age_group) %>% 
   summarise(pop = sum(pop))
 
-#creating the columns of this table
-agstotalcases <- case %>% 
+AgeGroupSummary <- case %>% 
   filter(!is.na(age_group)) %>% 
-  group_by(age_group) %>% 
-  tally(name = "TotalCases")
-agsconfcases <- case %>% 
-  filter(!is.na(age_group) & disease_status == "Confirmed") %>% 
-  group_by(age_group) %>% 
-  tally(name = "ConfCases")
-
-agsprobcases<- case %>% 
-  filter(!is.na(age_group) & disease_status == "Probable") %>% 
-  group_by(age_group) %>% 
-  tally(name = "ProbCases")
-agstotaldeaths <- case %>% 
-  filter(!is.na(age_group)  & outcome == "Died") %>% 
-  group_by(age_group) %>% 
-  tally(name = "TotalDeaths") %>% 
-  complete(age_group = unique(case$age_group), fill = list("TotalDeaths" = 0))
-
-agsconfdeaths <- case %>% 
-  filter(!is.na(age_group) & disease_status == "Confirmed" & outcome == "Died") %>% 
-  group_by(age_group) %>% 
-  tally(name = "ConfDeaths")%>% 
-  complete(age_group = unique(case$age_group), fill = list("ConfDeaths" = 0))
-
-agsprobdeaths <- case %>% 
-  filter(!is.na(age_group) & disease_status == "Probable" & outcome == "Died") %>% 
-  group_by(age_group) %>% 
-  tally(name = "ProbDeaths") %>% 
-  complete(age_group = unique(case$age_group), fill = list(ProbDeaths = 0))
-
-agstotalrate <- case %>% 
-  filter(!is.na(age_group)) %>% 
-  group_by(age_group) %>% 
-  tally(name = "TotalCases") %>% 
+  mutate(outcome = ifelse(is.na(outcome), "Survived", outcome)) %>% 
+  group_by(age_group, disease_status,outcome) %>% 
+  tally() %>% 
+  ungroup() %>%
+  complete(age_group = age_labels, disease_status = c("Confirmed", "Probable"), outcome = c("Died", "Survived"), fill = list(n = 0)) %>% 
+  pivot_wider(id_cols = c(age_group, disease_status, outcome), names_from = c(disease_status, outcome), values_from = n) %>% 
+  mutate(ConfirmedCases = Confirmed_Survived + Confirmed_Died,
+         ProbableCases = Probable_Survived + Probable_Died,
+         TotalDeaths = Confirmed_Died + Probable_Died,
+         TotalCases = ConfirmedCases + ProbableCases,
+         DateUpdated = graphdate) %>% 
   left_join(pop, by = c("age_group" = "age_group")) %>% 
-  mutate(TotalCaseRate = round((TotalCases/pop)*100000))
-
-#binding the columns together
-AgeGroupSummary <- tibble(
-  AgeGroups = agstotalcases$age_group,
-  TotalCases =agstotalcases$TotalCases,
-  ConfirmedCases = agsconfcases$ConfCases,
-  ProbableCases = agsprobcases$ProbCases,
-  TotalDeaths = agstotaldeaths$TotalDeaths,
-  ConfirmedDeaths = agsconfdeaths$ConfDeaths,
-  ProbableDeaths = agsprobdeaths$ProbDeaths,
-  TotalCaseRate = agstotalrate$TotalCaseRate,
-  DateUpdated = graphdate
-) %>% 
-  mutate(AgeGroups = as.character(AgeGroups))
-AgeGroupSummary$AgeGroups[AgeGroupSummary$AgeGroups == ">=80"] <- "80 and older"
+  mutate(TotalCaseRate = round((TotalCases/pop)*100000),
+         DateUpdated = graphdate,
+         age_group = factor(age_group, levels = age_labels, labels = age_labels)) %>% 
+  rename(AgeGroups = age_group, ProbableDeaths = Probable_Died, 
+         ConfirmedDeaths = Confirmed_Died) %>% 
+  select(AgeGroups, TotalCases, ConfirmedCases, ProbableCases,TotalDeaths, ConfirmedDeaths, ProbableDeaths, TotalCaseRate, DateUpdated) %>% 
+  arrange(AgeGroups) %>% 
+  mutate(AgeGroups = as.character(AgeGroups),
+         AgeGroups = ifelse(AgeGroups == ">=80", "80 and older", AgeGroups))
 
 #printing
 if (csv_write) {
