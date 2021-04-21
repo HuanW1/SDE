@@ -49,14 +49,12 @@ if(csv_write){
 rm(spec_dates, admissions, labdata, CT_daily_counts_totals)
 
 ####2 newcases+tests.csv / newcasetable ####
-# thursday_case <- case %>% 
-#   filter(date >= thursday_range_start & date <= thursday_range_end )
-# casenew <- thursday_case 
+testgeo_con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 thisweek <- epiweek(Sys.Date())
 thisyear <- epiyear(Sys.Date())
 beginofcurmmwr <- MMWRweek2Date(MMWRyear = thisyear, MMWRweek = thisweek, MMWRday = 1)
 
-newcasetable <- case %>%
+newcases_tests <- case %>%
   filter(date>= beginofcurmmwr-14 & date < beginofcurmmwr 
          & city %in% city_file$TOWN_LC & cong_yn == "No") %>%
   group_by(city) %>% 
@@ -66,69 +64,32 @@ newcasetable <- case %>%
   inner_join(city_file %>%  select(TOWN_LC, pop_2019), 
              by = c("city" = "TOWN_LC")) %>% 
   mutate(Rate =  round(((Cases/14)/pop_2019)*100000,1),
-         DateUpdated = graphdate)
+         DateUpdated = graphdate)%>% 
+  rename(Town = city)
 
-
-testgeo_con <- DBI::dbConnect(odbc::odbc(), "epicenter")
-ghost_data <- tbl(testgeo_con, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.CTEDSS_GEOCODED_RECORDS"))
-testgeo2 <-
-  ghost_data %>%
-  select(case_id, X, Y, geoid10, name, License__, DBA, type) %>%
+newcases_tests <- tbl(testgeo_con, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.CTEDSS_GEOCODED_RECORDS")) %>%
+  select(case_id,name, DBA) %>%
   mutate(newName = if_else(name %in% c("", "NULL"), NA_character_, name),
          DBA = if_else(DBA %in% c("", "NULL"), NA_character_, DBA),
          facil_name = if_else(is.na(newName), DBA, name),
          cong_test = if_else(!is.na(facil_name), "Yes", "No"),
          eventid = as.numeric(case_id)) %>%
-  rename(GEOID10 = geoid10, Name = name)  %>%
-  select(-c("case_id", "newName", "License__", "DBA")) %>%
-  arrange(facil_name) %>%
+  select(eventid, cong_test) %>%
   collect() %>%
+  filter(!cong_test %in% "Yes") %>% 
   inner_join(elr_linelist %>% filter(pcrag == "pcr"), 
              by = "eventid") %>%
-  mutate(
-    date = ifelse(!is.na(spec_col_date), spec_col_date, mdy(spec_rec_date)),
-    date = as.Date(date, origin = ymd("1970-01-01")),
-    mmwrweek = epiweek(date)) %>% 
+  mutate(date = ifelse(!is.na(spec_col_date), spec_col_date, mdy(spec_rec_date)),
+         date = as.Date(date, origin = ymd("1970-01-01")),
+         mmwrweek = epiweek(date)) %>% 
   filter(date >= thursday_range_start & date <= thursday_range_end) %>% 
-  
+  group_by(city) %>% 
+  tally(name = "Tests") %>% 
+  right_join(newcasetable, by = c("city" = "Town")) %>% 
+  rename(Town = city, Population = pop_2019) %>% 
+  select(Town, Population, Cases, Rate, Tests, DateUpdated)
   
 odbc::dbDisconnect(testgeo_con)
-
-
-#dates for TESTS SHOULD NOT BE SET BY EVENT DATE. UPDATED TO ONLY USE SPEC COL or received DATE 10/15/2020.
-# testgeo2 <- elr_linelist %>%
-#   mutate(eventid = as.numeric(eventid)) %>% 
-#   left_join(testgeo, by = "eventid") %>%
-#   mutate(
-#     date = ifelse(!is.na(spec_col_date), spec_col_date, mdy(spec_rec_date)),
-#     date = as.Date(date, origin = ymd("1970-01-01")),
-#     mmwrweek = epiweek(date)
-#  )  %>% 
-# filter(test_method %in% pcrtests2)
-
-#limit to 14 days thursday range
-test14 <- testgeo2 %>%
-  filter(date >= thursday_range_start & date <= thursday_range_end )
-#limit to community setting tests
-test14nc <- test14 %>%
-  filter(!cong_test %in% "Yes")
-
-#count by town community only tests (exclude tests in congregate setting based on geocode results)
-test14nc_ct <- test14nc %>%
-  mutate(NAME = str_to_title(city)) %>% 
-  group_by(NAME) %>% 
-  tally(name = "Tests")
-# #join to geography
-# subdat14tnc <- subdat %>% 
-#   left_join(
-#     test14nc_ct, by = c("NAME" = "NAME")    
-#   )
-
-
-
-
-#drop n
-#0 is 0 and 1 to 4 is <5
 
 if(csv_write){
   write_csv(newcasetable, 
