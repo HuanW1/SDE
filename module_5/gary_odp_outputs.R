@@ -46,7 +46,6 @@ elr_linelist <- elr_linelist %>%
 
 #clear trash for race_ethnicity_setup
 odbc::dbDisconnect(gary_con)
-rm(adj_tbl_long, adj_tbl_long_dec, agg_table, agg_table_dec, more_ages, spop2000, longcha)
 
 ####1 REStateSummary.csv ####
 #summary by race/ethnicity
@@ -82,7 +81,7 @@ if(SQL_write){
 message("Table 1/11 complete, printed and pushed to SQL")
 
 #clear trash
-rm(race_eth_comb, REStateSummary, adj_table, adj_table_dec, gender_race_eth)
+rm(REStateSummary)
 
 ####2 CountySummary.csv####
 hospsum <- cha_c %>% filter(!is.na(NAME)) %>%  pull(today)
@@ -224,7 +223,7 @@ if (SQL_write) {
 }
 message("Table 4/11 complete, printed and pushed to SQL")
 #clear trash
-rm(state_Result, cha_c)
+rm(state_Result)
 
 ####5 town_Result.csv ####
   town_cases <- case %>% 

@@ -1,11 +1,11 @@
 #### Module 5 Setup ####
 #This script will pull common files needed for all module 5 scripts
 #this will be slotted in and run by run_mod5 script and replace the top of mod5 scripts when ready
-message("Miscellaneous output process will now begin.  This usually takes X minutes")
+message("Module 5 Setup process will now begin.  This usually takes X minutes")
 
 ###0 libraries, connections and data, oh my ####
-source("helpers/StartMeUp.R")
 gary_con <- DBI::dbConnect(odbc::odbc(), "epicenter")
+message("CSV and SQL writes are OFF")
 csv_write <- FALSE
 SQL_write <- FALSE
 
@@ -13,7 +13,7 @@ SQL_write <- FALSE
 source("helpers/testtypes.R")
 source("helpers/Fetch_case.R")
 source("helpers/Fetch_ELR.R")
-source("helpers/Fetch_cha_c.R")
+source("helpers/Fetch_cha.R")
 
 ####1 Load Lookups and Dependancies ####
 age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
@@ -45,5 +45,5 @@ case <- case %>%
 elr_linelist <- elr_linelist %>% 
   select(c(eventid, bigID, city,county, test_method, result,spec_col_date, pcrag))
 
-#clear trash for race_ethnicity_setup
 odbc::dbDisconnect(gary_con)
+message("Module 5 setup is now complete")
