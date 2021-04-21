@@ -168,9 +168,8 @@ statement <-
           cong_exposure_type, cong_facility, cong_yn as ptreside, daycare_yn as daycare_attendee,
           daycare_occu as daycare_staff, case_create_date, case_mod_date, case_effective_date,
           case_eff_From_date as case_eff_from_date, event_date, facilityName,
-          zip_code, race_concat
+          zip_code, race_concat, mname, suffix, COVID_EIP_ID as covid_eip_id
          FROM [DPH_COVID_IMPORT].[dbo].[CTEDSS_DAILY_REPORT_ALL_Cases]")
-
 
 raw_cases <- DBI::dbGetQuery(conn = con2 , statement = statement)
 
@@ -186,14 +185,11 @@ statement <-
       SPEC_SOURCE as source, AUTH_FACILITY as auth_facility,
       ORDERING_PROVIDER_NAME as ordering_provider_name,
       LAB_NAME as lab_name, FACILITY_NAME as facility_name,
-      ORDERING_PROVIDER_FNAME as ordering_provider_fname,
-      ORDERING_PROVIDER_LNAME as ordering_provider_lname,
       CASE_MODIFICATION_DATE as case_modification_date,
-      result_rpt_date, Device_ID as device_id,
+      result_rpt_date, 
       SPEC_SOURCE_SNOMED as spec_source_snomed,
-      RESULT_FREE_TEXT as result_free_text,
       ORDER_LAB_FACILITY as order_lab_facility,
-      TESTING_LAB_CLIA as testing_lab_clia, NOTES2 as notes2
+      TESTING_LAB_CLIA as testing_lab_clia
     FROM [DPH_COVID_IMPORT].[dbo].[DAILY_Reports_ALL_COVID_TESTS]"
   )
 
