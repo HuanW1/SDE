@@ -49,61 +49,24 @@ if(csv_write){
 rm(spec_dates, admissions, labdata, CT_daily_counts_totals)
 
 ####2 newcases+tests.csv / newcasetable ####
-
-thursday_case <- case %>% 
-  filter(date >= thursday_range_start & date <= thursday_range_end )
-
-casenew <- thursday_case 
+# thursday_case <- case %>% 
+#   filter(date >= thursday_range_start & date <= thursday_range_end )
+# casenew <- thursday_case 
 thisweek <- epiweek(Sys.Date())
 thisyear <- epiyear(Sys.Date())
 beginofcurmmwr <- MMWRweek2Date(MMWRyear = thisyear, MMWRweek = thisweek, MMWRday = 1)
 
-cases_14 <- casenew %>%
-  # filter(week >= thisweek-2 & week <= thisweek-1)
-  filter(date>= beginofcurmmwr-14 & date <beginofcurmmwr)
-cases_14_nc <- cases_14 %>%
-  filter(cong_yn == "No")
-
-num_groups <- c("None", "1 to 5", "6 to 24", "25 to 49", "51 to 100", "101 to 200", "201 to 500", "501 to 1000", "1001 to 5000")
-avgratebreaks <-  c(
-  "<5 cases per 100,000 or <5 reported cases",
-  "5-9 cases per 100,000",
-  "10-14 cases per 100,000",
-  "15 or more cases per 100,000"
-)
-
-c14nc_count <- cases_14_nc %>%
-  mutate(NAME = str_to_title(city)) %>% 
-  group_by(NAME) %>% 
-  tally() %>% 
-  complete(NAME = town_pop18$city, fill = list(n = 0)) %>% 
-  filter(!NAME == "Not Available")
-
-#c14nc_count$n[is.na(c14nc_count$n)] <- 0
-c14nc_count <- c14nc_count %>% 
-  full_join(town_pop18, by = c("NAME" = "city")) %>% 
-  mutate(CaseRate = round(((n/14)/pop)*100000,1),
-         n2 = cut(n, breaks = c(-Inf,0,5,25,50,100,200,500,1000, Inf), labels = num_groups),
-         avgrate = ifelse(n < 5 | CaseRate < 5, "<5 cases per 100,000 or <5 reported cases",
-                          ifelse(CaseRate >=5 & CaseRate <10, "5-9 cases per 100,000",
-                                 ifelse(CaseRate >=10 & CaseRate <15, "10-14 cases per 100,000",
-                                        ifelse(CaseRate >=15,  "15 or more cases per 100,000", "Not categorized"))))
-  )
-c14nc_count$avgrate <- factor(c14nc_count$avgrate, labels = avgratebreaks, levels = avgratebreaks )
-subdat14nc <- subdat %>% 
-  left_join(
-    c14nc_count, by = c("NAME" = "NAME")    
-  )
-subdat14nc$n2[is.na(subdat14nc$n2)] <- "None"
-paletteo<- c("#fcf8f8", "#fff7bc", "#fec44f", "#d95f0e", "#993404", NA) ## fix colors
-
-#paletteo2<- c("#fcf8f8", "#fff7bc", "#fee391", "#fec44f", "#fe9929", "#ec7014", "#cc4c02", "#8c2d04", NA)
-paletteo2<- c("#fcf8f8", "#fff7bc", "#fee391", "#fec44f", "#fe9929", "#ec7014", "#cc4c02", "#8c2d04", "#e31a1c", NA)
-
-n14ncperc <- paste0("(",round(nrow(cases_14_nc)/nrow(cases_14)*100), "%)")
-com <- nrow(cases_14) - nrow(cases_14_nc)
-n14cperc <- paste0("(",round(com/nrow(cases_14)*100), "%)")
-```
+newcasetable <- case %>%
+  filter(date>= beginofcurmmwr-14 & date < beginofcurmmwr 
+         & city %in% city_file$TOWN_LC & cong_yn == "No") %>%
+  group_by(city) %>% 
+  tally(name = "Cases") %>% 
+  ungroup() %>% 
+  complete(city = city_file$TOWN_LC, fill = list('Cases' = 0)) %>% 
+  inner_join(city_file %>%  select(TOWN_LC, pop_2019), 
+             by = c("city" = "TOWN_LC")) %>% 
+  mutate(Rate =  round(((Cases/14)/pop_2019)*100000,1),
+         DateUpdated = graphdate)
 
 
 testgeo_con <- DBI::dbConnect(odbc::odbc(), "epicenter")
@@ -120,11 +83,14 @@ testgeo2 <-
   select(-c("case_id", "newName", "License__", "DBA")) %>%
   arrange(facil_name) %>%
   collect() %>%
-  inner_join(elr_linelist, by = "eventid") %>%
+  inner_join(elr_linelist %>% filter(pcrag == "pcr"), 
+             by = "eventid") %>%
   mutate(
     date = ifelse(!is.na(spec_col_date), spec_col_date, mdy(spec_rec_date)),
     date = as.Date(date, origin = ymd("1970-01-01")),
-    mmwrweek = epiweek(date))
+    mmwrweek = epiweek(date)) %>% 
+  filter(date >= thursday_range_start & date <= thursday_range_end) %>% 
+  
   
 odbc::dbDisconnect(testgeo_con)
 
@@ -152,32 +118,14 @@ test14nc_ct <- test14nc %>%
   mutate(NAME = str_to_title(city)) %>% 
   group_by(NAME) %>% 
   tally(name = "Tests")
-#join to geography
-subdat14tnc <- subdat %>% 
-  left_join(
-    test14nc_ct, by = c("NAME" = "NAME")    
-  )
+# #join to geography
+# subdat14tnc <- subdat %>% 
+#   left_join(
+#     test14nc_ct, by = c("NAME" = "NAME")    
+#   )
 
 
-######## FIX
-newcasetable <- c14nc_count %>%
-  select(NAME, n, pop, CaseRate) %>%
-  left_join(test14nc_ct, by = "NAME") %>% 
-  mutate(Cases =if_else(is.na(n), 0, n),
-         CaseRate = if_else(is.na(CaseRate), 0, CaseRate),
-         Tests = as.numeric(Tests),
-         Tests = if_else(is.na(Tests), 0, Tests),
-         DateUpdated = Sys.Date(),
-         #Cases = ifelse(Cases >0 & Cases <5, "<5", Cases)
-  ) %>%
-  select(-n) %>% 
-  #select(-c("n.x", "n.y")) %>%
-  filter(NAME != "Not_available"  & NAME != "Not Available" & NAME  %in% cc_map$CITY) %>%
-  rename(Town = NAME,
-         Population = pop,
-         Rate = CaseRate) %>%
-  select(c(Town, Population, Cases, Rate, Tests, DateUpdated)) %>% 
-  arrange(Town)
+
 
 #drop n
 #0 is 0 and 1 to 4 is <5
