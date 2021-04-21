@@ -24,6 +24,14 @@ which_one <-
   read_csv(possibilities)
 
 # c. make it useful
+longcha <- which_one %>% 
+  filter(Type == "Admit" & State == "TOTAL") %>% 
+  select(-c(Change, County, State)) %>% 
+  pivot_longer(-Type, names_to = "admit_date", values_to = "admissions") %>% 
+  select(-Type) %>% 
+  mutate(admit_date = mdy(admit_date))
+
+
 cha_c <- which_one %>% 
   filter(Type == "Admit") %>% 
   select(-Type) %>% 
