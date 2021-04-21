@@ -525,8 +525,16 @@ case$death_date[is.na(case$covid_death) | case$covid_death == "NO"] <- NA
 thursday_case <- case %>% 
   filter(date >= thursday_range_start & date <= thursday_range_end )
 
-case3 <- case %>% 
-select(eventid,fname, lname, dob, phone, disease_status, age, gender, street, city, county, state, hisp_race, race, hisp,hospitalized, admit_date, discharge_date, icu, preg, symptoms, symp_onset_date, spec_col_date, fever, fatigue, sob, headache, cough, myalgia, new_olfact_taste, rigors, pneumonia, ards, outcome, covid_death, vrn, ocme_reported, ocmeid, death_date, healthcare_worker, cong_setting, cong_exposure_type, cong_facility,cong_yn, case_create_date, event_date, test, result, lab_name, mmwrweek)
+case3 <- 
+  case %>% 
+  select(eventid, fname, lname, dob, phone, disease_status, age, gender, 
+         street, city, county, state, hisp_race, race, hisp,hospitalized, 
+         admit_date, discharge_date, icu, preg, symptoms, symp_onset_date, 
+         spec_col_date, fever, fatigue, sob, headache, cough, myalgia, 
+         new_olfact_taste, rigors, pneumonia, ards, outcome, covid_death, 
+         vrn, ocme_reported, ocmeid, death_date, healthcare_worker, cong_setting, 
+         cong_exposure_type, cong_facility, cong_yn, case_create_date, event_date, 
+         test, result, lab_name, mmwrweek, mname, suffix, covid_eip_id)
 
 if(csv_write){
   write_csv(case3, paste0("L:/daily_reporting_figures_rdp/csv/",
