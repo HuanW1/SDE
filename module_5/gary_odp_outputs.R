@@ -44,7 +44,7 @@ case <- case %>%
 elr_linelist <- elr_linelist %>% 
   select(c(eventid, bigID, city,county, test_method, result,spec_col_date, pcrag))
 
-#clear trash
+#clear trash for race_ethnicity_setup
 odbc::dbDisconnect(gary_con)
 rm(adj_tbl_long, adj_tbl_long_dec, agg_table, agg_table_dec, more_ages, spop2000)
 
@@ -70,7 +70,6 @@ REStateSummary <- race_eth_comb %>%
     DeathAgeAdjusted= round(DeathAgeAdjusted),
     DateUpdated = graphdate
   ) 
-#REStateSummary$tot[REStateSummary$hisp_race == "NH Multiracial"] <- NA
 
 #printing
 if(csv_write){
@@ -86,7 +85,6 @@ message("Table 1/11 complete, printed and pushed to SQL")
 rm(race_eth_comb, REStateSummary, adj_table, adj_table_dec, gender_race_eth)
 
 ####2 CountySummary.csv####
-#needs cha_c, tbl_cty_sum from county_lab_cases_deaths_table ~line 800ish in allgasnobrakes
 hospsum <- cha_c %>% filter(!is.na(NAME)) %>%  pull(today)
 
 CountySummary<- case %>%
@@ -123,7 +121,6 @@ message("Table 2/11 complete, printed and pushed to SQL")
 rm(hospsum,CountySummary)
 
 ####3 StateSummary.csv ####
-# hospitalized_totals <-  cha_c %>%  filter(State== "TOTAL") %>% select(today)
 ncases <- nrow(case)
 ntests <- nrow(elr_linelist)
 
@@ -172,9 +169,7 @@ yesterday_col <-
 
 mock_table$`Change Since Yesterday` <- yesterday_col
 
-tableforgary <- mock_table
-
-StateSummary <- tableforgary %>%
+StateSummary <- mock_table %>%
   rename(
     Measure ='Overall Summary',
     Total = "Total**",
@@ -196,11 +191,9 @@ if(SQL_write){
 }
 message("Table 3/11 complete, printed and pushed to SQL")
 #clear trash
-rm(tableforgary, mock_table, ncases, ntests, StateSummary, last_rpt_data, yesterday_col, when_was_last_report, Positivity, tbl_total_col)
-
+rm(mock_table, ncases, ntests, StateSummary, last_rpt_data, yesterday_col, when_was_last_report, Positivity, tbl_total_col)
 
 ####4 state_Result.csv ####
-#these require case and dec and cha_c
 state_Result <- case %>% 
   group_by(disease_status,outcome, age_group) %>% 
   tally() %>% 
