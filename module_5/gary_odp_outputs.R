@@ -46,7 +46,7 @@ elr_linelist <- elr_linelist %>%
 
 #clear trash for race_ethnicity_setup
 odbc::dbDisconnect(gary_con)
-rm(adj_tbl_long, adj_tbl_long_dec, agg_table, agg_table_dec, more_ages, spop2000)
+rm(adj_tbl_long, adj_tbl_long_dec, agg_table, agg_table_dec, more_ages, spop2000, longcha)
 
 ####1 REStateSummary.csv ####
 #summary by race/ethnicity
@@ -494,6 +494,6 @@ if(SQL_write){
 message("Table 11/11 complete, printed and pushed to SQL")
 
 #clear trash
-rm(list = ls())
+rm(CountySummarybyDate)
 gc(verbose = FALSE)
 message("Gary's ODP Output process complete")
