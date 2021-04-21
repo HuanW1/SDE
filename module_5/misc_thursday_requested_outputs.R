@@ -2,6 +2,8 @@
 #This script will generate the COVID-19 reporting thursday-specific outputs needed for historical use cases and other stakeholders
 message("Thursday-specific output process will now begin.  This usually takes X minutes")
 #replaces chunk at line 3451 and chunk at line 3488
+thursday_range_start <- floor_date(Sys.Date() - 12, unit = "week")
+thursday_range_end <- thursday_range_start + 13
 
 #set up by mod5 setup
 
@@ -30,7 +32,7 @@ labdata <- elr_linelist %>%
   tally(name = "tests") %>%
   complete(spec_col_date = seq.Date(as.Date(ymd("2020-03-01")), Sys.Date(), by ="day"), fill = list(tests = 0))
 
-modelingdata <- bind_cols(spec_dates, admissions, deathsdata, labdata) %>% 
+CT_daily_counts_totals <- bind_cols(spec_dates, admissions, deathsdata, labdata) %>% 
   rename(date = spec_date) %>% 
   mutate(
     spec_cum = cumsum(speccollected),
@@ -41,16 +43,72 @@ modelingdata <- bind_cols(spec_dates, admissions, deathsdata, labdata) %>%
   select(-c(admit_date, dod, spec_col_date))
 
 if(csv_write){
-  write_csv(modelingdata, 
+  write_csv(CT_daily_counts_totals, 
             paste0("L:/daily_reporting_figures_rdp/gary_csv/CT_daily_counts_totals.csv"))
 }
-rm(spec_dates, admissions, labdata, modelingdata)
-
+rm(spec_dates, admissions, labdata, CT_daily_counts_totals)
 
 ####2 newcases+tests.csv / newcasetable ####
-con <- DBI::dbConnect(odbc::odbc(), "epicenter")
-ghost_data <- tbl(con, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.CTEDSS_GEOCODED_RECORDS"))
-testgeo <-
+
+thursday_case <- case %>% 
+  filter(date >= thursday_range_start & date <= thursday_range_end )
+
+casenew <- thursday_case 
+thisweek <- epiweek(Sys.Date())
+thisyear <- epiyear(Sys.Date())
+beginofcurmmwr <- MMWRweek2Date(MMWRyear = thisyear, MMWRweek = thisweek, MMWRday = 1)
+
+cases_14 <- casenew %>%
+  # filter(week >= thisweek-2 & week <= thisweek-1)
+  filter(date>= beginofcurmmwr-14 & date <beginofcurmmwr)
+cases_14_nc <- cases_14 %>%
+  filter(cong_yn == "No")
+
+num_groups <- c("None", "1 to 5", "6 to 24", "25 to 49", "51 to 100", "101 to 200", "201 to 500", "501 to 1000", "1001 to 5000")
+avgratebreaks <-  c(
+  "<5 cases per 100,000 or <5 reported cases",
+  "5-9 cases per 100,000",
+  "10-14 cases per 100,000",
+  "15 or more cases per 100,000"
+)
+
+c14nc_count <- cases_14_nc %>%
+  mutate(NAME = str_to_title(city)) %>% 
+  group_by(NAME) %>% 
+  tally() %>% 
+  complete(NAME = town_pop18$city, fill = list(n = 0)) %>% 
+  filter(!NAME == "Not Available")
+
+#c14nc_count$n[is.na(c14nc_count$n)] <- 0
+c14nc_count <- c14nc_count %>% 
+  full_join(town_pop18, by = c("NAME" = "city")) %>% 
+  mutate(CaseRate = round(((n/14)/pop)*100000,1),
+         n2 = cut(n, breaks = c(-Inf,0,5,25,50,100,200,500,1000, Inf), labels = num_groups),
+         avgrate = ifelse(n < 5 | CaseRate < 5, "<5 cases per 100,000 or <5 reported cases",
+                          ifelse(CaseRate >=5 & CaseRate <10, "5-9 cases per 100,000",
+                                 ifelse(CaseRate >=10 & CaseRate <15, "10-14 cases per 100,000",
+                                        ifelse(CaseRate >=15,  "15 or more cases per 100,000", "Not categorized"))))
+  )
+c14nc_count$avgrate <- factor(c14nc_count$avgrate, labels = avgratebreaks, levels = avgratebreaks )
+subdat14nc <- subdat %>% 
+  left_join(
+    c14nc_count, by = c("NAME" = "NAME")    
+  )
+subdat14nc$n2[is.na(subdat14nc$n2)] <- "None"
+paletteo<- c("#fcf8f8", "#fff7bc", "#fec44f", "#d95f0e", "#993404", NA) ## fix colors
+
+#paletteo2<- c("#fcf8f8", "#fff7bc", "#fee391", "#fec44f", "#fe9929", "#ec7014", "#cc4c02", "#8c2d04", NA)
+paletteo2<- c("#fcf8f8", "#fff7bc", "#fee391", "#fec44f", "#fe9929", "#ec7014", "#cc4c02", "#8c2d04", "#e31a1c", NA)
+
+n14ncperc <- paste0("(",round(nrow(cases_14_nc)/nrow(cases_14)*100), "%)")
+com <- nrow(cases_14) - nrow(cases_14_nc)
+n14cperc <- paste0("(",round(com/nrow(cases_14)*100), "%)")
+```
+
+
+testgeo_con <- DBI::dbConnect(odbc::odbc(), "epicenter")
+ghost_data <- tbl(testgeo_con, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.CTEDSS_GEOCODED_RECORDS"))
+testgeo2 <-
   ghost_data %>%
   select(case_id, X, Y, geoid10, name, License__, DBA, type) %>%
   mutate(newName = if_else(name %in% c("", "NULL"), NA_character_, name),
@@ -61,21 +119,25 @@ testgeo <-
   rename(GEOID10 = geoid10, Name = name)  %>%
   select(-c("case_id", "newName", "License__", "DBA")) %>%
   arrange(facil_name) %>%
-  collect()
-
-
-odbc::dbDisconnect(con)
-
-
-#dates for TESTS SHOULD NOT BE SET BY EVENT DATE. UPDATED TO ONLY USE SPEC COL or received DATE 10/15/2020.
-testgeo2 <- elr_linelist %>%
-  mutate(eventid = as.numeric(eventid)) %>% 
-  left_join(testgeo, by = "eventid") %>%
+  collect() %>%
+  inner_join(elr_linelist, by = "eventid") %>%
   mutate(
     date = ifelse(!is.na(spec_col_date), spec_col_date, mdy(spec_rec_date)),
     date = as.Date(date, origin = ymd("1970-01-01")),
-    mmwrweek = epiweek(date)
-  ) # %>% 
+    mmwrweek = epiweek(date))
+  
+odbc::dbDisconnect(testgeo_con)
+
+
+#dates for TESTS SHOULD NOT BE SET BY EVENT DATE. UPDATED TO ONLY USE SPEC COL or received DATE 10/15/2020.
+# testgeo2 <- elr_linelist %>%
+#   mutate(eventid = as.numeric(eventid)) %>% 
+#   left_join(testgeo, by = "eventid") %>%
+#   mutate(
+#     date = ifelse(!is.na(spec_col_date), spec_col_date, mdy(spec_rec_date)),
+#     date = as.Date(date, origin = ymd("1970-01-01")),
+#     mmwrweek = epiweek(date)
+#  )  %>% 
 # filter(test_method %in% pcrtests2)
 
 #limit to 14 days thursday range

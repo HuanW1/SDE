@@ -43,7 +43,8 @@ case <- case %>%
   mutate(outcome = ifelse(is.na(outcome), "Survived", outcome)) 
 
 elr_linelist <- elr_linelist %>% 
-  select(c(eventid, bigID, city,county, test_method, result,spec_col_date, pcrag))
+  select(c(eventid, bigID, city,county, test_method, result,spec_col_date, pcrag, spec_rec_date)) %>% 
+  mutate(eventid = as.numeric(eventid))
 
 odbc::dbDisconnect(gary_con)
 message("Module 5 setup is now complete")
