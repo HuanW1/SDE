@@ -189,7 +189,7 @@ if(csv_write) {
 rm(TOI, range_start, range_end, mastereventidlist)
 
 
-####6 incidence_town_alerts ####
+####6 CTTown_Alert (for gary)  ####
 CTTown_Alert <- 
   geocoded_community_tests %>% 
     mutate(date = if_else(!is.na(spec_col_date), spec_col_date, mdy(spec_rec_date))) %>% 
@@ -253,7 +253,7 @@ if(SQL_write){
 }  
   
 
-####7 TownAlertLevelsTable ########
+####7 TownAlertLevelsTable  (for leadership) ########
 lvls <- c("<5 cases per 100,000 or <5 reported cases", "5-9 cases per 100,000", "10-14 cases per 100,000", "15 or more cases per 100,000")
 TownAlertLevelsTable<- CTTown_Alert %>%
   mutate(
@@ -261,9 +261,6 @@ TownAlertLevelsTable<- CTTown_Alert %>%
     RateCategory = factor( RateCategory, labels = lvls, levels = lvls)
   ) %>%
   arrange(desc(RateCategory))
-
-#change for thanksgiving
-# change the -7 to the day you need, then make sure the very last table is in that day's folder, It likely won't be, but just go to the very alst thursday and copy it into there and you should be good.
 
 lastdate <- 
   tbl(testgeo_con, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.ODP_CTTown_Alert")) %>%
@@ -275,7 +272,7 @@ lastdate <-
 rank <- min(max(lastdate$rank), 2) #take rank 2, 2nd most recent date, or rank 1 if there is only 1 rank
 lastdate <- lastdate %>%filter(rank ==rank) %>%  pull(DateUpdated)
   
-previous_TownAlertLevelsTable <- 
+TownAlertLevelsTable <- 
   tbl(testgeo_con, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.ODP_CTTown_Alert")) %>%
   filter(DateUpdated == lastdate) %>% 
   collect() %>%
@@ -290,10 +287,8 @@ previous_TownAlertLevelsTable <-
     `Previous Case Rate`=CaseRate,
     `Previous Test Total`=TotalTests,
     `Previous Percent_Positivity`=PercentPositive
-  ) 
-#i know I can combine these with a right join ^ up there, but the separate pieces are used elsewhere so I'll keep them separate
-TownAlertLevelsTable <- TownAlertLevelsTable %>% 
-  left_join(previous_TownAlertLevelsTable, by = "Town_No") %>%
+  ) %>% 
+  right_join(TownAlertLevelsTable, by = "Town_No") %>%
   mutate(
     Case_Rate_Difference = CaseRate-`Previous Case Rate`,
     Total_Test_Difference = TotalTests-`Previous Test Total`,
@@ -312,119 +307,29 @@ if(csv_write) {
 }
 
 ####8 SummaryAlertLevelsTable ####
-towncatthisweek <- gdi2 %>%  group_by(RateCategory) %>%  tally(name = "Towns This Week") %>% 
-  mutate(Category= factor(RateCategory, levels = lvls, labels = c("Grey", "Yellow", "Orange", "Red"))) %>% 
-  select(-RateCategory)
 
-towncatlastweek <- yestgdi %>%  group_by(`Previous Rate Category`) %>%  tally(name = "Towns Last Week") %>% 
-  mutate(Category= factor(`Previous Rate Category`, levels = lvls, labels = c("Grey", "Yellow", "Orange", "Red")))%>% 
-  select(-`Previous Rate Category`)
-#newtowns
-yestred <- yestgdi %>% 
-  filter(`Previous Rate Category` == '15 or more cases per 100,000') %>% 
-  select(Town_No)
-redtownnew <- gdi %>% 
-  filter(RateCategory == '15 or more cases per 100,000' & !Town_No %in% yestred$Town_No) %>%
-  summarise(
-    Category = "Red",
-    "New Towns" = nrow(.)
-  )
-
-yestorange<- yestgdi %>% 
-  filter(`Previous Rate Category` == "10-14 cases per 100,000") %>% 
-  select(Town_No)
-orangetownnew <- gdi %>% 
-  filter(RateCategory == "10-14 cases per 100,000" & !Town_No %in% yestorange$Town_No) %>% 
-  summarise(
-    Category = "Orange",
-    "New Towns" = nrow(.)
-  )
-
-yestyellow <- yestgdi %>% 
-  filter(`Previous Rate Category` == "5-9 cases per 100,000" ) %>% 
-  select(Town_No)
-yellowtownnew <- gdi %>% 
-  filter(RateCategory == "5-9 cases per 100,000"  & !Town_No %in% yestyellow$Town_No) %>% 
-  summarise(
-    Category = "Yellow",
-    "New Towns" = nrow(.)
-  )
-
-yestgrey <- yestgdi %>% 
-  filter(`Previous Rate Category` == "<5 cases per 100,000 or <5 reported cases") %>% 
-  select(Town_No)
-greytownnew <- gdi %>% 
-  filter(RateCategory == "<5 cases per 100,000 or <5 reported cases" & !Town_No %in% yestgrey$Town_No) %>% 
-  summarise(
-    Category = "Grey",
-    "New Towns" = nrow(.)
-  )
-newtowns <- bind_rows(greytownnew, yellowtownnew, orangetownnew, redtownnew)
-
-#lost towns
-yestred <- yestgdi %>% 
-  filter(`Previous Rate Category` == '15 or more cases per 100,000') %>% 
-  select(Town_No)
-redtownlost <- gdi %>% 
-  filter(RateCategory != '15 or more cases per 100,000' & Town_No %in% yestred$Town_No) %>%
-  summarise(
-    Category = "Red",
-    "Lost Towns" = nrow(.)
-  )
-
-yestorange<- yestgdi %>% 
-  filter(`Previous Rate Category` == "10-14 cases per 100,000") %>% 
-  select(Town_No)
-orangetownlost <- gdi %>% 
-  filter(RateCategory != "10-14 cases per 100,000" & Town_No %in% yestorange$Town_No) %>% 
-  summarise(
-    Category = "Orange",
-    "Lost Towns" = nrow(.)
-  )
-
-yestyellow <- yestgdi %>% 
-  filter(`Previous Rate Category` == "5-9 cases per 100,000" ) %>% 
-  select(Town_No)
-yellowtownlost <- gdi %>% 
-  filter(RateCategory != "5-9 cases per 100,000"  & Town_No %in% yestyellow$Town_No) %>% 
-  summarise(
-    Category = "Yellow",
-    "Lost Towns" = nrow(.)
-  )
-
-yestgrey <- yestgdi %>% 
-  filter(`Previous Rate Category` == "<5 cases per 100,000 or <5 reported cases") %>% 
-  select(Town_No)
-greytownlost <- gdi %>% 
-  filter(RateCategory != "<5 cases per 100,000 or <5 reported cases" & Town_No %in% yestgrey$Town_No) %>% 
-  summarise(
-    Category = "Grey",
-    "Lost Towns" = nrow(.)
-  )
-losttowns <- bind_rows(greytownlost, yellowtownlost, orangetownlost, redtownlost)
-
-
-Summary <- towncatthisweek %>% 
-  left_join(towncatlastweek) %>% 
-  select(Category, `Towns This Week`, `Towns Last Week`, everything()) %>% 
-  left_join(newtowns) %>% 
-  left_join(losttowns) 
-
+SummaryAlertLevelsTable <- TownAlertLevelsTable %>% 
+  select(RateCategory) %>% 
+  mutate(cat = factor(RateCategory, levels = lvls, labels = c("Grey", "Yellow", "Orange", "Red"))) %>% 
+  select(-c(RateCategory)) %>% 
+  group_by(cat) %>% 
+  tally(name = "catn") %>% 
+  inner_join(TownAlertLevelsTable %>% 
+               select(`Previous Rate Category`) %>% 
+               mutate(cat = factor(`Previous Rate Category`, levels = lvls, labels = c("Grey", "Yellow", "Orange", "Red"))) %>% 
+               select(-c(`Previous Rate Category`)) %>% 
+               group_by(cat) %>% 
+               tally(name = "pcatn"),
+             by = "cat") %>% 
+  ungroup() %>% 
+  mutate(`Change From Last Week` = catn-pcatn) %>% 
+  rename(Category = cat, `Towns This Week` = catn,
+         `Towns Last Week` = pcatn)
+ 
 if(csv_write){
-  write_csv(Summary, paste0("L:/daily_reporting_figures_rdp/tables/", 
+  write_csv(SummaryAlertLevelsTable, paste0("L:/daily_reporting_figures_rdp/tables/", 
                             Sys.Date(), "/SummaryAlertLevelsTable.csv"))
 }
-
-
-
-
-
-
-
-
-
-
-
 
 rm(geocoded_community_tests, thursday_range_start, thursday_range_end)
 odbc::dbDisconnect(testgeo_con)
