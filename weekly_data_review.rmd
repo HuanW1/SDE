@@ -233,7 +233,7 @@ ggplot(subdat14nc)+
   )
 
 
-#Table for calculating % of pop in each category
+#Table to calculate % of pop in each category
 popbycat <-town_alert %>% 
   group_by(RateCategory) %>% 
   summarise(pop=sum(Population)) %>% 
@@ -244,7 +244,7 @@ arrange(popbycat, desc(RateCategory))
 
 ```
 
-## New continuous scale, 14-day average case rates by town:
+## New continuous scale, 14-day average case rates by town
 ```{r, echo=FALSE, message=FALSE, fig.width=16, fig.height=4}
 #2. 14-day average on map
 case_dat <- read_csv(paste0(dir, "gary_csv/", Sys.Date(), "/", "CTTown_Alert.csv"))
@@ -292,7 +292,7 @@ ggplot(case_dat1)+
             legend.title=element_text(size=14),
             legend.position="right", legend.box = "horizontal") +
       guides(fill=guide_colorbar(barwidth=0.7,barheight=5, title="Cases/100k")) +
-  ggtitle("New continuous scale, 14-day average case rates by town\n")
+  #ggtitle("New continuous scale, 14-day average case rates by town\n")
   #ggtitle(paste("Week ending", format(case_dat1$date2, "%b %d"))) + 
       theme(plot.title = element_text(size=14),
             panel.grid.major = element_line(colour = "transparent"))
@@ -309,7 +309,6 @@ ggplot(case_dat1)+
 
 ```
 
-## Overall State Snapshot for Number of cases
 
 ```{r slide 2, echo = FALSE}
 #3.a.  Overall State Snapshot
@@ -504,7 +503,8 @@ filter((week == epiweek(Sys.Date()) & year == epiyear(Sys.Date())) |
 kable(weeklydeaths)
 ```
 
-##Recent cases in the past 12 weeks
+## Recent cases in the past 12 weeks
+
 ```{r slide 3, echo = FALSE}
 #7. Graph for Recent cases in the past 12 weeks
 
@@ -579,7 +579,7 @@ ggplot(case_ct_week)+
     x="Specimen Collection/Onset Date",
     fill="Reside in Congregate Setting")+
   theme(axis.text.x = element_text(size = 8, angle = 30, vjust = .7)) +
-  ggtitle("COVID-19 Cases stratified by residents/non-residents of congregate settings")
+  ggtitle("COVID-19 Cases stratified by residents/non-residents of congregate settings\n")
 
 ```
 
@@ -766,7 +766,7 @@ weeklytest_pcr <- communitytest %>%
 kable(weeklytest_pcr )
 ```
 
-##New request for age group info from Albert. Community Tests ONLY. 
+## New request for age group info from Albert. Community Tests ONLY. 
 
 ```{r slide 75, echo = FALSE}
 #color palette for age graphs
@@ -959,7 +959,7 @@ ggplot(weeklycase_age, aes(x=week, y=rate))+
 #SWITCH TO BUBBLE PLOT OF AGE GROUPS FOR INCIDENCE
 ```
 
-##Map number of tests & number of cases by town for last 3 weeks
+## Maps for  number of tests & number of cases by town for last 3 weeks
 
 
 ```{r slide 8, echo = FALSE}
@@ -1201,7 +1201,8 @@ ggplot(subdat_3wkc)+
     legend.position = "bottom",
     legend.direction = "vertical",
     legend.title = element_text(size = 11),
-    legend.text = element_text(size=11))
+    legend.text = element_text(size=11)) +
+  ggtitle("Average Daily Incidence Rate per 100,000 \nover last two weeks\n")
   
 ```
 
@@ -1756,7 +1757,7 @@ ggplot(bigtowns)+
   theme_classic()+
   ylim(0,max(bigtowns$rate14))+
   labs(
-    title="14-day average daily incidence in large towns",
+    title="14-day Average daily incidence in large towns",
     x="Week of specimen collection or onset",
     y="14-day average rate", 
     color="Town"
