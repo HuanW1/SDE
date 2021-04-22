@@ -190,10 +190,10 @@ rm(TOI, range_start, range_end, mastereventidlist)
 
 
 ####6 incidence_town_alerts ####
-gary_dailyincidence <- 
+CTTown_Alert <- 
   geocoded_community_tests %>% 
     mutate(date = if_else(!is.na(spec_col_date), spec_col_date, mdy(spec_rec_date))) %>% 
-    filter(date >= thursday_range_start & date <= thursday_range_end ) %>% 
+    filter(date >= thursday_range_start & date <= thursday_range_end & city %in% city_file$TOWN_LC ) %>% 
     group_by(city, result) %>% 
     tally() %>%
     ungroup() %>% 
@@ -205,8 +205,8 @@ gary_dailyincidence <-
            TotalTests = detected +`not detected`+ indeterminate) %>% 
     select(city, TotalTests,PercentPositive)
 
-
-testcases <- case %>%
+CTTown_Alert  <- 
+  case %>%
   filter(date >= thursday_range_start & date <= thursday_range_end 
          & city %in% city_file$TOWN_LC & cong_yn == "No") %>%
   mutate(week = epiweek(date), 
@@ -218,45 +218,98 @@ testcases <- case %>%
            fill = list(n = 0)) %>% 
   inner_join(city_file %>%  select(TOWN_LC, pop_2019), 
              by = c("city" = "TOWN_LC")) %>% 
-  mutate(Rate =  round(((Cases/14)/pop_2019)*100000,1),
-         DateUpdated = graphdate)%>% 
-  rename(Town = city)
-
-
-gary_dailyincidence <- cases_14_nc %>% 
-  group_by(week, city) %>% 
-  tally() %>%  
-  pivot_wider(names_from = week,  
-              values_from = n, 
-              values_fill = list(n = 0)) %>% 
-  rename(casesweek1 = 2,
-         casesweek2 = 3) %>% 
-  right_join(c14nc_count, by=c("city" = "NAME")) %>% 
-  replace_na(replace=list(casesweek1 = 0, 
-                          casesweek2 = 0, 
-                          n = 0)) %>% 
-  mutate(RateCategory = ifelse(avgrate =="<5 cases per 100,000 or <5 reported cases", 
-                               "1. <5 cases per 100,000 or <5 reported cases",
-                               ifelse(avgrate=="5-9 cases per 100,000", 
-                                      "2. 5-9 cases per 100,000", 
-                                      ifelse(avgrate=="10-14 cases per 100,000", 
-                                             "3. 10-14 cases per 100,000",
-                                             ifelse(avgrate=="15 or more cases per 100,000", 
-                                                    "4. 15 or more cases per 100,000", 
-                                                    "other")))),
-         UpdateDate = Sys.Date(),
+  group_by(city) %>% 
+  mutate(CaseRate =  round(((sum(n)/14)/pop_2019)*100000,1))%>%
+  arrange(city, year, week) %>% 
+  mutate(caseweek = row_number(),
+         DateUpdated = graphdate) %>% 
+  ungroup() %>% 
+  select(-c(year, week)) %>% 
+  pivot_wider(id_cols = c(city, pop_2019, CaseRate, DateUpdated, caseweek),names_from = caseweek, values_from = n) %>% 
+  rename(caseweek1 = `1`, caseweek2 = `2`) %>% 
+  mutate(totalcases = caseweek1 + caseweek2,
+         RateCategory = case_when(totalcases < 5 | CaseRate < 5 ~ "1. <5 cases per 100,000 or <5 reported cases",
+                                  CaseRate >=5 & CaseRate <10 ~ "2. 5-9 cases per 100,000",
+                                  CaseRate >=10 & CaseRate <15 ~ "3. 10-14 cases per 100,000",
+                                  CaseRate >=15 ~ "4. 15 or more cases per 100,000"),
          ReportPeriodStartDate = thursday_range_start,
-         ReportPeriodEndDate = thursday_range_end,
-         townname=paste0(city, " town")) %>%
-  rename(totalcases = n,
-         NAME = city) %>% 
-  left_join(pctpos14, by = c("NAME" = "city")) %>% 
-  left_join(city_file, by = c("townname" = "ANPSADPI")) %>%  #replace with city list
-  rename(Town_No = TOWNNO) %>% 
-  select(Town_No, NAME, pop, casesweek1, casesweek2, totalcases, CaseRate, 
-         RateCategory, TotalTests, PercentPositive, UpdateDate, 
-         ReportPeriodStartDate, ReportPeriodEndDate) %>%
-  filter(!NAME == "Not Available")
+         ReportPeriodEndDate = thursday_range_end
+         ) %>% 
+    inner_join(city_file %>% select(c(TOWN_LC, TOWNNO)),
+               by = c("city" = "TOWN_LC")) %>% 
+    inner_join(CTTown_Alert, by = "city") %>% 
+  select(TOWNNO, city, pop_2019, caseweek1, caseweek2, totalcases, CaseRate, RateCategory, TotalTests, PercentPositive, DateUpdated, ReportPeriodStartDate, ReportPeriodEndDate) %>% 
+  rename(Town_No = TOWNNO, Town = city)
+    
+#TODO add the extra leadership variables that they want:C
+
+if(csv_write) {
+  write_csv(CTTown_Alert, 
+            paste0("L:/daily_reporting_figures_rdp/gary_csv/CTTown_Alert.csv"))
+}
+  
+  
+
+####7Leadership town_alert ########
+
+gdi <- gary_dailyincidence %>%
+  mutate(
+    RateCategory =str_trim(str_sub(RateCategory, start = 3)),
+    RateCategory = factor( RateCategory, labels = lvls, levels = lvls)
+  ) %>%
+  arrange(desc(RateCategory))
+
+#change for thanksgiving
+# change the -7 to the day you need, then make sure the very last table is in that day's folder, It likely won't be, but just go to the very alst thursday and copy it into there and you should be good.
+yestgdi <- read_csv(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date()-7, "/avg_di/avgdailyincidence.csv"))%>%
+  mutate(
+    RateCategory =str_trim(str_sub(RateCategory, start = 3)),
+    RateCategory = factor( RateCategory, labels = lvls, levels = lvls)
+  ) %>%
+  select(Town_No, RateCategory,CaseRate,TotalTests, PercentPositive) %>%
+  rename(
+    `Previous Rate Category`=RateCategory,
+    `Previous Case Rate`=CaseRate,
+    `Previous Test Total`=TotalTests,
+    `Previous Percent_Positivity`=PercentPositive
+  )
+
+
+gdi <- gdi %>%
+  left_join(yestgdi, by = "Town_No") %>%
+  mutate(
+    Case_Rate_Difference = CaseRate-`Previous Case Rate`,
+    Total_Test_Difference = TotalTests-`Previous Test Total`,
+    Percent_Positive_Difference = PercentPositive- `Previous Percent_Positivity`
+  )
+
+
+gdi2 <- gdi%>%
+  select(-c(Town_No, pop, UpdateDate, ReportPeriodStartDate,ReportPeriodEndDate)) %>%
+  arrange(desc(RateCategory), desc(CaseRate)) %>% 
+  left_join(town_pop18, by = c("NAME" = "city")) %>% 
+  mutate(PercentPop = round(pop/3572665*100, 2)) %>% 
+  rename(Population=pop)
+
+kable2 <-  gdi2 %>%
+  rename(
+    Town = NAME,
+    Week1Cases = casesweek1,
+    Week2Cases = casesweek2,
+    TotalCases = totalcases
+  ) %>%
+  select(Town, Week1Cases, Week2Cases, TotalCases, CaseRate, RateCategory, TotalTests, PercentPositive, everything()) %>%
+  select(-PercentPop) %>% 
+  filter(Town != "Not_available")
+
+#kable2
+#  dir.create("tables")
+if(csv_write) {
+  dir.create(paste0("L:/daily_reporting_figures_rdp/tables/", Sys.Date()))
+  write_csv(kable2, 
+            paste0("L:/daily_reporting_figures_rdp/tables/", 
+                   Sys.Date(),"/TownAlertLevelsTable.csv"))
+}
 
 
 
