@@ -1,7 +1,8 @@
 #### Module 5 Setup ####
 #This script will pull common files needed for all module 5 scripts
 #this will be slotted in and run by run_mod5 script and replace the top of mod5 scripts when ready
-message("Module 5 Setup process will now begin.  This usually takes X minutes")
+message("Module 5 Setup process will now begin")
+message("Common files used across all outputs will be loaded, be sure to clear up your RAM")
 
 ###0 libraries, connections and data, oh my ####
 gary_con <- DBI::dbConnect(odbc::odbc(), "epicenter")

@@ -1,6 +1,6 @@
 #### Module 5 / misc thursday requested_outputs ####
 #This script will generate the COVID-19 reporting thursday-specific outputs needed for historical use cases and other stakeholders
-message("Thursday-specific output process will now begin.  This usually takes X minutes")
+message("Thursday-specific output process will now begin")
 #replaces chunk at line 3451 and chunk at line 3488
 thursday_range_start <- floor_date(Sys.Date() - 12, unit = "week")
 thursday_range_end <- thursday_range_start + 13
@@ -48,6 +48,7 @@ if(csv_write){
 }
 #clear trash
 rm(spec_dates, admissions, labdata, CT_daily_counts_totals)
+message("1/8 thursday tables has finished")
 
 ####2 newcases+tests.csv / newcasetable ####
 testgeo_con <- DBI::dbConnect(odbc::odbc(), "epicenter")
@@ -95,6 +96,7 @@ if(csv_write){
 }
 #clear trash
 rm(newcases_tests)
+message("2/8 thursday tables has finished")
 
 ####3 daily_test_communityonly.csv / forrestdata ####
 dailytest_communityonly <- 
@@ -119,6 +121,7 @@ if(csv_write){
 }
 #clear trash
 rm(dailytest_communityonly)
+message("3/8 thursday tables has finished")
 
 ####4 communitytest_county.csv / sdedata ####
 #create dataset for sde indicator for county test counts
@@ -144,6 +147,7 @@ if(csv_write){
 }
 #clear trash
 rm(communitytest_county)
+message("4/8 thursday tables has finished")
 
 ####5 mastereventidlist.csv ####
 TOI <- city_file$TOWN_LC
@@ -187,7 +191,7 @@ if(csv_write) {
 }
 #clear trash
 rm(TOI, range_start, range_end, mastereventidlist)
-
+message("5ish/8 thursday tables has finished")
 
 ####6 CTTown_Alert (for gary)  ####
 CTTown_Alert <- 
@@ -241,8 +245,6 @@ CTTown_Alert  <-
   select(TOWNNO, city, pop_2019, caseweek1, caseweek2, totalcases, CaseRate, RateCategory, TotalTests, PercentPositive, DateUpdated, ReportPeriodStartDate, ReportPeriodEndDate) %>% 
   rename(Town_No = TOWNNO, Town = city)
     
-#TODO add the extra leadership variables that they want:C
-
 if(csv_write) {
   write_csv(CTTown_Alert, 
             paste0("L:/daily_reporting_figures_rdp/gary_csv/CTTown_Alert.csv"))
@@ -251,7 +253,7 @@ if(csv_write) {
 if(SQL_write){
   df_to_table(CTTown_Alert, "ODP_CTTown_Alert", overwrite = FALSE, append = TRUE)
 }  
-  
+message("6/8 thursday tables has finished and this extra special one has gone up onto SQL022")
 
 ####7 TownAlertLevelsTable  (for leadership) ########
 lvls <- c("<5 cases per 100,000 or <5 reported cases", "5-9 cases per 100,000", "10-14 cases per 100,000", "15 or more cases per 100,000")
@@ -308,6 +310,7 @@ if(csv_write) {
 }
 #clear trash
 rm(rank, lastdate)
+message("7/8 thursday tables has finished")
 
 ####8 SummaryAlertLevelsTable ####
 
@@ -338,4 +341,5 @@ rm(geocoded_community_tests, thursday_range_start, thursday_range_end,
    SummaryAlertLevelsTable,TownAlertLevelsTable)
 odbc::dbDisconnect(testgeo_con)
 gc(verbose =  FALSE)
+message("8/8 thursday tables has finished")
 message("Thursday Outputs are done!")

@@ -176,7 +176,7 @@ if (csv_write) {
 if (SQL_write) {
   df_to_table(state_Result, "ODP_state_Result", overwrite = TRUE, append = FALSE)
 }
-message("Table 4/11 complete, printed and pushed to SQL")
+message("Table 4/11 complete, printed and pushed to SQL, 5 is a bit of a doozy.")
 #clear trash
 rm(state_Result)
 
