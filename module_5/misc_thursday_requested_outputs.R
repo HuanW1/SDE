@@ -290,21 +290,24 @@ TownAlertLevelsTable <-
   ) %>% 
   right_join(TownAlertLevelsTable, by = "Town_No") %>%
   mutate(
-    Case_Rate_Difference = CaseRate-`Previous Case Rate`,
-    Total_Test_Difference = TotalTests-`Previous Test Total`,
-    Percent_Positive_Difference = PercentPositive- `Previous Percent_Positivity`
+    Case_Rate_Difference = CaseRate -`Previous Case Rate`,
+    Total_Test_Difference = TotalTests -`Previous Test Total`,
+    Percent_Positive_Difference = PercentPositive - `Previous Percent_Positivity`
   ) %>%
   select(-c(Town_No, DateUpdated, ReportPeriodStartDate,ReportPeriodEndDate)) %>%
   arrange(desc(RateCategory), desc(CaseRate))%>% 
-  rename(Pop_2019 = pop_2019, Week1Cases = caseweek1, Week2Cases = caseweek2, TotalCases = totalcases) %>% 
-  select(Town, Week1Cases, Week2Cases, TotalCases, CaseRate, RateCategory, TotalTests, PercentPositive, everything())
+  rename(Pop_2019 = pop_2019, Week1Cases = caseweek1, 
+         Week2Cases = caseweek2, TotalCases = totalcases) %>% 
+  select(Town, Week1Cases, Week2Cases, TotalCases, CaseRate, 
+         RateCategory, TotalTests, PercentPositive, everything())
 
 if(csv_write) {
-  dir.create(paste0("L:/daily_reporting_figures_rdp/tables/", Sys.Date()))
   write_csv(TownAlertLevelsTable, 
-            paste0("L:/daily_reporting_figures_rdp/tables/", 
+            paste0("L:/daily_reporting_figures_rdp/csv/", 
                    Sys.Date(),"/TownAlertLevelsTable.csv"))
 }
+#clear trash
+rm(rank, lastdate)
 
 ####8 SummaryAlertLevelsTable ####
 
@@ -327,11 +330,12 @@ SummaryAlertLevelsTable <- TownAlertLevelsTable %>%
          `Towns Last Week` = pcatn)
  
 if(csv_write){
-  write_csv(SummaryAlertLevelsTable, paste0("L:/daily_reporting_figures_rdp/tables/", 
+  write_csv(SummaryAlertLevelsTable, paste0("L:/daily_reporting_figures_rdp/csv/", 
                             Sys.Date(), "/SummaryAlertLevelsTable.csv"))
 }
 
-rm(geocoded_community_tests, thursday_range_start, thursday_range_end)
+rm(geocoded_community_tests, thursday_range_start, thursday_range_end,
+   SummaryAlertLevelsTable,TownAlertLevelsTable)
 odbc::dbDisconnect(testgeo_con)
 gc(verbose =  FALSE)
 message("Thursday Outputs are done!")
