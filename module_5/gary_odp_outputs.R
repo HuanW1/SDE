@@ -440,11 +440,15 @@ rm(TestCounty)
 ####11 CountySummarybyDate.csv####
 #cases by date by county
 CountySummarybyDate <- case %>% 
-  filter(!is.na(County) & !is.na(Date)) %>% 
+  filter(!is.na(county) & !is.na(date)) %>% 
   group_by(date, county) %>% 
   tally(name = "Count") %>% 
-  mutate(DateUpdated= Sys.Date()) %>% 
-  rename(County = county, Date = date) 
+  ungroup() %>% 
+  complete(date = seq.Date(as.Date("2020-03-02"), Sys.Date()-1, by = "day"), 
+           county = counties, fill = list(Count = 0)) %>% 
+  mutate(DateUpdated = Sys.Date()) %>% 
+  rename(County = county, Date = date) %>% 
+  arrange(Date, County)
 
 #printing
 if (csv_write) {
