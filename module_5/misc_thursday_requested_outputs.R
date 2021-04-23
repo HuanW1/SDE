@@ -128,6 +128,7 @@ message("3/8 thursday tables have finished")
 # added epiyear
 communitytest_county <- 
   geocoded_community_tests %>% 
+  filter(!is.na(county) & !is.na(spec_col_date)) %>% 
   mutate(week = epiweek(spec_col_date),
          year = epiyear(spec_col_date),
          result = case_when(result == "detected" ~ "Positive",
@@ -151,15 +152,13 @@ message("4/8 thursday tables have finished")
 
 ####5 mastereventidlist.csv ####
 TOI <- city_file$TOWN_LC
-range_start <- floor_date(Sys.Date() - 12, unit = "week")
-range_end <- range_start + 13
 
 if(csv_write){
   dir.create(paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", Sys.Date()))
 }
 
 mastereventidlist <- case %>% 
-  filter(date >= range_start & date <= range_end & !is.na(city) & city %in% city_file$TOWN_LC) %>%
+  filter(date >= thursday_range_start & date <= thursday_range_end & !is.na(city) & city %in% city_file$TOWN_LC) %>%
   filter(cong_yn == "No") %>% 
   select(eventid, city) %>% 
   left_join(city_file %>% select(TOWN_LC, lhd), 
@@ -190,7 +189,7 @@ if(csv_write) {
   rm(mastereventidlisti)
 }
 #clear trash
-rm(TOI, range_start, range_end, mastereventidlist)
+rm(TOI,  mastereventidlist)
 message("5ish/8 thursday tables have finished")
 
 ####6 CTTown_Alert (for gary)  ####
