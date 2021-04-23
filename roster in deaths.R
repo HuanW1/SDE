@@ -1,13 +1,21 @@
 #jan 2021 originated by AK
 
-# loading the required libraries
-library(readxl)			# read_excel
-library(dplyr)			# filter
-library(stringr)			# str_to_title
-library(tidyr)
-library(tidyverse)
-library(stringdist)
-library(lubridate)
+#pointing to L drive for libraries
+if(!dir.exists("L:/")) message("You need to have L drive mapped")
+
+source("helpers/StartMeUp.R")
+
+.libPaths("L:/newlib")
+
+# # loading the required libraries
+# library(readxl)			# read_excel
+# library(dplyr)			# filter
+# library(stringr)			# str_to_title
+# library(tidyr)
+# library(tidyverse)
+# library(stringdist)
+# library(lubridate)
+
 
 ###########################
 ## importing the old OCME list, subseting to covid deaths
