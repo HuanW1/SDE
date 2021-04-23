@@ -5,9 +5,6 @@ message("Module 5 Setup process will now begin")
 message("Common files used across all outputs will be loaded, be sure to clear up your RAM")
 
 ###0 libraries, connections and data, oh my ####
-message("CSV and SQL writes are OFF")
-csv_write <- FALSE
-SQL_write <- FALSE
 
 #grab relevant test names, cases data, test data, and CHA data
 source("helpers/testtypes.R")
