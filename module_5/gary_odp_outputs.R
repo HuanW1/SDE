@@ -443,7 +443,7 @@ CountySummarybyDate <- case %>%
   filter(!is.na(County) & !is.na(Date)) %>% 
   group_by(date, county) %>% 
   tally(name = "Count") %>% 
-  mutate(UpdateDate = Sys.Date()) %>% 
+  mutate(DateUpdated= Sys.Date()) %>% 
   rename(County = county, Date = date) 
 
 #printing
