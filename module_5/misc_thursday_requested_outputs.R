@@ -161,7 +161,7 @@ mastereventidlist <- case %>%
 
 if(csv_write){
   write_csv(mastereventidlist, 
-            path = paste0("L:/Outputs/", Sys.Date(), 
+            paste0("L:/Outputs/", Sys.Date(), 
                           "/eventid_lists/mastereventidlist.csv"))
 }
 if(csv_write) {
@@ -171,7 +171,7 @@ if(csv_write) {
       select(eventid)
 
     write_csv(mastereventidlisti, 
-              path = paste0("L:/Outputs/", Sys.Date(),"/eventid_lists/", 
+              paste0("L:/Outputs/", Sys.Date(),"/eventid_lists/", 
                             city_file$lhd[city_file$TOWN_LC == i],
                             "_", i, "_last2week.csv"))  
   }
