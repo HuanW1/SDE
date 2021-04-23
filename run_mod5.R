@@ -6,8 +6,6 @@ source("helpers/StartMeUp.R")
 csv_write <- FALSE
 SQL_write <- FALSE
 
-
-
 thursday <- lubridate::wday(lubridate::today()) == 5
 message("and over here on the left we have our module 5 setup and ODP outputs")
 source("module_5/mod5_setup.R")

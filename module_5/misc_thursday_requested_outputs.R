@@ -44,7 +44,7 @@ CT_daily_counts_totals <- bind_cols(spec_dates, admissions, deathsdata, labdata)
 
 if(csv_write){
   write_csv(CT_daily_counts_totals, 
-            paste0("L:/daily_reporting_figures_rdp/gary_csv/CT_daily_counts_totals.csv"))
+            paste0("L:/Outputs/",Sys.Date(),"/THR_CT_daily_counts_totals.csv"))
 }
 #clear trash
 rm(spec_dates, admissions, labdata, CT_daily_counts_totals)
@@ -91,8 +91,7 @@ newcases_tests <- geocoded_community_tests %>%
   
 if(csv_write){
   write_csv(newcases_tests, 
-            paste0("L:/daily_reporting_figures_rdp/csv/", 
-                   Sys.Date(), "/", Sys.Date(), "newcases+tests.csv"))
+            paste0("L:/Outputs/",Sys.Date(),"/THR_newcases_tests.csv"))
 }
 #clear trash
 rm(newcases_tests)
@@ -116,8 +115,7 @@ dailytest_communityonly <-
 
 if(csv_write){
   write_csv(dailytest_communityonly, 
-            paste0("L:/daily_reporting_figures_rdp/csv/", 
-                   Sys.Date(), "/", Sys.Date(), "dailytest_communityonly.csv"))
+            paste0("L:/Outputs/",Sys.Date(),"/THR_dailytest_communityonly.csv"))
 }
 #clear trash
 rm(dailytest_communityonly)
@@ -143,8 +141,7 @@ communitytest_county <-
 
 if(csv_write){
   write_csv(communitytest_county, 
-            paste0("L:/daily_reporting_figures_rdp/csv/", 
-                   Sys.Date(), "/", Sys.Date(), "communitytest_county.csv"))
+            paste0("L:/Outputs/",Sys.Date(),"/THR_communitytest_county.csv"))
 }
 #clear trash
 rm(communitytest_county)
@@ -152,10 +149,6 @@ message("4/8 thursday tables have finished")
 
 ####5 mastereventidlist.csv ####
 TOI <- city_file$TOWN_LC
-
-if(csv_write){
-  dir.create(paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", Sys.Date()))
-}
 
 mastereventidlist <- case %>% 
   filter(date >= thursday_range_start & date <= thursday_range_end & !is.na(city) & city %in% city_file$TOWN_LC) %>%
@@ -168,23 +161,19 @@ mastereventidlist <- case %>%
 
 if(csv_write){
   write_csv(mastereventidlist, 
-            path = paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", 
-                          Sys.Date(), "/", "mastereventidlist.csv"))
+            path = paste0("L:/Outputs/", Sys.Date(), 
+                          "/eventid_lists/mastereventidlist.csv"))
 }
 if(csv_write) {
   for(i in TOI){
     mastereventidlisti <- mastereventidlist %>%  
       filter(city == i) %>% 
       select(eventid)
-    
-    dir.create(paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", 
-                      Sys.Date(), "/", 
-                      city_file$lhd[city_file$TOWN_LC == i]))  
+
     write_csv(mastereventidlisti, 
-              path = paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", 
-                            Sys.Date(), "/", 
+              path = paste0("L:/Outputs/", Sys.Date(),"/eventid_lists/", 
                             city_file$lhd[city_file$TOWN_LC == i],
-                            "/", i, "last2week.csv"))  
+                            "_", i, "_last2week.csv"))  
   }
   rm(mastereventidlisti)
 }
@@ -246,7 +235,7 @@ CTTown_Alert  <-
     
 if(csv_write) {
   write_csv(CTTown_Alert, 
-            paste0("L:/daily_reporting_figures_rdp/gary_csv/CTTown_Alert.csv"))
+            paste0("L:/Outputs/",Sys.Date(),"/ODP_CTTown_Alert.csv"))
 }
 
 if(SQL_write){
@@ -304,8 +293,7 @@ TownAlertLevelsTable <-
 
 if(csv_write) {
   write_csv(TownAlertLevelsTable, 
-            paste0("L:/daily_reporting_figures_rdp/csv/", 
-                   Sys.Date(),"/TownAlertLevelsTable.csv"))
+            paste0("L:/Outputs/",Sys.Date(),"/THR_TownAlertLevelsTable.csv"))
 }
 #clear trash
 rm(rank, lastdate)
@@ -332,8 +320,8 @@ SummaryAlertLevelsTable <- TownAlertLevelsTable %>%
          `Towns Last Week` = pcatn)
  
 if(csv_write){
-  write_csv(SummaryAlertLevelsTable, paste0("L:/daily_reporting_figures_rdp/csv/", 
-                            Sys.Date(), "/SummaryAlertLevelsTable.csv"))
+  write_csv(SummaryAlertLevelsTable, paste0("L:/Outputs/",Sys.Date(),
+                                            "/THR_SummaryAlertLevelsTable.csv"))
 }
 
 rm(geocoded_community_tests, thursday_range_start, thursday_range_end,

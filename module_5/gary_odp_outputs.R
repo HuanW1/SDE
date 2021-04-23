@@ -27,8 +27,8 @@ REStateSummary <- race_eth_comb %>%
 
 #printing
 if(csv_write){
-  write_csv(REStateSummary , paste0("L:/daily_reporting_figures_rdp/gary_csv/", 
-                                    Sys.Date(), "/REStateSummary.csv"), na = "")
+  write_csv(REStateSummary , paste0("L:/Outputs/", 
+                                    Sys.Date(), "/ODP_REStateSummary.csv"), na = "")
 }
 if(SQL_write){
   df_to_table(REStateSummary, "ODP_REStateSummary", overwrite = TRUE, append = FALSE)
@@ -67,7 +67,7 @@ CountySummary<- case %>%
   arrange(CNTY_COD)
 
 if(csv_write){
-  write_csv(CountySummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/CountySummary.csv"))
+  write_csv(CountySummary, paste0("L:/Outputs/", Sys.Date(), "/ODP_CountySummary.csv"))
 }
 
 if(SQL_write){
@@ -141,7 +141,7 @@ StateSummary <- mock_table %>%
 
 #printing
 if (csv_write) {
-  write_csv(StateSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/StateSummary.csv"))
+  write_csv(StateSummary, paste0("L:/Outputs/", Sys.Date(), "/ODP_StateSummary.csv"))
 }
 if(SQL_write){
   df_to_table(StateSummary, "ODP_StateSummary", overwrite = FALSE, append = TRUE)
@@ -174,7 +174,7 @@ state_Result <- tibble(`State` = "CONNECTICUT",
 
 #printing
 if (csv_write) {
-  write_csv(state_Result, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/state_Result.csv"))
+  write_csv(state_Result, paste0("L:/Outputs/", Sys.Date(), "/ODP_state_Result.csv"))
 }
 if (SQL_write) {
   df_to_table(state_Result, "ODP_state_Result", overwrite = TRUE, append = FALSE)
@@ -258,7 +258,7 @@ town_Result <- town_cases %>%
 
 #printing
  if (csv_write) {
-   write_csv(town_Result, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/town_Result.csv"))
+   write_csv(town_Result, paste0("L:/Outputs/", Sys.Date(), "/ODP_town_Result.csv"))
  }
  if (SQL_write) {
    df_to_table(town_Result, "ODP_town_Result", overwrite = TRUE, append = FALSE)
@@ -289,7 +289,7 @@ ConProbByDate <- ConProbByDate %>%
 
 #printing
 if (csv_write) {
-  write_csv(ConProbByDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/ConProbByDate.csv"))
+  write_csv(ConProbByDate, paste0("L:/Outputs/", Sys.Date(), "/ODP_ConProbByDate.csv"))
 }
 if (SQL_write) {
   df_to_table(ConProbByDate, "ODP_ConProbByDate", overwrite = TRUE, append = FALSE)
@@ -323,7 +323,7 @@ GenderSummary <- case %>%
   
 #printing
 if (csv_write) {
-write_csv(GenderSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/GenderSummary.csv"))
+write_csv(GenderSummary, paste0("L:/Outputs/", Sys.Date(), "/ODP_GenderSummary.csv"))
 }
 if(SQL_write){
   df_to_table(GenderSummary, "ODP_GenderSummary", overwrite = TRUE, append = FALSE)
@@ -364,7 +364,7 @@ AgeGroupSummary <- case %>%
 
 #printing
 if (csv_write) {
-  write_csv(AgeGroupSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/AgeGroupSummary.csv"))
+  write_csv(AgeGroupSummary, paste0("L:/Outputs/", Sys.Date(), "/ODP_AgeGroupSummary.csv"))
 }
 if(SQL_write){
   df_to_table(AgeGroupSummary, "ODP_AgeGroupSummary", overwrite = TRUE, append = FALSE)
@@ -391,7 +391,7 @@ DodSummary<- case %>%
 
 #printing
 if(csv_write){
-  write_csv(DodSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/DodSummary.csv"))
+  write_csv(DodSummary, paste0("L:/Outputs/", Sys.Date(), "/ODP_DodSummary.csv"))
 }
 if(SQL_write){
   df_to_table(DodSummary, "ODP_DodSummary", overwrite = TRUE, append = FALSE)
@@ -427,7 +427,7 @@ TestCounty <- elr_linelist %>%
 
 #printing
 if(csv_write){
-  write_csv(TestCounty, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/TestCounty.csv"))
+  write_csv(TestCounty, paste0("L:/Outputs/", Sys.Date(), "/ODP_TestCounty.csv"))
 }
 if(SQL_write){
   df_to_table(TestCounty, "ODP_TestCounty", overwrite = TRUE, append = FALSE)
@@ -452,8 +452,8 @@ CountySummarybyDate <- case %>%
 
 #printing
 if (csv_write) {
-  write_csv(CountySummarybyDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", 
-                                    Sys.Date(), "/CountySummarybyDate.csv"))
+  write_csv(CountySummarybyDate, paste0("L:/Outputs/",Sys.Date(), 
+                                        "/ODP_CountySummarybyDate.csv"))
 }
 if(SQL_write){
   df_to_table(CountySummarybyDate, "ODP_CountySummarybyDate", overwrite = TRUE, append = FALSE)

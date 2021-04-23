@@ -12,6 +12,12 @@ source("helpers/Fetch_case.R")
 source("helpers/Fetch_ELR.R")
 source("helpers/Fetch_cha.R")
 
+#create output areas
+dir.create(paste0("L:/Outputs/", today()))
+if(thursday){
+  dir.create(paste0("L:/Outputs/", Sys.Date(), "/eventid_lists"))
+}
+
 ####1 Load Lookups and Dependancies ####
 #vectors
 age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
