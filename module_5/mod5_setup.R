@@ -25,7 +25,7 @@ counties <-c("Fairfield County", "Hartford County", "Litchfield County", "Middle
 city_file <- tibble(table_to_df("RPT_TOWN_CODES"))
 
 #commonly used cha vector
-HospitalizedCases <- tibble(HospitalizedCases = cha_c$today[9])
+HospitalizedCases <- cha_c$today[9]
 
 #sets up rea tables and percents
 source("race_ethnicity/race_ethnicity_setup.R")

@@ -58,10 +58,13 @@ CountySummary<- case %>%
   mutate(TotalCaseRate = round((TotalCases/pop)*100000),
          DateUpdated = graphdate,
          county = factor(county, levels = counties, labels = counties),
-         Hospitalizations = hospsum) %>% 
+         Hospitalizations = hospsum,
+         CNTY_COD = factor(county, levels =c(
+             'Fairfield County','Hartford County','Litchfield County','Middlesex County','New Haven County','New London County', 'Tolland County', 'Windham County'), labels = c(1,2,3,4,5,6,7,8 ))) %>% 
   rename(County = county, ProbableDeaths = Probable_Died, 
          ConfirmedDeaths = Confirmed_Died) %>% 
-  select(County, TotalCases, ConfirmedCases, ProbableCases,TotalCaseRate, TotalDeaths, ConfirmedDeaths, ProbableDeaths, Hospitalizations,DateUpdated) 
+  select(CNTY_COD, County, TotalCases, ConfirmedCases, ProbableCases,TotalCaseRate, TotalDeaths, ConfirmedDeaths, ProbableDeaths, Hospitalizations,DateUpdated) %>% 
+  arrange(CNTY_COD)
 
 if(csv_write){
   write_csv(CountySummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/CountySummary.csv"))
@@ -91,7 +94,7 @@ tbl_total_col <-
   c(as.character(ncases),
     as.character(ntests),
     "",
-    as.character(HospitalizedCases$HospitalizedCases),
+    as.character(HospitalizedCases),
     as.character(dec))
 
 mock_table$`Total**` <- tbl_total_col
@@ -113,9 +116,9 @@ yesterday_col <-
     paste0("+", ncases - last_rpt_data$Cases),
     paste0("+", ntests - last_rpt_data$Tests),
     paste0(round(Positivity * 100, 2), "%"),
-    ifelse(HospitalizedCases$HospitalizedCases - last_rpt_data$Hospitalized > 0,
-           paste0("+", HospitalizedCases$HospitalizedCases - last_rpt_data$Hospitalized),
-           paste0(HospitalizedCases$HospitalizedCases - last_rpt_data$Hospitalized)),
+    ifelse(HospitalizedCases - last_rpt_data$Hospitalized > 0,
+           paste0("+", HospitalizedCases - last_rpt_data$Hospitalized),
+           paste0(HospitalizedCases - last_rpt_data$Hospitalized)),
     ifelse(dec - last_rpt_data$Deaths > 0,
            paste0("+", dec - last_rpt_data$Deaths),
            paste0(dec - last_rpt_data$Deaths))
@@ -154,7 +157,7 @@ state_Result <- case %>%
   mutate(outcome = ifelse(is.na(outcome), "Survived", outcome)) 
 
 state_Result <- tibble(`State` = "CONNECTICUT",
-                       `LastUppdateDate` = graphdate,
+                       DateUpdated = graphdate,
                        TotalCases = sum(state_Result$n),
                        ConfirmedCases = sum(state_Result %>% filter(disease_status == "Confirmed") %>%  pull(n)),
                        ProbableCases = sum(state_Result %>% filter(disease_status == "Probable") %>%  pull(n)),
@@ -197,13 +200,13 @@ rm(state_Result)
     ungroup() %>% 
     pivot_wider(id_cols = c(Town, outcome, disease_status,TownTotalCases, TownCaseRate, TOWNNO ), names_from = c(outcome, disease_status), values_from = n) %>% 
     mutate(TownTotalDeaths = Died_Confirmed + Died_Probable,
-           LastUpdateDate = graphdate,
+           DateUpdated = graphdate,
            TownConfirmedCases = Died_Confirmed + Survived_Confirmed,
            TownProbableCases = Died_Probable + Survived_Probable) %>% 
   rename(Town_No = TOWNNO,
          TownConfirmedDeaths = Died_Confirmed,
          TownProbableDeaths = Died_Probable) %>% 
-  select(Town_No, Town, LastUpdateDate, TownTotalCases, TownConfirmedCases, TownProbableCases, TownTotalDeaths, TownConfirmedDeaths, TownProbableDeaths, TownCaseRate)
+  select(Town_No, Town, DateUpdated, TownTotalCases, TownConfirmedCases, TownProbableCases, TownTotalDeaths, TownConfirmedDeaths, TownProbableDeaths, TownCaseRate)
 
 #creating test counts by town and cleaning up names
 town_tests <- elr_linelist
@@ -226,7 +229,7 @@ town_tests <- town_tests %>%
 
 #Number of people tested by town
 town_people<- elr_linelist %>% 
-  filter(!city %in% c("Not_available", "Pending validation") & !is.na(city) 
+  filter(city %in% city_file$TOWN_LC & !is.na(city) 
          & !is.na(spec_col_date) & city %in% city_file$TOWN_LC) %>%
   select(bigID, result, spec_col_date, city) %>% 
   mutate(simple_result = ifelse(result == "detected", 1, 2)) %>%
@@ -238,7 +241,7 @@ town_people<- elr_linelist %>%
   group_by(Town) %>% 
   tally(name = "PeopleTested") %>% 
   mutate(Town = str_to_title(Town)) %>% 
-  left_join(city_file %>% select(TOWN_LC,pop_2019),
+  inner_join(city_file %>% select(TOWN_LC,pop_2019),
             by = c("Town" = "TOWN_LC")) %>% 
   mutate(RateTested100k = round(PeopleTested/pop_2019 * 100000)) %>% 
   select(-pop_2019)
@@ -246,7 +249,12 @@ town_people<- elr_linelist %>%
 #binding all the columns into gary_town_file
 town_Result <- town_cases %>% 
   inner_join(town_tests, by = "Town") %>% 
-  inner_join(town_people, by = "Town")
+  inner_join(town_people, by = "Town") %>% 
+  select(Town_No,Town, DateUpdated, TownTotalCases,	TownConfirmedCases, 
+         TownProbableCases,	TownTotalDeaths,	TownConfirmedDeaths,
+         TownProbableDeaths,	TownCaseRate,	PeopleTested,	NumberofTests,
+         NumberofPositives,	NumberofNegatives,	NumberofIndeterminates,
+         RateTested100k)
 
 #printing
  if (csv_write) {
@@ -276,7 +284,8 @@ ConProbByDate <- epicurve %>%
   pivot_wider(id_cols = Date, names_from = type, values_from = CaseCount) 
 ConProbByDate[is.na(ConProbByDate)] <- 0
 ConProbByDate <- ConProbByDate %>% 
-  mutate(Total =  Confirmed + Probable)
+  mutate(Total =  Confirmed + Probable) %>% 
+  select(Date, Confirmed, Probable, Total)
 
 #printing
 if (csv_write) {
@@ -431,15 +440,11 @@ rm(TestCounty)
 ####11 CountySummarybyDate.csv####
 #cases by date by county
 CountySummarybyDate <- case %>% 
+  filter(!is.na(County) & !is.na(Date)) %>% 
   group_by(date, county) %>% 
   tally(name = "Count") %>% 
   mutate(UpdateDate = Sys.Date()) %>% 
-  rename(
-    County = county,
-    Date = date
-  ) %>% 
-  ungroup() %>% 
-  filter(!is.na(County) & !is.na(Date))
+  rename(County = county, Date = date) 
 
 #printing
 if (csv_write) {
