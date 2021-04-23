@@ -1,6 +1,6 @@
 #### Module 5 / gary_odp_outputs ####
 #This script will generate the COVID-19 reporting outputs needed for ODP and other stakeholders
-message("Gary's ODP output process will now begin.  This usually takes 3.5 minutes")
+message("Gary's ODP output process will now begin")
 
 ####1 REStateSummary.csv ####
 #summary by race/ethnicity
@@ -187,7 +187,8 @@ rm(state_Result)
     tally() %>%
     rename(Town = city) %>% 
     ungroup() %>% 
-    complete(Town = city_file$TOWN_LC, outcome = c("Died", "Survived"),disease_status = c("Confirmed", "Probable"), fill = list(n = 0)) %>% 
+    complete(Town = city_file$TOWN_LC, outcome = c("Died", "Survived"),
+             disease_status = c("Confirmed", "Probable"), fill = list(n = 0)) %>% 
     left_join(city_file %>% select(TOWNNO, TOWN_LC,pop_2019),
                 by = c("Town" = "TOWN_LC")) %>% 
     group_by(Town) %>% 
@@ -225,7 +226,8 @@ town_tests <- town_tests %>%
 
 #Number of people tested by town
 town_people<- elr_linelist %>% 
-  filter(!city %in% c("Not_available", "Pending validation") & !is.na(city) & !is.na(spec_col_date) & city %in% city_file$TOWN_LC) %>%
+  filter(!city %in% c("Not_available", "Pending validation") & !is.na(city) 
+         & !is.na(spec_col_date) & city %in% city_file$TOWN_LC) %>%
   select(bigID, result, spec_col_date, city) %>% 
   mutate(simple_result = ifelse(result == "detected", 1, 2)) %>%
   group_by(bigID) %>%
@@ -332,12 +334,12 @@ AgeGroupSummary <- case %>%
   group_by(age_group, disease_status,outcome) %>% 
   tally() %>% 
   ungroup() %>%
-  complete(age_group = age_labels, disease_status = c("Confirmed", "Probable"), outcome = c("Died", "Survived"), fill = list(n = 0)) %>% 
-  pivot_wider(id_cols = c(age_group, disease_status, outcome), names_from = c(disease_status, outcome), values_from = n) %>% 
-  mutate(ConfirmedCases = Confirmed_Survived + Confirmed_Died,
-         ProbableCases = Probable_Survived + Probable_Died,
-         TotalDeaths = Confirmed_Died + Probable_Died,
-         TotalCases = ConfirmedCases + ProbableCases,
+  complete(age_group = age_labels, disease_status = c("Confirmed", "Probable"),
+           outcome = c("Died", "Survived"), fill = list(n = 0)) %>% 
+  pivot_wider(id_cols = c(age_group, disease_status, outcome), 
+              names_from = c(disease_status, outcome), values_from = n) %>% 
+  mutate(ConfirmedCases = Confirmed_Survived + Confirmed_Died, ProbableCases = Probable_Survived + Probable_Died,
+         TotalDeaths = Confirmed_Died + Probable_Died, TotalCases = ConfirmedCases + ProbableCases,
          DateUpdated = graphdate) %>% 
   left_join(pop, by = c("age_group" = "age_group")) %>% 
   mutate(TotalCaseRate = round((TotalCases/pop)*100000),
@@ -345,7 +347,8 @@ AgeGroupSummary <- case %>%
          age_group = factor(age_group, levels = age_labels, labels = age_labels)) %>% 
   rename(AgeGroups = age_group, ProbableDeaths = Probable_Died, 
          ConfirmedDeaths = Confirmed_Died) %>% 
-  select(AgeGroups, TotalCases, ConfirmedCases, ProbableCases,TotalDeaths, ConfirmedDeaths, ProbableDeaths, TotalCaseRate, DateUpdated) %>% 
+  select(AgeGroups, TotalCases, ConfirmedCases, ProbableCases,TotalDeaths,
+         ConfirmedDeaths, ProbableDeaths, TotalCaseRate, DateUpdated) %>% 
   arrange(AgeGroups) %>% 
   mutate(AgeGroups = as.character(AgeGroups),
          AgeGroups = ifelse(AgeGroups == ">=80", "80 and older", AgeGroups))
@@ -369,7 +372,8 @@ DodSummary<- case %>%
   group_by(disease_status, death_date) %>%
   tally() %>% 
   ungroup() %>% 
-  complete(death_date = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), disease_status = c("Confirmed", "Probable"), fill = list(n = 0)) %>% 
+  complete(death_date = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), 
+           disease_status = c("Confirmed", "Probable"), fill = list(n = 0)) %>% 
   pivot_wider(id_cols = c(death_date, disease_status), names_from = c(disease_status), values_from = n) %>%
   mutate(TotalDeaths = Confirmed + Probable) %>% 
   rename(dateofDeath = death_date, ConfirmedDeaths = Confirmed,
