@@ -3,7 +3,7 @@ message("Welcome to module 5, the tour will take approximately 5 minutes")
 message("Over here on our right here we have our start up helper")
 source("helpers/StartMeUp.R")
 
-csv_write <- FALSE
+csv_write <- TRUE
 SQL_write <- FALSE
 
 thursday <- lubridate::wday(lubridate::today()) == 5
