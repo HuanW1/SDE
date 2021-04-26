@@ -1,10 +1,24 @@
 if(!dir.exists("L:/")) message("You need to have L drive mapped")
-
-.libPaths(c("L:/library", .libPaths()))
-
-library(tidyverse)
-library(lubridate)
-library(flextable)
+suppressPackageStartupMessages(library("tidyverse",
+                                       lib.loc = "L:/newlib",
+                                       quietly = TRUE,
+                                       warn.conflicts = FALSE,
+                                       logical.return = TRUE))
+library("lubridate",
+        lib.loc = "L:/newlib",
+        quietly = TRUE,
+        warn.conflicts = FALSE,
+        logical.return = TRUE)
+library("flextable",
+        lib.loc = "L:/newlib",
+        quietly = TRUE,
+        warn.conflicts = FALSE,
+        logical.return = TRUE)
+library("rmarkdown",
+        lib.loc = "L:/newlib",
+        quietly = TRUE,
+        warn.conflicts = FALSE,
+        logical.return = TRUE)
 
 possibilities <-
   list.files(path = "l:/",
@@ -22,4 +36,9 @@ which_one <-
   pull(possibilities)
 
 load(which_one)
-mock_table
+print(mock_table)
+message("Draft table loaded in the Viewer window")
+# save_as_docx(mock_table, path = "pre_draft_summary_table.docx")
+rmarkdown::render("otto_text.Rmd", output_file = "otto.docx")
+
+message("word version available in this directory as otto.docx ")

@@ -12,12 +12,13 @@
 # 7. 12/23/20: wininger - file-sourcing, edits to sources
 # 8. 02/08/21: kleppinger - link to new source file and edit county and city and create new matching file
 # 9. 02/11/21: Powell - Overhaul
+# 10.03/16/2021: Kleppinger - added newlib and deleted extras to match routine
 ################################################################
 
 #### load libraries ####
-.libPaths(c("L:/library", .libPaths()))
+.libPaths(c("L:/newlib", .libPaths()))
 
-library(tidyverse)			# filter
+library(tidyverse) # filter
 library(lubridate)
 library(zipcodeR)
 library(stringdist)
@@ -126,8 +127,9 @@ SELECT  [csv_file_version_no]
 --,[ExportEndDate]
 --,[RecID]
 FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]
-WHERE ExportDate = '2021-02-19 07:54:00'")
-
+WHERE ExportDate = '2021-04-07 08:00:00'")
+# 4/7/2021 8:00:00 AM
+# 4/5/2021 8:00:00
 # DBI::dbGetQuery(con2, statement = "select max(exportdate) FROM [DPH_COVID_IMPORT].[dbo].[CELR_REPORT]")
 # latest_report <-
 #   DBI::dbGetQuery(con2,
@@ -184,8 +186,6 @@ data <-
 
 table(data$Test_date)
 
-which_test_date <- "20210216" # YMD
-
 #### automate writing file name by test date
 first_part <- paste0("w:/Electronic Laboratory Reporting/Output/CTEDSS/MIF-PROD/CoV testing/CDC related/CELR/Output/",
                       today())
@@ -194,40 +194,35 @@ if(!dir.exists(first_part)) {
   dir.create(first_part)
 }
 
-zero_pad <-
-  paste0(first_part,
-         "/InterPartner~CELR~CT~AIMSPlatform~Prod~Prod~",
-         which_test_date,
-         "18050000~STOP~COVID")
-
-data %>%
-  select(csv_file_version_no:Submitter_unique_sample_ID) %>%
-  filter(Test_date == which_test_date) %>%
-  group_by(grp = rep(row_number(), length.out = n(), each = 25000)) %>%
-  group_walk(~ write_csv(.x, paste0(zero_pad, .y$grp, ".csv"), na=""))
-
-
-
-
 # "w:\Electronic Laboratory Reporting\Output\CTEDSS\MIF-PROD\CoV testing\CDC related\CELR\Output\Feb 15"
 
 #### Easy lazy way to do multiple test dates in one for loop
 
-which_test_date <- c("20210216", "20210215") # YMD order doesn't matter
+which_test_date <- c("20210405", "20210401", "20210402", "20210403", "20210404") # YMD order doesn't matter
+last_used <- 197
 
-for (idate in which_test_date) {
-  zero_pad <-
-    paste0(first_part,
-           "/InterPartner~CELR~CT~AIMSPlatform~Prod~Prod~",
-           idate,
-           "18050000~STOP~COVID")
 
-  data %>%
-    select(csv_file_version_no:Submitter_unique_sample_ID) %>%
-    filter(Test_date == idate) %>%
-    group_by(grp = rep(row_number(), length.out = n(), each = 25000)) %>%
-    group_walk(~ write_csv(.x, paste0(zero_pad, .y$grp, ".csv"), na=""))
+list_of_dfs <- data %>%
+  select(csv_file_version_no:Submitter_unique_sample_ID) %>%
+  filter(Test_date %in% which_test_date) %>%
+  group_by(Test_date) %>%
+  mutate(grp = rep(row_number(), length.out = n(), each = 25000)) %>%
+  group_by(Test_date, grp) %>%
+  mutate(duh = cur_group_id()) %>%
+  ungroup() %>%
+  split(.$duh) %>%
+  map(~ .x %>% select(-duh, -grp))
 
-}
+nams <- names(list_of_dfs)
+nams %>% walk(~ write_csv(list_of_dfs[[.]],
+                          paste0(first_part,
+                                 "/InterPartner~CELR~CT~AIMSPlatform~Prod~Prod~",
+                                 unique(list_of_dfs[[.]]$Test_date),
+                                 "18050000~STOP~COVID",
+                                 as.numeric(.) + last_used,
+                                 ".csv"),
+                          na = ""))
+
+
 
 

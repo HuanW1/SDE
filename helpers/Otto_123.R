@@ -1,24 +1,28 @@
+### real
 started_time <- Sys.time()
-require(rmarkdown)
-require(tidyverse)
-require(sf)
-require(odbc)
-require(kableExtra)
-require(lubridate)
-require(formatR)
-require(knitr)
-require(MMWRweek)
-require(scales)
-require(english)
-require(flextable)
-require(DBI)
+weekdays(lubridate::today())
+started_time
+library(rmarkdown, lib.loc = "l:/newlib/", quietly = TRUE, warn.conflicts = FALSE, logical.return = TRUE)
+suppressPackageStartupMessages(library(tidyverse, quietly = TRUE, warn.conflicts = FALSE, lib.loc = "l:/newlib/", logical.return = TRUE))
+suppressPackageStartupMessages(library(sf, lib.loc = "l:/newlib/", warn.conflicts = FALSE))
+library(odbc, lib.loc = "l:/newlib/", quietly = TRUE, warn.conflicts = FALSE)
+library(kableExtra, lib.loc = "l:/newlib/", quietly = TRUE, warn.conflicts = FALSE)
+library(lubridate, lib.loc = "l:/newlib/", quietly = TRUE, warn.conflicts = FALSE)
+library(formatR, lib.loc = "l:/newlib/", quietly = TRUE, warn.conflicts = FALSE)
+library(knitr, lib.loc = "l:/newlib/", quietly = TRUE, warn.conflicts = FALSE)
+library(MMWRweek, lib.loc = "l:/newlib/")
+library(scales, lib.loc = "l:/newlib/", quietly = TRUE, warn.conflicts = FALSE)
+library(english, lib.loc = "l:/newlib/", quietly = TRUE, warn.conflicts = FALSE)
+library(flextable, lib.loc = "l:/newlib/", quietly = TRUE, warn.conflicts = FALSE)
+library(DBI, lib.loc = "l:/newlib/")
+library(stringdist, lib.loc = "l:/newlib/", quietly = TRUE, warn.conflicts = FALSE)
 
 graphdate <- Sys.Date() - 1
 
 con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
 log_data <- DBI::dbGetQuery(conn = con2 ,
                             statement = "SELECT * FROM [DPH_COVID_IMPORT].[dbo].[Daily_Report_Log]")
-log_data
+tail(log_data)
 odbc::dbDisconnect(con2)
 
 logged_update_date <- max(log_data$UpdatedDate)
@@ -53,6 +57,7 @@ if (monthsame) {
 #### setting what we write out ####
 csv_write <- FALSE
 SQL_write <- FALSE
+do_DQ <- TRUE
 
 
 ## ----declare_functions, include=FALSE------------------------------------------------------------------------------------
@@ -128,6 +133,7 @@ pcrtests <- c('SARS CoV 2 ORF1 resp',
               'SARS-CoV-2 N gene Saliva',
               'COVID-19 PCR (CEPHEID)',
               'SARS CoV 2 NAA resp',
+              'SARS-CoV-2 (COVID19) N gene [Presence] in Nose by NAA with probe detection',
               'SARS-CoV-2 specific TCRB gene in Blood by Seq'
 )
 
@@ -141,9 +147,25 @@ agtests <- c('SARS CoV 2 Ag rapid IA',
 
 age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
 
-pop <- read_csv("L:/daily_reporting_figures_rdp/population_data/2018_dph_asrh/2018_asrh.csv") %>%
-  select(age_g, total) %>%
-  filter(!is.na(age_g))
+# pop <- read_csv("L:/daily_reporting_figures_rdp/population_data/2018_dph_asrh/2018_asrh.csv") %>% 
+#   select(age_g, total) %>% 
+#   filter(!is.na(age_g))
+
+epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
+ghost_data <- tbl(epi_connect, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.RPT_STATE_REA_DENOMS"))
+
+pop <- 
+  ghost_data %>% 
+  select(year:pop) %>%
+  filter(year == 2019) %>%
+  collect() %>%
+  mutate(age_g = cut(age,
+                     breaks = c(-1,9,19,29,39,49,59,69,79, Inf),
+                     labels = age_labels)) %>%
+  group_by(age_g) %>%
+  summarise(total = sum(pop))
+
+odbc::dbDisconnect(epi_connect)
 
 town_pop18 <- read_csv("L:/daily_reporting_figures_rdp/population_data/pop_towns2018.csv") %>%
   rename(city = Town,
@@ -153,9 +175,30 @@ town_pop18 <- read_csv("L:/daily_reporting_figures_rdp/population_data/pop_towns
 cc_map <- read_csv(
   paste0("L:/daily_reporting_figures_rdp/dependancies/City County Mapping.csv")) %>%
   mutate(COUNTY = paste0(COUNTY," County"))
+
 #county populations
-county_pop <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv") %>%
-  mutate(County = paste0(County, " County"))
+# county_pop <- 
+#   read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv",
+#            col_types = "cn") %>% 
+#   mutate(County = paste0(County, " County"))
+
+### Using SQL 2019 county populations
+epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
+ghost_data <- tbl(epi_connect, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.RPT_COUNTY_REA_DENOMS"))
+
+county_pop <- 
+  ghost_data %>% 
+  select(YEAR:POP) %>%
+  filter(YEAR == 2019) %>%
+  group_by(cty_label) %>%
+  summarise(Total = sum(POP, na.rm = TRUE)) %>%
+  mutate(County = paste0(cty_label, " County")) %>%
+  select(County, Total) %>% 
+  arrange(County) %>%
+  collect() 
+
+rm(ghost_data)
+odbc::dbDisconnect(epi_connect)
 
 
 ## ----read_cha
@@ -164,29 +207,6 @@ cha_file <- list.files("L:/daily_reporting_figures_rdp/CHA_data_here",
                        pattern = ".csv",
                        full.names = TRUE)
 cha <-  read_csv(cha_file)
-
-# Why do we create newcha then never use it?
-newcha <-
-  cha %>%
-  filter(Type == "Admit" & State == "TOTAL") %>%
-  select(-c(Change, County, State)) %>%
-  pivot_longer(-Type,
-               names_to = "admit_date",
-               values_to = "admissions",
-               names_transform = list(admit_date = mdy)) %>%
-  select(-Type)
-
-
-# ## ----yesterday_summary, include=FALSE------------------------------------------------------------------------------------
-# #### Check for yesterday data otherwise create fake ####
-# if(file.exists(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1))) {
-#   yesterday_file <- list.files(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date() - 1),
-#                                pattern = ".csv")
-# } else {
-#   yesterday_file <- "No yesterday file yet"
-# }
-
-
 
 ## ----shapefiles, include = FALSE-----------------------------------------------------------------------------------------
 #### towns shapes ####
@@ -222,7 +242,7 @@ statement <-
           cong_exposure_type, cong_facility, cong_yn as ptreside, daycare_yn as daycare_attendee,
           daycare_occu as daycare_staff, case_create_date, case_mod_date, case_effective_date,
           case_eff_From_date as case_eff_from_date, event_date, facilityName,
-          zip_code, race_concat
+          zip_code, race_concat, mname, suffix, COVID_EIP_ID as covid_eip_id
          FROM [DPH_COVID_IMPORT].[dbo].[CTEDSS_DAILY_REPORT_ALL_Cases]")
 
 raw_cases <- DBI::dbGetQuery(conn = con2 , statement = statement)
@@ -241,14 +261,11 @@ statement <-
       SPEC_SOURCE as source, AUTH_FACILITY as auth_facility,
       ORDERING_PROVIDER_NAME as ordering_provider_name,
       LAB_NAME as lab_name, FACILITY_NAME as facility_name,
-      ORDERING_PROVIDER_FNAME as ordering_provider_fname,
-      ORDERING_PROVIDER_LNAME as ordering_provider_lname,
       CASE_MODIFICATION_DATE as case_modification_date,
-      result_rpt_date, Device_ID as device_id,
+      result_rpt_date, 
       SPEC_SOURCE_SNOMED as spec_source_snomed,
-      RESULT_FREE_TEXT as result_free_text,
       ORDER_LAB_FACILITY as order_lab_facility,
-      TESTING_LAB_CLIA as testing_lab_clia, NOTES2 as notes2
+      TESTING_LAB_CLIA as testing_lab_clia
     FROM [DPH_COVID_IMPORT].[dbo].[DAILY_Reports_ALL_COVID_TESTS]"
   )
 
@@ -272,7 +289,7 @@ save(started_time,
      finished_pull,
      cases_dim,
      tests_dim,
-     file = paste0("l:/quick_summary_", timey, ".RData" ))
+     file = paste0("l:/Otto_summary_", timey, ".RData" ))
 
 
 started_df <- Sys.time()
@@ -280,6 +297,7 @@ started_df <- Sys.time()
 ## ----df_creation--------------------------------------------------------
 df <-  left_join(raw_cases, raw_tests, by = c("eventid"))
 
+print("Deleting raw files")
 rm(raw_cases)
 rm(raw_tests)
 
@@ -303,13 +321,18 @@ df <-
       difftime(event_date, dob)
       ,unit = "years")
     ),
+    age = if_else(age < 0 | age > 121, NA_real_, age),
     cong_exposure_type = str_to_sentence(cong_exposure_type),
     cong_exposure_type = ifelse(
       is.na(cong_exposure_type) & ptreside == "Yes",
       "Reside",
       cong_exposure_type
     ),
-    bigID = str_squish(paste0(fname, lname, dob)),
+    #    bigID = str_squish(paste0(fname, lname, dob)),
+    bigID = paste0(str_remove_all(paste0(fname,
+                                         lname),
+                                  "\\W|\\d"),
+                   dob),
     result = str_to_lower(result),
     hospitalized = str_to_sentence(hospitalized),
     hospitalized = case_when(
@@ -359,9 +382,11 @@ df <-
                    "Asian or Pacific Islander", "Other", "Unknown") ~ "Multiracial",
       TRUE ~ race
     ),
-    hisp_race = paste0(hisp, " ", race),
-    hisp_race = ifelse(hisp == "H", "Hispanic", hisp_race),
-    hisp_race = ifelse(hisp_race == "NH Unknown", "Unknown", hisp_race),
+    hisp_race = case_when(
+      hisp == "H"  ~ "Hispanic",
+      race == "Unknown" ~ "Unknown",
+      TRUE ~ paste0(hisp, " ", race)
+    ),
     age_group = cut(age,
                     breaks = c(-1,9,19,29,39,49,59,69,79, Inf),
                     labels = age_labels)
@@ -374,27 +399,6 @@ df <- df %>%
 
 ## ----multi_and_beyond----------------------------------------------------------------------------------------------------
 
-#### multioutcome ####
-
-# Sys.time()
-# multioutcome <- test_df %>%
-#   select(bigID, outcome) %>%
-#   distinct(bigID, outcome) %>%
-#   group_by(bigID) %>%
-#   tally() %>%
-#   filter(n >= 2) %>%
-#   ungroup() %>%
-#   left_join(df, by = c("bigID" = "bigID")) %>%
-#   select(eventid, bigID, outcome, death_date) %>%
-#   unique() %>%
-#   filter(outcome == "Died" & !is.na(death_date))
-#
-# test_df <- test_df %>%
-#   mutate(outcome = ifelse(bigID %in% multioutcome$bigID, "Died", outcome))
-# Sys.time()
-# #
-# table(df$outcome)
-
 # Sys.time()
 df <-
   df %>%
@@ -406,53 +410,66 @@ df <-
 
 # Sys.time()
 
-dq_death_check_table <- df %>%
-  filter(outcome == "Died" | covid_death == "YES")%>%
-  mutate(deaths_under_20 = ifelse(age < 20, 1, 0),
-         death_too_early = ifelse((death_date < "2020-02-01" & !is.na(death_date)), 1, 0),
-         dead_no_town = ifelse(is.na(city), 1, 0),
-         dead_no_date = ifelse(is.na(death_date), 1, 0),
-         dead_no_ocmeid = ifelse((outcome %in% "Died" | covid_death %in% "YES") & is.na(ocmeid), 1, 0),
-         died_not_covid = ifelse((outcome %in% "Died" & (covid_death %in% "NO" | is.na(covid_death))), 1, 0)) %>%
-  distinct(eventid, .keep_all=TRUE)%>%
-  select(eventid, bigID, deaths_under_20, death_too_early, dead_no_town, dead_no_date, dead_no_ocmeid, died_not_covid)%>%
-  filter(deaths_under_20==1 | death_too_early==1 | dead_no_town==1 | dead_no_date==1 | dead_no_ocmeid==1 | died_not_covid==1)
-
-df_to_table(df_name = dq_death_check_table,
-            table_name = "DQ_deathtable",
-            overwrite = TRUE,
-            append = FALSE)
-
-##### New code from Lexi coming
-## DEATH DUPS:
-death_ids <- df %>%
-  filter(outcome %in% "Died" | covid_death %in% "YES")
-
-death_dup_ids <- df %>%
-  filter(bigID %in% death_ids$bigID)%>%
-  distinct(eventid, bigID)%>%
-  arrange(bigID)%>%
-  group_by(bigID)%>%
-  tally()%>%
-  filter(n > 1)
-
-death_dups <- df %>%
-  filter(bigID %in% c(death_dup_ids$bigID)) %>%
-  select(eventid, bigID, covid_death) %>%
-  arrange(bigID) %>%
-  distinct(eventid, bigID, .keep_all = TRUE)
-
-### WRITE SQL TABLE:
-df_to_table(df_name = death_dups,
-            table_name = "DQ_deathdups",
-            overwrite = TRUE,
-            append = FALSE)
-
-
+if(do_DQ) {
+  ### Create DQ_DeathTable and DQ_deathdups tables
+  ### Source after multioutcome fix
+  
+  dq_death_check_table <- df %>%
+    filter(outcome == "Died" | covid_death == "YES")%>%
+    mutate(deaths_under_20 = ifelse(age < 20, 1, 0),
+           death_too_early = ifelse((death_date < "2020-02-01" & !is.na(death_date)), 1, 0),
+           dead_no_town = ifelse(is.na(city), 1, 0),
+           dead_no_date = ifelse(is.na(death_date), 1, 0),
+           dead_no_ocmeid = ifelse((outcome %in% "Died" | covid_death %in% "YES") & is.na(ocmeid), 1, 0),
+           died_not_covid = ifelse((outcome %in% "Died" & (covid_death %in% "NO" | is.na(covid_death))), 1, 0)) %>%
+    distinct(eventid, .keep_all=TRUE)%>%
+    select(eventid, bigID, deaths_under_20, death_too_early, dead_no_town, dead_no_date, dead_no_ocmeid, died_not_covid)%>%
+    filter(deaths_under_20==1 | death_too_early==1 | dead_no_town==1 | dead_no_date==1 | dead_no_ocmeid==1 | died_not_covid==1)
+  
+  df_to_table(df_name = dq_death_check_table,
+              table_name = "DQ_deathtable",
+              overwrite = TRUE,
+              append = FALSE)
+  
+  ## DEATH DUPS:
+  death_ids <- df %>%
+    filter(outcome %in% "Died" | covid_death %in% "YES")
+  
+  death_dup_ids <- df %>%
+    filter(bigID %in% death_ids$bigID)%>%
+    distinct(eventid, bigID)%>%
+    arrange(bigID)%>%
+    group_by(bigID)%>%
+    tally()%>%
+    filter(n > 1)
+  
+  death_dups <- df %>%
+    filter(bigID %in% c(death_dup_ids$bigID)) %>%
+    select(eventid, bigID, covid_death, ocmeid) %>%
+    arrange(bigID) %>%
+    distinct(eventid, bigID, .keep_all = TRUE)
+  
+  ### WRITE SQL TABLE:
+  df_to_table(df_name = death_dups,
+              table_name = "DQ_deathdups",
+              overwrite = TRUE,
+              append = FALSE)
+  
+}
 
 ##########  Death Cleanup     #############
+if (!dir.exists(paste0("L:/daily_reporting_figures_rdp/csv/", today()))) {
+  dir.create(paste0("L:/daily_reporting_figures_rdp/csv/", today()))
+}
 
-df$outcome[df$covid_death == "No"] <- NA
+future_deaths <- df %>%
+  filter(outcome == "Died" & death_date > today())
+
+write_csv(future_deaths, paste0("L:/daily_reporting_figures_rdp/csv/", 
+                                today(), 
+                                "/future_deaths.csv"))
+
+df$outcome[df$covid_death %in% c("Unknown", "No")] <- NA
 #df$death_date[df$covid_death == "No"] <- NA
 
 test_people <- df %>%
@@ -467,6 +484,27 @@ test_people <- df %>%
 df <- df %>%
   filter(!eventid %in% test_people)
 
+if(do_DQ) {
+  
+#source after test people removed and tests results cleaned (~line 443); 
+### prior to bad spec col dates being blanked out
+
+test_dq_table <- df %>% 
+  mutate(test_too_early = ifelse(spec_col_date < ymd("2020-02-20"), 1, 0),
+         test_in_future = ifelse(spec_col_date > mdy(result_rpt_date), 1, 0))%>%
+  filter(test_in_future == 1 | test_too_early == 1)%>%
+  select(eventid, spec_col_date, spec_num, test_too_early, test_in_future)%>%
+  distinct(eventid, spec_col_date, spec_num, .keep_all=TRUE)
+
+
+df_to_table(df_name = test_dq_table,
+            table_name = "DQ_test_table",
+            overwrite = TRUE,
+            append = FALSE)
+
+}
+
+
 #####test results cleaning
 df$result <- if_else(
   str_detect(df$result, "not ?(un)?detected|negative"),
@@ -477,10 +515,6 @@ df$result <- if_else(
     "indeterminate"
   )
 )
-
-###bad spec_col_dates blanked out
-# df$spec_col_date[df$spec_col_date < ymd("2020-02-20")] <- NA
-# df$spec_col_date[df$spec_col_date > Sys.Date()] <- NA
 
 df <-
   df %>%
@@ -572,6 +606,16 @@ two_or_more_symps <- df_suspect %>%
   select(eventid) %>%
   distinct()
 
+all_two_or_more_symps <- df %>%
+  select(eventid, disease_status, fever, chills, rigors, myalgia, headache, sorethroat, new_olfact_taste) %>%
+  pivot_longer(-c(eventid, disease_status), names_to = "symptom", values_to = "symp_pres") %>%
+  filter(symp_pres == "Yes") %>%
+  group_by(eventid, disease_status) %>%
+  tally() %>%
+  filter(n >= 2) %>%
+  select(eventid) %>%
+  distinct()
+
 one_of_symps <- df_suspect %>%
   select(eventid, disease_status, cough, sob, ards, pneumonia) %>%
   pivot_longer(-c(eventid, disease_status), names_to = "symptom", values_to = "symp_pres") %>%
@@ -582,9 +626,49 @@ one_of_symps <- df_suspect %>%
   select(eventid) %>%
   distinct()
 
+all_one_of_symps <- df %>%
+  select(eventid, disease_status, cough, sob, ards, pneumonia) %>%
+  pivot_longer(-c(eventid, disease_status), names_to = "symptom", values_to = "symp_pres") %>%
+  filter(symp_pres == "Yes") %>%
+  group_by(eventid, disease_status) %>%
+  tally() %>%
+  select(eventid) %>%
+  distinct()
+
+probable_but_why <- df %>%
+  group_by(eventid)%>%
+  filter(!any(result == "detected"))%>%
+  ungroup()%>%
+  filter(disease_status == "Probable")%>%
+  filter(!eventid %in% all_one_of_symps$eventid)%>%
+  filter(!eventid %in% all_two_or_more_symps$eventid)%>%
+  filter(!outcome %in% "Died")
+
 suspect_probable <- df_suspect %>%
   filter((eventid %in% one_of_symps$eventid | eventid %in% two_or_more_symps$eventid)) %>%
   distinct()
+
+if(do_DQ) {
+  #add in after suspect_probable creation, and before mutate the disease_status changes
+  dq_diseasestatus_check_table <- df %>%
+    mutate(pcr_not_confirmed = ifelse(eventid %in% pcr_not_confirmed$eventid,  1, 0),
+           confirmed_not_pcr = ifelse(eventid %in% conf_bad_result$eventid, 1, 0),
+           ag_not_probable = ifelse(eventid %in% ag_probable$eventid,  1, 0),
+           probable_but_why = ifelse(eventid %in% probable_but_why$eventid, 1, 0),
+           suspect_but_symptoms = ifelse(eventid %in% suspect_probable$eventid, 1,0),
+           ocme_to_probable = ifelse(eventid %in% ocmeprob$eventid, 1, 0)) %>%
+    distinct(eventid, .keep_all=TRUE)%>%
+    filter(state == "CT" | is.na(state))%>%
+    select(eventid, pcr_not_confirmed, ag_not_probable, confirmed_not_pcr, probable_but_why, suspect_but_symptoms, ocme_to_probable)%>%
+    filter(pcr_not_confirmed==1 | confirmed_not_pcr==1 | ag_not_probable==1 | probable_but_why==1 | suspect_but_symptoms==1 | ocme_to_probable==1)
+  
+#  write_csv(dq_diseasestatus_check_table, "dq_status_table.csv")
+  
+  df_to_table(df_name = dq_diseasestatus_check_table,
+              table_name = "DQ_statustable",
+              overwrite = TRUE,
+              append = FALSE)
+}
 
 df <- df %>%
   mutate(disease_status = ifelse(eventid %in% ocmeprob$eventid, "Probable", disease_status)) %>%  #ocmeid + covid_death = yes, setting disease status to probable
@@ -603,34 +687,8 @@ df_dim <- dim(df)
 timey <- Sys.time()
 timey <- gsub(pattern = " |:", replacement = "-", x = timey)
 
-save(started_df,
-     finished_df,
-     df_dim,
-     file = paste0("l:/df_creation_", timey, ".RData" ))
-
 save(df,
-     file = paste0("l:/current_data_", timey, ".RData" ))
-
-DeathUnder20 <- df %>%
-  filter(covid_death == "YES" & age < 20 & event_date > "2020-02-01") %>%
-  distinct(bigID, .keep_all = TRUE)
-
-con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
-rs <- dbSendQuery(con2, "SELECT bigID FROM [DPH_COVID_IMPORT].[dbo].[DQ_DeathUnder20]")
-current_bigids <- dbFetch(rs)
-current_count <- dbGetRowCount(rs)
-dbClearResult(rs)
-odbc::dbDisconnect(con2)
-
-if(current_count != nrow(DeathUnder20)) {
-  df_to_table(DeathUnder20,
-              "DQ_DeathUnder20",
-              overwrite = TRUE,
-              append = FALSE)
-  warning("Deaths Under 20 changed")
-}
-
-
+     file = paste0("l:/recent_rdata/raw_data_", timey, ".RData" ))
 
 ######case pt 1############
 case <- df %>%
@@ -674,33 +732,15 @@ case$death_date[is.na(case$covid_death) | case$covid_death == "NO"] <- NA
 thursday_case <- case %>%
   filter(date >= thursday_range_start & date <= thursday_range_end )
 
-#count(case, hisp_race2)
-case2 <- case %>%
-  select(-phone) %>%
-  select(eventid,disease_status, age, gender, city, county, state, hisp_race, race, hisp,hospitalized, admit_date, discharge_date, icu, preg, symptoms, symp_onset_date, spec_col_date, fever, fatigue, sob, headache, cough, myalgia, new_olfact_taste, rigors, pneumonia, ards, outcome, death_date, healthcare_worker, cong_setting, cong_exposure_type, cong_facility, cong_yn, case_create_date, event_date, mmwrweek)
-
-if (csv_write) {
-  dir.create(paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date()))
-  write_csv(case2,
-            paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(),
-                   "/", Sys.Date(), "cases.csv"))
-}
-
-timey <- Sys.time()
-timey <- gsub(pattern = " |:", replacement = "-", x = timey)
-
-save(case2,
-     file = paste0("l:/cases_", timey, ".RData" ))
-
-rm(case2)
-
-if (SQL_write) {
-  #  df_to_table()
-}
-
-
 case3 <- case %>%
-  select(eventid,fname, lname, dob, phone, disease_status, age, gender, street, city, county, state, hisp_race, race, hisp,hospitalized, admit_date, discharge_date, icu, preg, symptoms, symp_onset_date, spec_col_date, fever, fatigue, sob, headache, cough, myalgia, new_olfact_taste, rigors, pneumonia, ards, outcome, covid_death, vrn, ocme_reported, ocmeid, death_date, healthcare_worker, cong_setting, cong_exposure_type, cong_facility,cong_yn, case_create_date, event_date, test, result, lab_name, mmwrweek)
+  select(eventid, fname, lname, dob, phone, disease_status, age, gender, street, 
+         city, county, state, hisp_race, race, hisp,hospitalized, admit_date, 
+         discharge_date, icu, preg, symptoms, symp_onset_date, spec_col_date, 
+         fever, fatigue, sob, headache, cough, myalgia, new_olfact_taste, 
+         rigors, pneumonia, ards, outcome, covid_death, vrn, ocme_reported, 
+         ocmeid, death_date, healthcare_worker, cong_setting, cong_exposure_type, 
+         cong_facility,cong_yn, case_create_date, event_date, test, result, 
+         lab_name, mmwrweek, mname, suffix, covid_eip_id)
 
 if(csv_write){
   write_csv(case3, paste0("L:/daily_reporting_figures_rdp/csv/",
@@ -711,108 +751,132 @@ timey <- Sys.time()
 timey <- gsub(pattern = " |:", replacement = "-", x = timey)
 
 save(case3,
-     file = paste0("l:/cases_wphi_", timey, ".RData" ))
+     file = paste0("l:/recent_rdata/cases_wphi_", timey, ".RData" ))
 
 
-
-if(!weekdays(today()) %in% c("Saturday", "Sunday")) {
-  ##### new code from Lexi coming
-  ##### flag changes in DOB or gender by eventid:
-  if(weekdays(Sys.Date()) == "Monday"){
-    x = 3
-  } else {
-    x = 1
+if(do_DQ) {
+  
+  ### Create DQ_demographic_changes, DQ_newdeathstoday, and DQ_missingdeaths tables
+  ### Source after case3 is created but before it is removed
+  if(!weekdays(today()) %in% c("Saturday", "Sunday")) {
+    ##### flag changes in DOB or gender by eventid:
+    if(weekdays(Sys.Date()) == "Monday"){
+      x = 3
+    } else {
+      x = 1
+    }
+    
+    yesterday_cases <-
+      read_csv(paste0('L:/daily_reporting_figures_rdp/csv/', Sys.Date() - x, "/", Sys.Date() - x, "cases_wphi.csv"))
+    
+    yesterday_dob <- yesterday_cases %>%
+      select(eventid, dob, gender, outcome)%>%
+      mutate(date = Sys.Date()-x,
+             date_order = "date_1",
+             eventid = as.character(eventid)
+      )
+    
+    dob_gender <- case3 %>%
+      select(eventid, dob, gender, outcome)%>%
+      mutate(date = Sys.Date(),
+             date_order = "date_2")%>%
+      bind_rows(yesterday_dob)
+    
+    dob_ids <- dob_gender %>%
+      distinct(eventid, dob, .keep_all = TRUE) %>%
+      group_by(eventid) %>%
+      tally() %>%
+      filter(n > 1)
+    
+    gender_ids <- dob_gender %>%
+      distinct(eventid, gender, .keep_all = TRUE) %>%
+      group_by(eventid) %>%
+      tally() %>%
+      filter(n > 1)
+    
+    outcome_ids <- dob_gender %>%
+      distinct(eventid, outcome, .keep_all = TRUE) %>%
+      group_by(eventid) %>%
+      tally() %>%
+      filter(n > 1)
+    
+    dob_change <- dob_gender %>%
+      filter(eventid %in% dob_ids$eventid)%>%
+      arrange(date_order)%>%
+      pivot_wider(names_from = date_order, values_from = c("date", "dob", "gender", "outcome"))%>%
+      filter(!is.na(dob_date_1)) %>%
+      distinct(.keep_all = TRUE)
+    
+    gender_change <- dob_gender %>%
+      filter(eventid %in% gender_ids$eventid)%>%
+      arrange(date_order)%>%
+      pivot_wider(names_from = date_order, values_from = c("date", "dob", "gender", "outcome"))%>%
+      filter(!is.na(gender_date_1))%>%
+      filter(!gender_date_1 %in% c("Unknown"))%>%
+      distinct(.keep_all = TRUE)
+    
+    outcome_change <- dob_gender %>%
+      filter(eventid %in% outcome_ids$eventid)%>%
+      arrange(date_order)%>%
+      pivot_wider(names_from = date_order, values_from = c("date", "dob", "gender", "outcome"))%>%
+      filter(is.na(outcome_date_2))%>%
+      distinct(.keep_all = TRUE)
+    
+    demo_changes <- bind_rows(dob_change, gender_change)%>%
+      bind_rows(outcome_change)%>%
+      distinct(.keep_all = TRUE)%>%
+      mutate(year_diff = year(dob_date_1) - year(dob_date_2),
+             month_diff = month(dob_date_1) - month(dob_date_2),
+             day_diff = day(dob_date_1) - day(dob_date_2),
+             age_diff = round(lubridate::time_length(difftime(ymd(dob_date_1),ymd(dob_date_2)), "years"),2),
+             digit_diff = stringdist(dob_date_1, dob_date_2, method="hamming"))
+    
+    
+    
+    
+    ### WRITE SQL TABLE, APPEND EACH DAY ###
+    df_to_table(df_name = demo_changes,
+                table_name = "DQ_demographic_changes",
+                overwrite = FALSE,
+                append = TRUE)
+    
+    #COMPARE DEATHS DAY OVER DAY:
+    olddeaths <- yesterday_cases %>%
+      filter(outcome == "Died")
+    
+    newdeaths <- case3 %>%
+      filter(outcome == "Died")
+    
+    newdeathstoday <- newdeaths %>%
+      filter(!eventid %in% olddeaths$eventid)
+    
+    missingdeaths <- olddeaths %>%
+      filter(!eventid %in% newdeaths$eventid)
+    
+    ### WRITE SQL TABLES and CSVs:
+    df_to_table(df_name = newdeathstoday,
+                table_name = "DQ_newdeathstoday",
+                overwrite = TRUE,
+                append = FALSE)
+    
+    df_to_table(df_name = missingdeaths,
+                table_name = "DQ_missingdeaths",
+                overwrite = TRUE,
+                append = FALSE)
+    
+    if (!dir.exists(paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date()))) {
+      dir.create(paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date()))
+    }
+    
+    write_csv(newdeathstoday, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/newdeathstoday.csv"))
+    write_csv(missingdeaths, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/missingdeaths.csv"))
   }
-
-  yesterday_cases <-
-    read_csv(paste0('L:/daily_reporting_figures_rdp/csv/', Sys.Date() - x, "/", Sys.Date() - x, "cases_wphi.csv"))
-
-  yesterday_dob <- yesterday_cases %>%
-    select(eventid, dob, gender)%>%
-    mutate(date = Sys.Date()-x,
-           date_order = "date_1",
-           eventid = as.character(eventid))
-
-  dob_gender <- case3 %>%
-    select(eventid, dob, gender)%>%
-    mutate(date = Sys.Date(),
-           date_order = "date_2")%>%
-    bind_rows(yesterday_dob)
-
-  change_ids <- dob_gender %>%
-    distinct(eventid, dob, gender, .keep_all = TRUE) %>%
-    group_by(eventid) %>%
-    tally() %>%
-    filter(n > 1)
-
-  dob_gender_change <- dob_gender %>%
-    filter(eventid %in% change_ids$eventid)%>%
-    arrange(date_order)%>%
-    pivot_wider(names_from = date_order, values_from = c("date", "dob", "gender"))%>%
-    filter(!is.na(gender_date_1))%>%
-    filter(!gender_date_1 %in% c("Unknown"))%>%
-    filter(!is.na(dob_date_1)) %>%
-    distinct(.keep_all = TRUE)
-
-  ### WRITE SQL TABLE, APPEND EACH DAY ###
-  df_to_table(df_name = dob_gender_change,
-              table_name = "DQ_demographic_changes",
-              overwrite = FALSE,
-              append = TRUE)
-
-  #COMPARE DEATHS DAY OVER DAY:
-  olddeaths <- yesterday_cases %>%
-    filter(outcome == "Died")
-
-  newdeaths <- case3 %>%
-    filter(outcome == "Died")
-
-  newdeathstoday <- newdeaths %>%
-    filter(!eventid %in% olddeaths$eventid)
-
-  missingdeaths <- olddeaths %>%
-    filter(!eventid %in% newdeaths$eventid)
-
-  ### WRITE SQL TABLES and CSVs:
-  df_to_table(df_name = newdeathstoday,
-              table_name = "DQ_newdeathstoday",
-              overwrite = TRUE,
-              append = FALSE)
-
-  df_to_table(df_name = missingdeaths,
-              table_name = "DQ_missingdeaths",
-              overwrite = TRUE,
-              append = FALSE)
-
-  if (!dir.exists(paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date()))) {
-    dir.create(paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date()))
-  }
-
-
-  write_csv(newdeathstoday, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/newdeathstoday.csv"))
-  write_csv(missingdeaths, paste0("L:/daily_reporting_figures_rdp/csv/", Sys.Date(), "/missingdeaths.csv"))
 }
 
 rm(case3, yesterday_cases, yesterday_dob)
 
 case <- case %>%
   select(-phone)
-cdc_numbers <- case %>%
-  group_by(disease_status) %>%
-  tally(name = "Cases") %>%
-  left_join(
-    case %>%
-      filter(outcome == "Died") %>%
-      group_by(disease_status) %>%
-      tally(name = "Deaths"),
-    by = c('disease_status' = 'disease_status')
-  )
-
-if(csv_write) {
-  write_csv(cdc_numbers,
-            paste0("L:/daily_reporting_figures_rdp/csv/",
-                   Sys.Date(), "/",  Sys.Date(), "cdc_numbers.csv")) #who actually uses this?
-}
 
 pendingaddress_text <- case %>%
   filter(is.na(county) & disease_status %in% c("Confirmed", "Probable")) %>%
@@ -990,9 +1054,7 @@ elr <-   df %>%
     test_method = test,
     lab_result_create_date = investigation_create_date,
     lab_result_mod_date = investigation_mod_date,
-    #ordering_lab = `Ordering Lab Facility`, this missing?
     lab_facility = facility_name,
-    #name = lab_name,
     spec_rec_date = spec_rec_date,
     date_tested = tested_date,
     date_reported_dph = result_rpt_date,
@@ -1025,10 +1087,8 @@ elr <-   df %>%
 
 elr_linelist <- elr
 elr_linelist_elronly <-  elr_linelist %>%
-  filter(new_elr_result == "YES") #%>%
-# mutate(result = ifelse(
-#     result %in% c("not detected", "indeterminate"),
-#     "Not Positive", "Positive" ) )
+  filter(new_elr_result == "YES") 
+
 number_of_elr <- elr_linelist_elronly %>%
   filter(test_method %in% pcrtests) %>%
   nrow()
@@ -1049,27 +1109,10 @@ pos_tests_thursday <- pos_tests_thursday$n
 neg_tests_thursday <- elr %>% filter(result == "not detected" & spec_col_date >= thursday_range_start & spec_col_date <= thursday_range_end) %>% group_by(result) %>%  summarize(n = sum(n)) %>% select(n)
 neg_tests_thursday <- neg_tests_thursday$n
 
-# write_csv(elr_linelist,
-#           paste0("L:/daily_reporting_figures_rdp/elr_linelists/elr_linelist",
-#                  Sys.Date(),
-#                  ".csv")
-#           )
-
-if(csv_write) {
-  data.table::fwrite(elr_linelist,
-                     paste0("L:/daily_reporting_figures_rdp/elr_linelists/elr_linelist",
-                            Sys.Date(),
-                            ".csv"),
-                     buffMB = 16,
-                     nThread = 4,
-                     verbose = FALSE,
-                     showProgress = FALSE)
-}
-
 rm(df)
 
 save(elr_linelist,
-     file = paste0("l:/current_elr_linelist_", timey, ".RData" ))
+     file = paste0("l:/recent_rdata/elr_linelist_", timey, ".RData" ))
 
 rm(elr, elr_linelist_elronly)
 gc()
@@ -1145,144 +1188,13 @@ hosp_text <- str_to_sentence(as.english(cha_c$today[cha_c$State =='TOTAL']))  # 
 dec <- case %>% filter(outcome == 'Died') %>% nrow()
 deaths_text <- str_to_sentence(as.english(dec))  # for now
 
-# if(exists('fake_yesterday')){
-#   hospitalized_totals <-  cha_c %>%  filter(State== "TOTAL") %>% select(today)
-#   discharged_totals <- cha %>%
-#     filter(Type == "Discharge") %>%
-#     select(-Type)
-#   cols2 <- ncol(discharged_totals)
-#   discharged_totals <- discharged_totals %>%
-#     rename( today= cols2-1,
-#             yesterday = cols2-2) %>%
-#     filter(State== "TOTAL") %>%
-#     select(today)
-#   tbl_summary <- tibble(
-#     'Overall Summary' = c(
-#       "COVID-19 Cases (confirmed and probable)",
-#       "COVID-19 Tests Reported (molecular and antigen)",
-#       "Daily Test Positivity*",
-#       "Patients Currently Hospitalized with COVID-19",
-#       "COVID-19-Associated Deaths"
-#     )
-#   )
-#
-#   ncases <- nrow(case)
-#   ntests <- nrow(elr_linelist)
-#
-#   tbl_total <-  tibble(
-#     "Total**" = c(
-#       ncases,
-#       ntests,
-#       round(ncases/ntests*100,2),
-#       hospitalized_totals,
-#       dec
-#     )
-#   )
-#   tbl_total$`Total**` <- as.character(tbl_total$`Total**`)
-#   tbl_total[3,] <- ""
-#
-#   chg_yst <- tibble("Change Since Yesterday" = c('+0','+0','0%','+0', '+0'))
-#   ovlsum <- bind_cols(tbl_summary, tbl_total, chg_yst)
-#
-#   tableforgary <- ovlsum
-#
-#   if(csv_write) {
-#     dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
-#     write_csv(ovlsum,
-#               paste0("L:/daily_reporting_figures_rdp/yesterday/",
-#                      Sys.Date(), "/", Sys.Date(), ".csv"))
-#     # testing new code Feb 1
-#   }
-#
-#   df_to_table(ovlsum, "test_overall_summary", overwrite = TRUE, append = FALSE)
-#
-#   ovlsum <- regulartable(ovlsum) %>%
-#     flextable::autofit()
-#   ovlsum <- align_nottext_col(ovlsum,align = "center")
-#   ovlsum
-#
-# } else {
-#   hospitalized_totals <-  cha_c %>%  filter(State== "TOTAL") %>% select(today)
-#   discharged_totals <- cha %>%
-#     filter(Type == "Discharge") %>%
-#     select(-Type)
-#   cols2 <- ncol(discharged_totals)
-#   discharged_totals <- discharged_totals %>%
-#     rename( today= cols2-1,
-#             yesterday = cols2-2) %>%
-#     filter(State== "TOTAL") %>%
-#     select(today)
-#
-#   tbl_summary <- tibble(
-#     'Overall Summary' = c(
-#       "COVID-19 Cases (confirmed and probable)",
-#       "COVID-19 Tests Reported (molecular and antigen)",
-#       "Daily Test Positivity*",
-#       "Patients Currently Hospitalized with COVID-19",
-#       "COVID-19-Associated Deaths"
-#     )
-#   )
-#
-#   ncases <- nrow(case)
-#   ntests <- nrow(elr_linelist)
-#
-#   tbl_total <-  tibble(
-#     "Total**" = c(
-#       ncases,
-#       ntests,
-#       0,#round(ncases/ntests*100,2),
-#       hospitalized_totals,
-#       dec
-#     )
-#   )
-#   tbl_total$`Total**` <- as.double(tbl_total$`Total**`)
-#
-#   chg_yst <- read_csv(paste0("L:/daily_reporting_figures_rdp/yesterday/",Sys.Date() - 1, "/", yesterday_file)) %>%
-#     select(`Total**`) %>%
-#     rename(yesterday = `Total**`) %>%
-#     bind_cols(tbl_total) %>%
-#     mutate(
-#       `Total**` =as.double(`Total**`),
-#       sign = ifelse(`Total**`>= yesterday, "+", "-"),
-#       delta = abs(`Total**` - yesterday),
-#       'Change Since Yesterday' = paste0(sign, delta)
-#     ) %>%
-#     select('Change Since Yesterday')
-#   chg_yst[3,] <- paste0(round(as.double(chg_yst[1,])/as.double(chg_yst[2,])*100,2), "%")
-#
-#
-#
-#   tbl_total$`Total**` <- as.character(tbl_total$`Total**`)
-#   tbl_total[3,] <- ""
-#   ovlsum <- bind_cols(tbl_summary, tbl_total, chg_yst)
-#   tableforgary <- ovlsum
-#   cha_stats <-  bind_cols(tbl_summary, tbl_total) %>%
-#     rename(summary = `Overall Summary`, total = `Total**`)
-#
-#   if(csv_write) {
-#     dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
-#     write_csv(ovlsum,
-#               paste0("L:/daily_reporting_figures_rdp/yesterday/",
-#                      Sys.Date(), "/", Sys.Date(), ".csv"))
-#   }
-#
-#   ovlsum <- regulartable(ovlsum) %>%
-#     flextable::autofit()
-#   ovlsum <- align_nottext_col(ovlsum,align = "center")
-#   ovlsum
-# }
-
-# ovlsum
 
 timey <- Sys.time()
 timey <- gsub(pattern = " |:", replacement = "-", x = timey)
 
-# save(ovlsum,
-#      file = paste0("l:/draft_table_", timey, ".RData" ))
 
 ncases <- nrow(case)
 ntests <- nrow(elr_linelist)
-
 
 hospitalized_totals <-
   cha_c %>%
@@ -1346,10 +1258,7 @@ yesterday_col <-
   )
 
 mock_table$`Change Since Yesterday` <- yesterday_col
-mock_table
-
-write_csv(mock_table,
-          "L:/yesterday_test.csv")
+# mock_table
 
 if(csv_write) {
   dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
@@ -1414,7 +1323,20 @@ timey <- gsub(pattern = " |:", replacement = "-", x = timey)
 #      file = paste0("l:/draft_table_", timey, ".RData" ))
 
 save(mock_table,
+     today_text,
+     cases_text,
+     confirmed_text,
+     probable_text,
+     hosp_text,
+     dec,
      file = paste0("l:/draft_table_", timey, ".RData" ))
+
+timey <- Sys.time()
+timey <- gsub(pattern = " |:", replacement = "-", x = timey)
+
+save(case,
+     file = paste0("l:/recent_rdata/case_", timey, ".RData" ))
+
 
 
 # janitor::compare_df_cols_same(df, df2)

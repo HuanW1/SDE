@@ -1,19 +1,27 @@
 ####0 loading libraries ####
 if(!dir.exists("L:/")) message("You need to have L drive mapped")
-.libPaths(c("L:/library", .libPaths()))
-# load libraries
-library(readxl)			# read_excel
-library(dplyr)			# filter
-library(stringr)		# str_to_title
-library(tidyr)
-library(tidyverse)
-library(lubridate)
-library(stringdist) 		# amatch, stringdist
+
+.libPaths("L:/newlib")
+
+DPH_packages <- c( "tidyverse", "lubridate", "stringr",
+                   "DBI", "odbc", "formatR", "knitr", "MMWRweek", "stringdist",
+                   "mgsub", "data.table")
+
+quiet_load <- function(x) {
+  suppressPackageStartupMessages(library(x,
+                                         lib.loc = "l:/newlib/",
+                                         logical.return = TRUE,
+                                         character.only = TRUE,
+                                         warn.conflicts = FALSE,
+                                         quietly = TRUE,
+                                         attach.required = TRUE))
+}
+
+sapply(DPH_packages, quiet_load)
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
-
 ####1 data read-in####
-newGEO <- data 
+newGEO <- data
 
 if(nrow(newGEO)<1){
   stop("No data to review.")
@@ -22,18 +30,18 @@ if(nrow(newGEO)<1){
 #FLIS roster read-in
 FLISfiles <- list.files("L:/FLIS")
 maxflisdate <- format(max(lubridate::mdy(str_sub(FLISfiles, 2, 11)), na.rm = TRUE), "%m-%d-%Y")
-FLIS <-read_csv(paste0("L:/FLIS/_", maxflisdate, "_FLIS_EXTRACT.csv")) %>% 
+FLIS <-read_csv(paste0("L:/FLIS/_", maxflisdate, "_FLIS_EXTRACT.csv")) %>%
   mutate(name = paste(FirstName, LastName))
 # FLIS <-  read_csv("L:/FLIS/testing/_02-12-2021_FLIS_Extract.csv")%>%
 # mutate(name = paste(FirstName, LastName))
 
 ####2 Race and Ethnicity recoding ####
-newGEO <- newGEO %>% 
+newGEO <- newGEO %>%
   mutate(
     race = if_else(race == "Black", "Black or African American", race),
     race = if_else(race == "Multiracial" , "Other", race),
     hisp = if_else(hisp == "NH", "NO", "YES")
-  ) %>% 
+  ) %>%
   mutate(name = paste(fname, lname))
 
 #####3 Matching ####
@@ -47,9 +55,9 @@ results <- tibble(
   eventid = newGEO$eventid,
   Raw_Name = newGEO$name,
   Roster_Name = FLIS$name[match_inds],
-  Raw_DOB = newGEO$dob, 
+  Raw_DOB = newGEO$dob,
   Roster_DOB = FLIS$DOB[match_inds]
-) %>% 
+) %>%
   mutate(
     Roster_DOB = lubridate::ymd(Roster_DOB),
     Raw_DOB = lubridate::ymd(Raw_DOB),
@@ -83,16 +91,18 @@ for (i in 1:nrow(newGEO)){
   results$dobRoster_name[i]=match_name
   results$dobRoster_dist[i]=match_dist
 } # end-for (iteration over roster)
-results <- results %>% 
-  mutate(Roster_Match = DOB_Dist<365 & BDay_Check>1 & Name_Dist<5) %>% 
+results <- results %>%
+  mutate(Roster_Match = DOB_Dist<365 & BDay_Check>1 & Name_Dist<5) %>%
   select(eventid, Roster_Match, BDay_Check, Roster_Name)
 
 # check the names and add matching variables to FLIS check list
 #or statement code
-newGEO <- newGEO %>% 
-  left_join(results, by = "eventid") %>% 
+newGEO <- newGEO %>%
+  left_join(results, by = "eventid") %>%
   select(c(1:21, name, Roster_Name, BDay_Check, intoms, disposition, Roster_Match, KEEP))
 
 
 odbc::dbDisconnect(con)
+
+message("Part 3/4 finished- almost to the finish line!")
 source("cong_setting_part4.R")

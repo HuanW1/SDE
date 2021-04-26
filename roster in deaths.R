@@ -29,6 +29,7 @@ newocme <-  read.csv("L:/daily_reporting_figures_rdp/DeathRostering/new.csv") %>
 #### link on ocme id and only keep the new people for the day
 OCME_newdeaths <- anti_join(newocme, oldocme, by=c("OCME."))
 
+
 Roster <- OCME_newdeaths  %>% 
   separate(col = Name, into = c("lname", "fname"), sep = ",") %>% 
   separate(col = Race.Ethnicity, into = c("Race", "Ethnicity"), sep = ",") %>% 
@@ -56,7 +57,6 @@ black_inds = grep("Black",Roster$Race,ignore.case=TRUE)
 if (length(black_inds)>0){
   Roster$Race[black_inds]="Black or African American"
 }
-
 
 
 # SQL connection

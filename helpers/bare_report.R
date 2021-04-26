@@ -1,17 +1,7 @@
----
-title: _`r paste0('COVID-19 Update ', format(Sys.Date(), '%B %d, %Y'))`_
-output: 
-  word_document:
-    reference_docx: template.docx
-params:
-  desiredtime:
-    label: "Desired Time"
-    value: "8:30pm"
-    input: text
----
+params <-
+list(desiredtime = "8:30pm")
 
-
-```{r setup, include=FALSE}
+## ----setup, include=FALSE------------------------------------------------------------------------------------------
 ###  CT DPH
 ###  Authors: Alexander Senetcky, Sydney Jones
 
@@ -56,20 +46,20 @@ if (monthsame) {
 }
 
 #### setting what we write out ####
-csv_write <- TRUE
-SQL_write <- TRUE
+csv_write <- FALSE
+SQL_write <- FALSE
 
-```
 
-```{r maps_pops_etc, include=FALSE}
+
+## ----maps_pops_etc, include=FALSE----------------------------------------------------------------------------------
 
 age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
 
 epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
 ghost_data <- tbl(epi_connect, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.RPT_STATE_REA_DENOMS"))
 
-pop <- 
-  ghost_data %>% 
+pop <-
+  ghost_data %>%
   select(year:pop) %>%
   filter(year == 2019) %>%
   collect() %>%
@@ -82,58 +72,39 @@ pop <-
 odbc::dbDisconnect(epi_connect)
 
 town_pop18 <- read_csv("L:/daily_reporting_figures_rdp/population_data/pop_towns2018.csv",
-                       col_types = "cn") %>% 
+                       col_types = "cn") %>%
   rename(city = Town,
          pop = `Est. Pop.`)
 
 #county city mapping
-cc_map <- 
+cc_map <-
   read_csv(paste0("L:/daily_reporting_figures_rdp/dependancies/City County Mapping.csv"),
-           col_types = "cc") %>% 
+           col_types = "cc") %>%
   mutate(COUNTY = paste0(COUNTY," County"))
 
-# #county populations
-# county_pop <- 
-#   read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv",
-#            col_types = "cn") %>% 
-#   mutate(County = paste0(County, " County"))
-
-### Using SQL 2019 county populations
-epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
-ghost_data <- tbl(epi_connect, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.RPT_COUNTY_REA_DENOMS"))
-
-county_pop <- 
-  ghost_data %>% 
-  select(YEAR:POP) %>%
-  filter(YEAR == 2019) %>%
-  group_by(cty_label) %>%
-  summarise(Total = sum(POP, na.rm = TRUE)) %>%
-  mutate(County = paste0(cty_label, " County")) %>%
-  select(County, Total) %>% 
-  arrange(County) %>%
-  collect() 
-
-rm(ghost_data)
-odbc::dbDisconnect(epi_connect)
+#county populations
+county_pop <-
+  read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv",
+           col_types = "cn") %>%
+  mutate(County = paste0(County, " County"))
 
 
-```
 
-```{r read_cha, include=FALSE}
+## ----read_cha, include=FALSE---------------------------------------------------------------------------------------
 
-cha_file <- list.files("L:/daily_reporting_figures_rdp/CHA_data_here", 
+cha_file <- list.files("L:/daily_reporting_figures_rdp/CHA_data_here",
                        pattern = ".csv", full.names = TRUE)
 cha <-  read_csv(cha_file)
-newcha <- cha %>% 
-  filter(Type == "Admit" & State == "TOTAL") %>% 
-  select(-c(Change, County, State)) %>% 
-  pivot_longer(-Type, names_to = "admit_date", values_to = "admissions") %>% 
-  select(-Type) %>% 
+newcha <- cha %>%
+  filter(Type == "Admit" & State == "TOTAL") %>%
+  select(-c(Change, County, State)) %>%
+  pivot_longer(-Type, names_to = "admit_date", values_to = "admissions") %>%
+  select(-Type) %>%
   mutate(admit_date = mdy(admit_date))
 
-```
 
-```{r shapefiles, include = FALSE}
+
+## ----shapefiles, include = FALSE-----------------------------------------------------------------------------------
 #### towns shapes ####
 if(file.exists("L:/daily_reporting_figures_rdp/shape_files/cb_2017_09_cousub_500k.shp")) {
   filename <- list.files('L:/daily_reporting_figures_rdp/shape_files', pattern=".shp", full.names=FALSE)
@@ -150,9 +121,9 @@ subdat2 <- st_read('L:/daily_reporting_figures_rdp/shape_files',
 subdat2 <- st_transform(subdat2,"+init=epsg:4326")
 subdat3 <- subdat2
 
-```
 
-```{r SQL_pull_cleanup, include = FALSE, message= FALSE}
+
+## ----SQL_pull_cleanup, include = FALSE, message= FALSE-------------------------------------------------------------
 con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 # dbListFields(con2, SQL("DPH_COVID_IMPORT.dbo.CTEDSS_DAILY_REPORT_ALL_Cases"))
@@ -168,8 +139,9 @@ statement <-
           cong_exposure_type, cong_facility, cong_yn as ptreside, daycare_yn as daycare_attendee,
           daycare_occu as daycare_staff, case_create_date, case_mod_date, case_effective_date,
           case_eff_From_date as case_eff_from_date, event_date, facilityName,
-          zip_code, race_concat, mname, suffix, COVID_EIP_ID as covid_eip_id
+          zip_code, race_concat
          FROM [DPH_COVID_IMPORT].[dbo].[CTEDSS_DAILY_REPORT_ALL_Cases]")
+
 
 raw_cases <- DBI::dbGetQuery(conn = con2 , statement = statement)
 
@@ -185,11 +157,14 @@ statement <-
       SPEC_SOURCE as source, AUTH_FACILITY as auth_facility,
       ORDERING_PROVIDER_NAME as ordering_provider_name,
       LAB_NAME as lab_name, FACILITY_NAME as facility_name,
+      ORDERING_PROVIDER_FNAME as ordering_provider_fname,
+      ORDERING_PROVIDER_LNAME as ordering_provider_lname,
       CASE_MODIFICATION_DATE as case_modification_date,
-      result_rpt_date, 
+      result_rpt_date, Device_ID as device_id,
       SPEC_SOURCE_SNOMED as spec_source_snomed,
+      RESULT_FREE_TEXT as result_free_text,
       ORDER_LAB_FACILITY as order_lab_facility,
-      TESTING_LAB_CLIA as testing_lab_clia
+      TESTING_LAB_CLIA as testing_lab_clia, NOTES2 as notes2
     FROM [DPH_COVID_IMPORT].[dbo].[DAILY_Reports_ALL_COVID_TESTS]"
   )
 
@@ -197,10 +172,12 @@ raw_tests <-  DBI::dbGetQuery(conn = con2 , statement = statement)
 
 odbc::dbDisconnect(con2)
 
-```
 
-```{r df_creation}
+
+## ----df_creation---------------------------------------------------------------------------------------------------
 df <-  left_join(raw_cases, raw_tests, by = c("eventid"))
+
+line180_objs <- objects()
 
 rm(raw_cases)
 rm(raw_tests)
@@ -225,18 +202,13 @@ df <-
       difftime(event_date, dob)
       ,unit = "years")
     ),
-    age = if_else(age < 0 | age > 121, NA_real_, age),
     cong_exposure_type = str_to_sentence(cong_exposure_type),
     cong_exposure_type = ifelse(
       is.na(cong_exposure_type) & ptreside == "Yes",
       "Reside",
       cong_exposure_type
     ),
-    #    bigID = str_squish(paste0(fname, lname, dob)),
-    bigID = paste0(str_remove_all(paste0(fname,
-                                         lname),
-                                  "\\W|\\d"),
-                   dob),
+    bigID = str_squish(paste0(fname, lname, dob)),
     result = str_to_lower(result),
     hospitalized = str_to_sentence(hospitalized),
     hospitalized = case_when(
@@ -286,22 +258,20 @@ df <-
                    "Asian or Pacific Islander", "Other", "Unknown") ~ "Multiracial",
       TRUE ~ race
     ),
-    hisp_race = case_when(
-      hisp == "H"  ~ "Hispanic",
-      race == "Unknown" ~ "Unknown",
-      TRUE ~ paste0(hisp, " ", race)
-    ),
+    hisp_race = paste0(hisp, " ", race),
+    hisp_race = ifelse(hisp == "H", "Hispanic", hisp_race),
+    hisp_race = ifelse(hisp_race == "NH Unknown", "Unknown", hisp_race),
     age_group = cut(age,
                     breaks = c(-1,9,19,29,39,49,59,69,79, Inf),
                     labels = age_labels)
   )
 
-df <- df %>% 
+df <- df %>%
   left_join(cc_map %>% rename(county=COUNTY), by = c("city" = "CITY"))
 
-```
 
-```{r multi_and_beyond}
+
+## ----multi_and_beyond----------------------------------------------------------------------------------------------
 
 #### multioutcome ####
 
@@ -315,19 +285,19 @@ df <-
 
 ##########  Death Cleanup     #############
 
-df$outcome[df$covid_death %in% c("Unknown", "No")] <- NA
+df$outcome[df$covid_death == "No"] <- NA
 #df$death_date[df$covid_death == "No"] <- NA
 
-test_people <- df %>% 
+test_people <- df %>%
   filter(
     str_detect(str_to_lower(fname), "import|zztest|\\bzzz\\b|covid|validation|schedule|[0-9][^nsrt]|identif|\\btest\\b|sqtwo|sqthree|mytest")|str_detect(str_to_lower(lname), "zztest|\\bzzz\\b|covid|validation|schedule|[0-9][^nsrt]|identif|\\btest\\b|ascaris")
-  ) %>% 
-  select(eventid) %>% 
+  ) %>%
+  select(eventid) %>%
   distinct() %>%
   pull(eventid)
 
 
-df <- df %>% 
+df <- df %>%
   filter(!eventid %in% test_people)
 
 #####test results cleaning
@@ -352,94 +322,94 @@ df <-
 #setting confirmed with no +pcr or blank pcr results to suspect at the top here and then the rest of the checks will pop them in their proper category should they be picked up again
 
 #leave folks who are covid_death = Yes and their disease status %in% Confirmed, Probable alone, except probables should be able to be upped to conf if applicable
-untouchable_conf <- df %>%  
-  filter(outcome == "Died" & disease_status == "Confirmed") %>% 
-  select(eventid) %>% 
+untouchable_conf <- df %>%
+  filter(outcome == "Died" & disease_status == "Confirmed") %>%
+  select(eventid) %>%
   distinct()
 
 #suspect who should be probable based on ocmeid and covid_death = yes
-ocmeprob <- df %>% 
-  filter(disease_status == "Suspect" & !is.na(ocmeid) & covid_death == "YES") %>% 
-  select(eventid) %>% 
+ocmeprob <- df %>%
+  filter(disease_status == "Suspect" & !is.na(ocmeid) & covid_death == "YES") %>%
+  select(eventid) %>%
   distinct()
 
 #currently not much going on with this object here, but maybe down the line
-mostly_untouchable_prob <- df %>%  
-  filter(outcome == "Died" & disease_status == "Probable") %>% 
-  select(eventid) %>% 
+mostly_untouchable_prob <- df %>%
+  filter(outcome == "Died" & disease_status == "Probable") %>%
+  select(eventid) %>%
   distinct()
 
-conf_good_result <- df %>% 
+conf_good_result <- df %>%
   filter(
     test %in% pcrtests &
       disease_status == "Confirmed" &
       result %in% c('detected')
-        ) %>%  
-      select(eventid) %>%  
+        ) %>%
+      select(eventid) %>%
       distinct()
 
-conf_bad_result <- df %>% 
+conf_bad_result <- df %>%
   filter(
     test %in% pcrtests &
       disease_status == "Confirmed" &
       result %in% c(NA, 'not detected', 'indeterminate')
-      ) %>%  
-  select(eventid) %>%  
+      ) %>%
+  select(eventid) %>%
   distinct()
 
-conf_bad_result <- df %>% 
+conf_bad_result <- df %>%
   filter(eventid %in% conf_bad_result$eventid & !eventid %in% conf_good_result$eventid & !eventid %in% untouchable_conf$eventid & !eventid %in% mostly_untouchable_prob$eventid) %>% #the last filter portion with the probs doesn't change anything for now becuase this has to do with confirmeds, but i thoought it wouldnt hurt
-  select(eventid, disease_status, test, result, spec_col_date, symp_onset_date) %>% 
+  select(eventid, disease_status, test, result, spec_col_date, symp_onset_date) %>%
   arrange(eventid)
 
 df$disease_status[df$eventid %in% conf_bad_result$eventid] <- "Suspect" #conf to suspect
 
 pcr_not_confirmed <- df %>%
   filter(state == "CT"| is.na(state)) %>%
-  filter(test %in% pcrtests & !disease_status %in% c("Confirmed", "Not a case") & result == "detected") %>%  
-  select(eventid) %>% 
+  filter(test %in% pcrtests & !disease_status %in% c("Confirmed", "Not a case") & result == "detected") %>%
+  select(eventid) %>%
   distinct()
 
 pcr_confirmed <- df %>%
   filter(state == "CT"| is.na(state)) %>%
-  filter(test %in% pcrtests & result == "detected") %>%  
-  select(eventid) %>% 
+  filter(test %in% pcrtests & result == "detected") %>%
+  select(eventid) %>%
   distinct()
 
 ag_probable <- df %>%
-  filter(!eventid %in% pcr_confirmed$eventid) %>% 
+  filter(!eventid %in% pcr_confirmed$eventid) %>%
   filter(state == "CT"| is.na(state)) %>%
-  filter(test %in% agtests & !disease_status %in% c("Probable") & result == "detected") %>%  
-  select(eventid) %>% 
+  filter(test %in% agtests & !disease_status %in% c("Probable") & result == "detected") %>%
+  select(eventid) %>%
   distinct()
 
-df_suspect <- df %>% 
-  filter(disease_status == "Suspect") %>% 
-  filter(state == "CT"| is.na(state)) 
-  
-two_or_more_symps <- df_suspect %>% 
-  select(eventid, disease_status, fever, chills, rigors, myalgia, headache, sorethroat, new_olfact_taste) %>% 
-  pivot_longer(-c(eventid, disease_status), names_to = "symptom", values_to = "symp_pres") %>% 
-  filter(symp_pres == "Yes") %>% 
-  group_by(eventid, disease_status) %>% 
-  tally() %>% 
-  filter(!disease_status %in% c("Confirmed", "Probable")  & n >= 2) %>% 
-  select(eventid) %>% 
+df_suspect <- df %>%
+  filter(disease_status == "Suspect") %>%
+  filter(state == "CT"| is.na(state))
+
+two_or_more_symps <- df_suspect %>%
+  select(eventid, disease_status, fever, chills, rigors, myalgia, headache, sorethroat, new_olfact_taste) %>%
+  pivot_longer(-c(eventid, disease_status), names_to = "symptom", values_to = "symp_pres") %>%
+  filter(symp_pres == "Yes") %>%
+  group_by(eventid, disease_status) %>%
+  tally() %>%
+  filter(!disease_status %in% c("Confirmed", "Probable")  & n >= 2) %>%
+  select(eventid) %>%
   distinct()
 
-one_of_symps <- df_suspect %>%   
-  select(eventid, disease_status, cough, sob, ards, pneumonia) %>% 
-  pivot_longer(-c(eventid, disease_status), names_to = "symptom", values_to = "symp_pres") %>% 
-  filter(symp_pres == "Yes") %>% 
-  group_by(eventid, disease_status) %>% 
-  tally() %>% 
-  filter(!disease_status %in% c("Confirmed", "Probable")) %>% 
-  select(eventid) %>% 
+one_of_symps <- df_suspect %>%
+  select(eventid, disease_status, cough, sob, ards, pneumonia) %>%
+  pivot_longer(-c(eventid, disease_status), names_to = "symptom", values_to = "symp_pres") %>%
+  filter(symp_pres == "Yes") %>%
+  group_by(eventid, disease_status) %>%
+  tally() %>%
+  filter(!disease_status %in% c("Confirmed", "Probable")) %>%
+  select(eventid) %>%
   distinct()
 
-suspect_probable <- df_suspect %>% 
-  filter((eventid %in% one_of_symps$eventid|eventid %in% two_or_more_symps$eventid)) %>% 
-  unique() 
+suspect_probable <- df_suspect %>%
+  filter((eventid %in% one_of_symps$eventid|eventid %in% two_or_more_symps$eventid)) %>%
+  unique()
 
 df <- df %>%
   mutate(disease_status = ifelse(eventid %in% ocmeprob$eventid, "Probable", disease_status)) %>%  #ocmeid + covid_death = yes, setting disease status to probable
@@ -449,26 +419,26 @@ df <- df %>%
 
 rm(df_suspect)
 
-```
 
-```{r case_creation1}
+
+## ----case_creation1------------------------------------------------------------------------------------------------
 ######case pt 1############
-case <- df %>% 
+case <- df %>%
   filter(disease_status == "Confirmed"  | disease_status == "Probable") %>%
-  filter(state == "CT" | is.na(state)) %>% 
+  filter(state == "CT" | is.na(state)) %>%
   mutate(
     date = case_when(
       disease_status %in% c("Confirmed", "Probable") & !is.na(spec_col_date) ~ spec_col_date,
       disease_status %in% c("Confirmed", "Probable") & is.na(spec_col_date) ~ event_date,
       TRUE ~ NA_Date_
     )) %>%
-  filter(date > ymd("2020-03-01") & 
-           date <= today()) %>% 
+  filter(date > ymd("2020-03-01") &
+           date <= today()) %>%
   mutate(
-    week = epiweek(date), 
+    week = epiweek(date),
     year = epiyear(date),
     mmwrweek = epiweek(date), #setting to date so it works for now
-    simple_result = ifelse( 
+    simple_result = ifelse(
       result == "detected",
       1,2
     ),
@@ -477,42 +447,11 @@ case <- df %>%
   mutate(cong_yn = if_else(
     cong_exposure_type ==  "Reside" &
       (cong_setting== "JAIL" | cong_setting == "LTCF"| cong_setting == "ALF" ),
-    "Yes", "No", missing = "No")) %>% 
+    "Yes", "No", missing = "No")) %>%
   group_by(bigID) %>%
   arrange(simple_result,pcrtest,date) %>% # detected, first priority, and then the pcr test or ag if no pcr, then earliest date, date is spec_col_Date for tests with that or eventdate if none listed or is a non ag+ prob
   slice(1L) %>%
-  ungroup() 
-
-### YAK April 13th
-# Pull in the new table and condition it
-congregate_pull <-
-  table_to_df("CTEDSS_CRF_CONGREGATE") %>%
-  select(Event_ID, cong_yn:cong_facility) %>%
-  mutate(cong_yn = str_to_sentence(cong_yn),
-         cong_setting = if_else(cong_setting == "NA", "Other", cong_setting),
-         cong_facility = if_else(cong_facility == "NA", "Unknown", cong_facility))
-
-# glimpse(congregate_pull)
-
-# Do a left_join and replace
-# cong_yn, cong_facility, cong_setting
-# with updated values
-# end result same number of case rows and columns
-
-case <-
-  left_join(case, congregate_pull, by = c("eventid" = "Event_ID")) %>%
-  mutate(cong_setting.x = if_else(!is.na(cong_setting.y),
-                                  cong_setting.y,
-                                  cong_setting.x),
-         cong_facility.x = if_else(!is.na(cong_facility.y),
-                                   cong_facility.y,
-                                   cong_facility.x),
-         cong_yn.x = if_else(!is.na(cong_yn.y),
-                             cong_yn.y,
-                             cong_yn.x)) %>%
-  rename(cong_yn = cong_yn.x, cong_facility = cong_facility.x, cong_setting = cong_setting.x) %>%
-  select(-cong_yn.y, -cong_facility.y, -cong_setting.y)
-
+  ungroup()
 
 #Outcome and Covid Death Cleanup
 #case$covid_death[case$eventid %in% untouchable_conf$eventid] <- "YES"  pulls in too many wrong.
@@ -522,19 +461,11 @@ case$outcome[case$outcome == "Unknown"] <- NA
 case$outcome[case$covid_death == "YES"] <- "Died"
 case$death_date[is.na(case$covid_death) | case$covid_death == "NO"] <- NA
 
-thursday_case <- case %>% 
+thursday_case <- case %>%
   filter(date >= thursday_range_start & date <= thursday_range_end )
 
-case3 <- 
-  case %>% 
-  select(eventid, fname, lname, dob, phone, disease_status, age, gender, 
-         street, city, county, state, hisp_race, race, hisp,hospitalized, 
-         admit_date, discharge_date, icu, preg, symptoms, symp_onset_date, 
-         spec_col_date, fever, fatigue, sob, headache, cough, myalgia, 
-         new_olfact_taste, rigors, pneumonia, ards, outcome, covid_death, 
-         vrn, ocme_reported, ocmeid, death_date, healthcare_worker, cong_setting, 
-         cong_exposure_type, cong_facility, cong_yn, case_create_date, event_date, 
-         test, result, lab_name, mmwrweek, mname, suffix, covid_eip_id)
+case3 <- case %>%
+select(eventid,fname, lname, dob, phone, disease_status, age, gender, street, city, county, state, hisp_race, race, hisp,hospitalized, admit_date, discharge_date, icu, preg, symptoms, symp_onset_date, spec_col_date, fever, fatigue, sob, headache, cough, myalgia, new_olfact_taste, rigors, pneumonia, ards, outcome, covid_death, vrn, ocme_reported, ocmeid, death_date, healthcare_worker, cong_setting, cong_exposure_type, cong_facility,cong_yn, case_create_date, event_date, test, result, lab_name, mmwrweek)
 
 if(csv_write){
   write_csv(case3, paste0("L:/daily_reporting_figures_rdp/csv/",
@@ -545,28 +476,28 @@ rm(case3)
 
 case <- case %>% select(-phone)
 
-```
 
-```{r pending_validation, message=FALSE, warning=FALSE, include=FALSE}
-pendingaddress_text <- case %>% 
-  filter(is.na(county) & disease_status %in% c("Confirmed", "Probable")) %>% 
- group_by(county) %>% 
-  tally() %>% 
+
+## ----pending_validation, message=FALSE, warning=FALSE, include=FALSE-----------------------------------------------
+pendingaddress_text <- case %>%
+  filter(is.na(county) & disease_status %in% c("Confirmed", "Probable")) %>%
+ group_by(county) %>%
+  tally() %>%
   select(n)
 
-thursday_pending_address <- thursday_case %>% 
-  filter(is.na(county) & disease_status %in% c("Confirmed", "Probable")) %>% 
- group_by(county) %>% 
-  tally() %>% 
+thursday_pending_address <- thursday_case %>%
+  filter(is.na(county) & disease_status %in% c("Confirmed", "Probable")) %>%
+ group_by(county) %>%
+  tally() %>%
   select(n)
 
-```
 
-```{r lab_misc, include= FALSE}
+
+## ----lab_misc, include= FALSE--------------------------------------------------------------------------------------
 
 outstate<-filter(df, auth_facility %in% outstatecolleges) # outstatecolleges is sourced
 
-elr <-   df %>% 
+elr <-   df %>%
   rename(
     test_method = test,
     lab_result_create_date = investigation_create_date,
@@ -580,8 +511,8 @@ elr <-   df %>%
     ) %>%
   filter(!is.na(test_method)) %>% # filter our blank tests (captured later on in the in statements but cant hurt to have less data now)
   filter(!is.na(result)) %>% # filter out blank results
-  filter(!auth_facility %in% outstatecolleges) %>% 
-  select(-c( admit_date, ards, chills,  cong_exposure_type, cong_facility, cong_setting, cough, covid_death, death_date, discharge_date, fatigue, fever, headache, healthcare_worker, hisp, hospitalized, icu, myalgia, new_olfact_taste, outcome,  preg, race, sob, sorethroat, rigors)) %>% 
+  filter(!auth_facility %in% outstatecolleges) %>%
+  select(-c( admit_date, ards, chills,  cong_exposure_type, cong_facility, cong_setting, cough, covid_death, death_date, discharge_date, fatigue, fever, headache, healthcare_worker, hisp, hospitalized, icu, myalgia, new_olfact_taste, outcome,  preg, race, sob, sorethroat, rigors)) %>%
  filter(state == "CT" | is.na(state)) %>%  #keep ct or blank state
    filter(test_method %in% pcrtests| test_method %in% agtests) %>%  #keep only test methods we care about
   mutate( #new test var to distinct upon
@@ -589,31 +520,31 @@ elr <-   df %>%
                     "pcr",
                     "ag"
                     )
-  ) %>%  
+  ) %>%
   distinct(
     eventid, pcrag, spec_col_date, result, spec_num, .keep_all = TRUE
-  ) %>% 
+  ) %>%
    distinct(
     eventid, pcrag, spec_col_date, result, source, .keep_all = TRUE
-  ) %>% 
+  ) %>%
   distinct(
      pcrag, fname, lname,  dob, spec_col_date, spec_num, result, .keep_all = TRUE
   ) %>%
   distinct(
      pcrag, fname, lname, dob, spec_col_date, source, result, .keep_all = TRUE
-  ) #%>% 
+  ) #%>%
   #rename(zipcode = 'Postal Code')
 
 elr_linelist <- elr
-elr_linelist_elronly <-  elr_linelist %>% 
+elr_linelist_elronly <-  elr_linelist %>%
   filter(new_elr_result == "YES") #%>%
   # mutate(result = ifelse(
   #     result %in% c("not detected", "indeterminate"),
   #     "Not Positive", "Positive" ) )
-number_of_elr <- elr_linelist_elronly %>% 
-  filter(test_method %in% pcrtests) %>% 
+number_of_elr <- elr_linelist_elronly %>%
+  filter(test_method %in% pcrtests) %>%
   nrow()
-  
+
 total_pcr_tests <- nrow(elr %>%  filter(test_method %in% pcrtests))  # change to PCR only and change name
 total_ag_tests <- nrow(elr %>%  filter(test_method %in% agtests))
 
@@ -623,7 +554,7 @@ elr <- elr %>%
 missing_spec_date <- sum(elr$n[is.na(elr$spec_col_date)])
 pos_tests <- sum(elr$n[elr$result == "detected"])
 neg_tests <- sum(elr$n[elr$result == "not detected"])
-total_tests_thursday <- elr %>% filter(spec_col_date >= thursday_range_start & spec_col_date <= thursday_range_end) %>% mutate(j=1) %>%  group_by(j) %>%  summarize(n = sum(n)) %>% select(n) 
+total_tests_thursday <- elr %>% filter(spec_col_date >= thursday_range_start & spec_col_date <= thursday_range_end) %>% mutate(j=1) %>%  group_by(j) %>%  summarize(n = sum(n)) %>% select(n)
 total_tests_thursday <-total_tests_thursday$n
 pos_tests_thursday <- elr %>% filter(result == "detected" & spec_col_date >= thursday_range_start & spec_col_date <= thursday_range_end) %>% group_by(result) %>%  summarize(n = sum(n)) %>% select(n)
 pos_tests_thursday <- pos_tests_thursday$n
@@ -631,28 +562,28 @@ neg_tests_thursday <- elr %>% filter(result == "not detected" & spec_col_date >=
 neg_tests_thursday <- neg_tests_thursday$n
 
 if(csv_write) {
-  data.table::fwrite(elr_linelist, 
-                     paste0("L:/daily_reporting_figures_rdp/elr_linelists/elr_linelist", 
-                            Sys.Date(), 
-                            ".csv"), 
-                     buffMB = 16, 
-                     nThread = 4, 
-                     verbose = FALSE, 
+  data.table::fwrite(elr_linelist,
+                     paste0("L:/daily_reporting_figures_rdp/elr_linelists/elr_linelist",
+                            Sys.Date(),
+                            ".csv"),
+                     buffMB = 16,
+                     nThread = 4,
+                     verbose = FALSE,
                      showProgress = FALSE)
 }
 rm(df)
 
-```
 
-```{r geos}
+
+## ----geos----------------------------------------------------------------------------------------------------------
 cha_c <- cha %>%
-  filter(Type == "Admit") %>% 
-  select(-Type) %>% 
+  filter(Type == "Admit") %>%
+  select(-Type) %>%
   rename(NAME=County )
 cols <- ncol(cha_c)
-cha_c <- cha_c %>% 
+cha_c <- cha_c %>%
   rename( today= cols-1,
-          yesterday = cols-2) %>% 
+          yesterday = cols-2) %>%
   mutate(sign = ifelse(
     Change>=0,
     "+",
@@ -661,54 +592,54 @@ cha_c <- cha_c %>%
     Change = abs(Change)
   )
 num_groups <- c("None", "1 to 5", "6 to 10", "11 to 25", "26 to 50", "51 to 100", "101 to 200", "201 to 500", "501 to 1000", "1001 to 5000")
-cha_c <- cha_c %>% 
+cha_c <- cha_c %>%
   mutate(
     ngrp = cut(today, breaks = c(-Inf,0,5,10,25,50,100,200,500,1000, Inf), labels = num_groups )
   )
 subdat2 <- subdat2 %>%
   left_join(
-    cha_c, by = c("NAME" = "NAME")    
+    cha_c, by = c("NAME" = "NAME")
   )
 case_m <- case %>%
-  mutate(NAME = str_to_title(city)) %>% 
-  group_by(NAME) %>% 
-  tally() %>% 
+  mutate(NAME = str_to_title(city)) %>%
+  group_by(NAME) %>%
+  tally() %>%
   complete(NAME = unique(town_pop18$city), fill = list(n = 0))
 case_m$n[is.na(case_m$n)] <- 0
 num_groups <- c("0 to 5", "6 to 50", "51 to 100", "101 to 200", "201 to 500", "501 to 1000", "1001 to 5000", ">5000")
-case_m <- case_m %>% 
+case_m <- case_m %>%
   mutate(
     n = cut(n, breaks = c(-Inf,5,50,100,200,500,1000, 5000, Inf), labels = num_groups )
           )
-subdat <- subdat %>% 
+subdat <- subdat %>%
   left_join(
-    case_m, by = c("NAME" = "NAME")    
+    case_m, by = c("NAME" = "NAME")
   )
 subdat$n[is.na(subdat$n)] <- "None"
-subdat <- subdat %>% 
+subdat <- subdat %>%
   mutate(
     n=factor(n, levels = num_groups, labels = num_groups)
   )
 num_groups2 <- c("None", "1 to 5", "6 to 50", "51 to 100", "101 to 200", "201 to 500", "501 to 1000", "1001 to 5000", "5001 to 10000", "10001 to 25000", "Greater than 25000")
 cuml_cols <- ncol(cha)-2
-cha_cuml <- cha %>% 
+cha_cuml <- cha %>%
   filter(Type == 'CumAdmit')
-cha_cuml <- cha_cuml[c(1:3,cuml_cols)] %>% 
-  replace_na(replace = list(County = "TOTAL")) 
+cha_cuml <- cha_cuml[c(1:3,cuml_cols)] %>%
+  replace_na(replace = list(County = "TOTAL"))
 names(cha_cuml)[length(names(cha_cuml))] <- "yesterday"
-cha_cuml <- cha_cuml%>% 
+cha_cuml <- cha_cuml%>%
   mutate(
     cmlgrp = cut(yesterday, breaks = c(-Inf,0,5,50,100,200,500,1000, 5000, 10000, 25000, Inf), labels = num_groups2)
       )
-subdat3 <- subdat3 %>% 
+subdat3 <- subdat3 %>%
   left_join(
     cha_cuml, by =c("NAME" = "County")
   )
 
 
-```
 
-```{r intro_text}
+
+## ----intro_text----------------------------------------------------------------------------------------------------
 today_text <- format(graphdate, "%B %d, %Y")
 cases_text <- nrow(case)  # for now
 confirmed_text <- nrow(case %>%  filter(disease_status == "Confirmed"))
@@ -716,18 +647,9 @@ probable_text <- nrow(case %>% filter(disease_status == "Probable"))
 hosp_text <- str_to_sentence(as.english(cha_c$today[cha_c$State =='TOTAL']))  # for now
 dec <- case %>% filter(outcome == 'Died') %>% nrow()
 deaths_text <- str_to_sentence(as.english(dec))  # for now
-```
 
-As of **`r today_text`**, the total of laboratory-confirmed and probable COVID-19 cases reported among Connecticut residents is **`r cases_text`**, including **`r confirmed_text`** laboratory-confirmed and **`r probable_text`** probable cases.  **`r hosp_text `** patients are currently hospitalized with laboratory-confirmed COVID-19. There have been **`r dec`** COVID-19-associated deaths.  
 
-```{r gary_text, message=FALSE, warning=FALSE, include=FALSE, eval= FALSE}
-saveto <- paste0("L:/daily_reporting_figures_rdp/gary_text/", Sys.Date()) #### ?
-dir.create(saveto)
-rmarkdown::render("gary_text.Rmd", output_file = paste0(saveto,"/", Sys.Date(), "text.html"))
-
-```
-
-```{r new_overall_summary_table, echo=FALSE, message=FALSE, warning=FALSE, eval=TRUE}
+## ----new_overall_summary_table, echo=FALSE, message=FALSE, warning=FALSE-------------------------------------------
 
 hospitalized_totals <-  cha_c %>%  filter(State== "TOTAL") %>% select(today)
 ncases <- nrow(case)
@@ -785,8 +707,8 @@ write_csv(mock_table,
 
 if(csv_write) {
   dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
-  write_csv(mock_table, 
-            paste0("L:/daily_reporting_figures_rdp/yesterday/", 
+  write_csv(mock_table,
+            paste0("L:/daily_reporting_figures_rdp/yesterday/",
                    Sys.Date(), "/", Sys.Date(), ".csv"))
 }
 
@@ -797,6 +719,13 @@ mock_table <- align_nottext_col(mock_table,
                                 align = "center")
 
 mock_table
+
+## ----gary_text, message=FALSE, warning=FALSE, include=FALSE--------------------------------------------------------
+saveto <- paste0("P:/", Sys.Date()) #### ?
+dir.create(saveto)
+rmarkdown::render("otto_text.Rmd", output_file = paste0(saveto,"/", Sys.Date(), "words.docx"))
+
+
 
 values_formatted <-
   paste0("'",
@@ -834,41 +763,35 @@ invisible(capture.output(
 
 odbc::dbDisconnect(con2)
 
-```
 
 
-\*\*Includes confirmed plus probable cases  
-
-**COVID-19 Cases and Associated Deaths by County of Residence**  
-*As of `r paste0(format(graphdate, "%m/%d/%y"))`.*
-
-```{r county_lab_cases_deaths_table, message=FALSE, warning=FALSE}
+## ----county_lab_cases_deaths_table, message=FALSE, warning=FALSE---------------------------------------------------
 tbl_county <- tibble::tibble(County = forcats::as_factor(c("Fairfield County", "Hartford County", "Litchfield County", "Middlesex County", "New Haven County", "New London County", "Tolland County", "Windham County", "Pending address validation")))
 tbl_confirmed_cases <- case %>%
-  filter(disease_status == "Confirmed") %>% 
-  group_by(county) %>% 
-  tally() %>% 
-  replace_na(replace = list(county= "Pending address validation")) 
+  filter(disease_status == "Confirmed") %>%
+  group_by(county) %>%
+  tally() %>%
+  replace_na(replace = list(county= "Pending address validation"))
 tbl_probable_cases <- case %>%
-  filter(disease_status == "Probable") %>% 
-  group_by(county) %>% 
-  tally() %>% 
+  filter(disease_status == "Probable") %>%
+  group_by(county) %>%
+  tally() %>%
   replace_na(replace = list(county= "Pending address validation"))
 tbl_confirmed_dec <-  case %>%
-  select(county, outcome, disease_status) %>% 
-  filter(outcome == "Died" & disease_status == "Confirmed")%>% 
-  group_by(county) %>% 
-  tally() %>% 
-  replace_na(replace = list(county = "Pending address validation")) %>% 
+  select(county, outcome, disease_status) %>%
+  filter(outcome == "Died" & disease_status == "Confirmed")%>%
+  group_by(county) %>%
+  tally() %>%
+  replace_na(replace = list(county = "Pending address validation")) %>%
   complete(county = tbl_county$County, fill = list(n = 0))
 tbl_confirmed_dec$county <- factor(tbl_confirmed_dec$county ,level = tbl_county$County, labels = tbl_county$County)
 tbl_confirmed_dec <- tbl_confirmed_dec %>% arrange(county)
 tbl_prob_dec <-  case %>%
-  select(county, outcome, disease_status) %>% 
-  filter(outcome == "Died" & disease_status == "Probable")%>% 
-  group_by(county) %>% 
-  tally() %>% 
-  replace_na(replace = list(county = "Pending address validation")) %>% 
+  select(county, outcome, disease_status) %>%
+  filter(outcome == "Died" & disease_status == "Probable")%>%
+  group_by(county) %>%
+  tally() %>%
+  replace_na(replace = list(county = "Pending address validation")) %>%
   complete(county = tbl_county$County, fill = list(n = 0))
 tbl_prob_dec$county <- factor(tbl_prob_dec$county ,level = tbl_county$County, labels = tbl_county$County)
 tbl_prob_dec <- tbl_prob_dec %>% arrange(county)
@@ -901,8 +824,8 @@ n2sum <- as.character(sum(tbl_cty_sum$cases.probable))
 n3sum <- as.character(sum(tbl_cty_sum$dec.confirmed))
 n4sum <- as.character(sum(tbl_cty_sum$dec.probable))
 
-tbl <-  tbl %>% 
-  add_footer(values = c( County = "Total", 
+tbl <-  tbl %>%
+  add_footer(values = c( County = "Total",
                         cases.confirmed = n1sum,
                         cases.probable = n2sum,
                         dec.confirmed = n3sum,
@@ -917,13 +840,10 @@ tbl <- align_nottext_col(tbl,align = "center")
 tbl <- bold(tbl, part ="footer")
 tbl <- border_outer(tbl, part = "footer")
 tbl
-```
 
-[National COVID-19 statistics](https://www.cdc.gov/coronavirus/2019-ncov/cases-updates/cases-in-us.html) and information about [preventing spread of COVID-19](https://www.cdc.gov/coronavirus/2019-ncov/prevent-getting-sick/prevention.html) are available from the Centers for Disease Control and Prevention.  
 
-__Day-to-day changes reflect newly reported cases, deaths, and tests that occurred over the last several days to week.__  All data in this report are preliminary; data for previous dates will be updated as new reports are received and data errors are corrected.  Hospitalization data were collected by the Connecticut Hospital Association.  Deaths reported to either OCME or DPH are included in the daily COVID-19 update.  
-```{r new cases graphs, eval=wedthurs}
-casenew <- thursday_case 
+## ----new cases graphs----------------------------------------------------------------------------------------------
+casenew <- thursday_case
 thisweek <- epiweek(Sys.Date())
 thisyear <- epiyear(Sys.Date())
 beginofcurmmwr <- MMWRweek2Date(MMWRyear = thisyear, MMWRweek = thisweek, MMWRday = 1)
@@ -943,15 +863,15 @@ avgratebreaks <-  c(
                     )
 
 c14nc_count <- cases_14_nc %>%
-  mutate(NAME = str_to_title(city)) %>% 
-  group_by(NAME) %>% 
-  tally() %>% 
-  complete(NAME = town_pop18$city, fill = list(n = 0)) %>% 
+  mutate(NAME = str_to_title(city)) %>%
+  group_by(NAME) %>%
+  tally() %>%
+  complete(NAME = town_pop18$city, fill = list(n = 0)) %>%
   filter(!NAME == "Not Available")
 
 #c14nc_count$n[is.na(c14nc_count$n)] <- 0
-c14nc_count <- c14nc_count %>% 
-  full_join(town_pop18, by = c("NAME" = "city")) %>% 
+c14nc_count <- c14nc_count %>%
+  full_join(town_pop18, by = c("NAME" = "city")) %>%
   mutate(CaseRate = round(((n/14)/pop)*100000,1),
          n2 = cut(n, breaks = c(-Inf,0,5,25,50,100,200,500,1000, Inf), labels = num_groups),
          avgrate = ifelse(n < 5 | CaseRate < 5, "<5 cases per 100,000 or <5 reported cases",
@@ -960,9 +880,9 @@ c14nc_count <- c14nc_count %>%
                                         ifelse(CaseRate >=15,  "15 or more cases per 100,000", "Not categorized"))))
   )
 c14nc_count$avgrate <- factor(c14nc_count$avgrate, labels = avgratebreaks, levels = avgratebreaks )
-subdat14nc <- subdat %>% 
+subdat14nc <- subdat %>%
   left_join(
-    c14nc_count, by = c("NAME" = "NAME")    
+    c14nc_count, by = c("NAME" = "NAME")
   )
 subdat14nc$n2[is.na(subdat14nc$n2)] <- "None"
 paletteo<- c("#fcf8f8", "#fff7bc", "#fec44f", "#d95f0e", "#993404", NA) ## fix colors
@@ -973,26 +893,20 @@ paletteo2<- c("#fcf8f8", "#fff7bc", "#fee391", "#fec44f", "#fe9929", "#ec7014", 
 n14ncperc <- paste0("(",round(nrow(cases_14_nc)/nrow(cases_14)*100), "%)")
 com <- nrow(cases_14) - nrow(cases_14_nc)
 n14cperc <- paste0("(",round(com/nrow(cases_14)*100), "%)")
-```
-
-`r if(thursday){"### COVID-19 Cases and Deaths Over Time ###  "}`
 
 
-`r if(thursday){" The chart below shows the number of new COVID-19 cases reported to CT DPH by week of specimen collection or onset of illness. Case data now includes probable cases based on positive antigen test results. During the past two weeks ("}` `r if(thursday){thursday_range}` `r if(thursday){"), there were # new COVID-19 cases, including cases among people residing in the community and congregate settings, such as nursing homes, managed residential communities, and correctional facilities."}`
-
-
-```{r plot_thurs_cases_week, eval = thursday}
-casebyweek <- case %>% 
-  mutate(year = epiyear(date)) %>% 
-  # filter(week >= thisweek-12, year >=2020) %>% 
-  filter(date > beginofcurmmwr-84 & date<=Sys.Date()) %>% 
-  group_by(year,week) %>% 
-  tally() %>% 
+## ----plot_thurs_cases_week-----------------------------------------------------------------------------------------
+casebyweek <- case %>%
+  mutate(year = epiyear(date)) %>%
+  # filter(week >= thisweek-12, year >=2020) %>%
+  filter(date > beginofcurmmwr-84 & date<=Sys.Date()) %>%
+  group_by(year,week) %>%
+  tally() %>%
   mutate(
     date= MMWRweek2Date(MMWRyear = year, MMWRweek = week, MMWRday = 7)
-  ) %>% 
-  arrange(date) %>% 
-  ungroup() %>% 
+  ) %>%
+  arrange(date) %>%
+  ungroup() %>%
   mutate(
         date2 = format(date, "%B %d, %Y"),
         date2 = factor(date2, levels = date2, labels = date2),
@@ -1031,17 +945,9 @@ ggplot(casebyweek)+
     y = "Number of COVID-19 Cases",
     caption = "Shading indicates data are incomplete for the current week."
   )
-```
 
 
-`r if(thursday){"__Community Transmission of COVID-19 __"}` 
-
-  `r if(thursday){"Among "}` `r if(thursday){nrow(cases_14)}` `r if(thursday){" new COVID-19 cases with specimen collection or onset date during "}` `r if(thursday){thursday_range}` `r if(thursday){", there were "}` `r if(thursday){nrow(cases_14_nc)}` `r if(thursday){" cases among people living in community settings, as shown in the map below. This corresponds to an average of "}``r if(thursday){round(nrow(cases_14_nc)/14/3572665*100000, 2)}`  `r if(thursday){" new COVID-19 cases per day per 100,000 population. Cases among people residing in nursing homes, assisted living facilities, and correctional facilities are excluded. Darker colors indicate towns with more cases."}`
-
-
-`r if(thursday){"During this two-week period, there were more than 100 new COVID-19 cases in # towns.  "}`
-
-```{r plot_thurs_community_settings, eval=thursday, dpi=300, fig.height=5, fig.width= 7}
+## ----plot_thurs_community_settings, dpi=300, fig.height=5, fig.width= 7--------------------------------------------
 #Case count map
 ggplot(subdat14nc)+
   geom_sf(aes(fill = n2))+
@@ -1062,18 +968,9 @@ ggplot(subdat14nc)+
   guides(
     fill = guide_legend(nrow =2 )
   )
-```
-
-`r if(thursday){"*Map does not include* "}` `r if(thursday){thursday_pending_address$n}` `r if(thursday){"*cases pending address validation*"}`
 
 
-`r if(thursday){"Because towns with larger populations are likely to have more cases, it is also important to look at the number of new cases per 100,000 population. The maps below show the average number of new cases per 100,000 population per day, with darker colors indicating higher rates. Cases among people residing in nursing homes, assisted living facilities, and correctional facilities are excluded."}`
-
-
-`r if(thursday){"Among towns with at least 5 new cases during "}` `r if(thursday){thursday_range}` `r if(thursday){", # towns had an average rate of 15 or more cases per 100,000 population per day, shown in red in the map below."}`
-
-
-```{r plot_community_settings, eval=thursday, dpi=300, fig.height=5, fig.width= 7}
+## ----plot_community_settings, dpi=300, fig.height=5, fig.width= 7--------------------------------------------------
 avgpal <- c("#d3d3d3", "#ffffb2", "#fd8d3c", "#e31a1c")
 #avgpal <- c("#d3d3d3", "#e31a1c")
 
@@ -1098,17 +995,9 @@ ggplot(subdat14nc)+
     legend.key.size = unit(0.80, "line")
   )
 
-```
-
-`r if(thursday){"*Map does not include* "}` `r if(thursday){thursday_pending_address$n}` `r if(thursday){"*cases pending address validation*  "}`
 
 
-`r if(thursday){"__Population, Number and Average Daily Rate of COVID-19 Cases among People Living in Community Settings by Town with Specimen Collection or Onset Date during__ "}` `r if(thursday){paste0(thursday_range,", ", year(thursday_range_start))}`  
-
-`r if(thursday){"*Map does not include* "}` `r if(thursday){thursday_pending_address$n}` `r if(thursday){"*cases pending address validation*  "}`
-
-
-```{r newcasetable, eval = wedthurs}
+## ----newcasetablex-------------------------------------------------------------------------------------------------
 
 # Reflects new table from Tom CTEDSS_GEOCODED_RECORDS
 # eliminates expensive group and slice
@@ -1134,13 +1023,13 @@ odbc::dbDisconnect(con)
 
 #dates for TESTS SHOULD NOT BE SET BY EVENT DATE. UPDATED TO ONLY USE SPEC COL or received DATE 10/15/2020.
 testgeo2 <- elr_linelist %>%
-  mutate(eventid = as.numeric(eventid)) %>% 
+  mutate(eventid = as.numeric(eventid)) %>%
   left_join(testgeo, by = "eventid") %>%
   mutate(
     date = ifelse(!is.na(spec_col_date), spec_col_date, mdy(spec_rec_date)),
          date = as.Date(date, origin = ymd("1970-01-01")),
     mmwrweek = epiweek(date)
-    ) # %>% 
+    ) # %>%
   # filter(test_method %in% pcrtests2)
 
 #limit to 14 days thursday range
@@ -1152,20 +1041,20 @@ test14nc <- test14 %>%
 
 #count by town community only tests (exclude tests in congregate setting based on geocode results)
 test14nc_ct <- test14nc %>%
-  mutate(NAME = str_to_title(city)) %>% 
-  group_by(NAME) %>% 
+  mutate(NAME = str_to_title(city)) %>%
+  group_by(NAME) %>%
   tally(name = "Tests")
 #join to geography
-subdat14tnc <- subdat %>% 
+subdat14tnc <- subdat %>%
   left_join(
-    test14nc_ct, by = c("NAME" = "NAME")    
+    test14nc_ct, by = c("NAME" = "NAME")
   )
 
-    
+
 ######## FIX
 newcasetable <- c14nc_count %>%
   select(NAME, n, pop, CaseRate) %>%
-  left_join(test14nc_ct, by = "NAME") %>% 
+  left_join(test14nc_ct, by = "NAME") %>%
   mutate(Cases =if_else(is.na(n), 0, n),
          CaseRate = if_else(is.na(CaseRate), 0, CaseRate),
          Tests = as.numeric(Tests),
@@ -1173,43 +1062,42 @@ newcasetable <- c14nc_count %>%
          DateUpdated = Sys.Date(),
          #Cases = ifelse(Cases >0 & Cases <5, "<5", Cases)
          ) %>%
-  select(-n) %>% 
+  select(-n) %>%
   #select(-c("n.x", "n.y")) %>%
   filter(NAME != "Not_available"  & NAME != "Not Available" & NAME  %in% cc_map$CITY) %>%
   rename(Town = NAME,
          Population = pop,
          Rate = CaseRate) %>%
-  select(c(Town, Population, Cases, Rate, Tests, DateUpdated)) %>% 
+  select(c(Town, Population, Cases, Rate, Tests, DateUpdated)) %>%
   arrange(Town)
 
 #drop n
 #0 is 0 and 1 to 4 is <5
 
 if(csv_write){
-  write_csv(newcasetable, 
-            paste0("L:/daily_reporting_figures_rdp/csv/", 
+  write_csv(newcasetable,
+            paste0("L:/daily_reporting_figures_rdp/csv/",
                    Sys.Date(), "/", Sys.Date(), "newcases+tests.csv"))
 }
 
-```
 
 
-```{r thursdaytable, eval = thursday}
-newcase_tbl_town <- newcasetable %>% 
+## ----thursdaytable-------------------------------------------------------------------------------------------------
+newcase_tbl_town <- newcasetable %>%
   select(-c(DateUpdated, Tests))
 newcase_tbl_town1 <- newcase_tbl_town[1:57,] %>% rename(town1 =Town, n1=Cases)
 newcase_tbl_town2 <- newcase_tbl_town[58:114,] %>% rename(town2 =Town, n2=Cases)
-newcase_tbl_town3 <- newcase_tbl_town[115:169,] %>% rename(town3 =Town, n3=Cases) %>% 
+newcase_tbl_town3 <- newcase_tbl_town[115:169,] %>% rename(town3 =Town, n3=Cases) %>%
   mutate(
     n3 = as.character(n3),
     Population = as.character(Population),
     Rate = as.character(Rate)
-         ) %>% 
-  add_row(town3 = " ", n3 = " ", Population = " ", Rate = " " ) %>% 
+         ) %>%
+  add_row(town3 = " ", n3 = " ", Population = " ", Rate = " " ) %>%
   add_row(town3 =" ", n3 = " " , Population = " ", Rate = " ")
 
 newcase_tbl_town <- bind_cols(newcase_tbl_town1, newcase_tbl_town2,newcase_tbl_town3)
-newcase_tbl_town <- regulartable(newcase_tbl_town) #%>% 
+newcase_tbl_town <- regulartable(newcase_tbl_town) #%>%
 newcase_tbl_town <- set_header_labels(newcase_tbl_town,
                         town1 = "Town",
                         town2 = "Town",
@@ -1223,25 +1111,16 @@ newcase_tbl_town <- set_header_labels(newcase_tbl_town,
                         Rate1 = "Rate",
                         Rate2 = "Rate",
                         Rate3 = "Rate"
-                         ) 
+                         )
 newcase_tbl_town <- font(newcase_tbl_town, fontname = "Calibri", part = "all")
 newcase_tbl_town <- fontsize(newcase_tbl_town, size = 8.5, part = "all" )
 newcase_tbl_town <- width(newcase_tbl_town, width = 0.75)
 newcase_tbl_town <- height(newcase_tbl_town, height = .15, part = "body")
 newcase_tbl_town <- align_nottext_col(newcase_tbl_town, align = "center")
-newcase_tbl_town 
-```
+newcase_tbl_town
 
 
-
-    
-`r if(thursday){"__COVID-19 Molecular and Antigen Tests during__"}` `r if(thursday){thursday_range}` `r if(thursday){"  "}`
-
-`r if(thursday){"Among "}` `r if(thursday){nrow(test14)}` `r if(thursday){"molecular and antigen tests for COVID-19 with specimen collection date during"}`  `r if(thursday){thursday_range}``r if(thursday){", "}``r if(thursday){nrow(test14nc)}` `r if(thursday){ "("}``r if(thursday){ round(nrow(test14nc)/nrow(test14)*100)}``r if(thursday){ "%) tests were conducted among people who did not reside in congregate settings (including nursing homes, assisted living, and correctional facilities). Of these "}` `r if(thursday){nrow(test14nc)}` `r if(thursday){"tests, "}` `r if(thursday){nrow(test14nc %>% filter(result == "detected"))}` `r if(thursday){"("}``r if(thursday){round(nrow(test14nc %>% filter(result == "detected"))/nrow(test14nc)*100)}``r if(thursday){"%)"}``r if(thursday){" were positive. The map below shows the number of molecular and antigen COVID-19 tests by town with specimen collection date during "}``r if(thursday){thursday_range}` `r if(thursday){" that were conducted among community residents."}`
-    
-    
-     
-```{r newcasetable , eval= thursday, dpi=300, fig.height=5, fig.width= 7}     
+## ----newcasetable, dpi=300, fig.height=5, fig.width= 7-------------------------------------------------------------
 #make map
 ggplot(subdat14tnc)+
   geom_sf(aes(fill = Tests))+ # was originally just n, I changed to n.y
@@ -1260,19 +1139,16 @@ ggplot(subdat14tnc)+
     legend.text = element_text(size=7)
   )
 
-```
-`r if(thursday){"*Map does not include tests pending address validation*  "}`
 
-`r if(thursday){"__Age Distribution of COVID-19 Cases with Specimen Collection or Onset During"}` `r if(thursday){thursday_range}` `r if(thursday){", 2020__  "}`
 
-```{r plot_thurs_onset, eval=thursday}
+## ----plot_thurs_onset----------------------------------------------------------------------------------------------
 #11. Age breakdown of new cases
 cases_14 <- cases_14 %>%
   mutate(age_group = cut(age, breaks = c(-1,9,19,29,39,49,59,69,79, Inf),labels = age_labels))
 
 dfs_age <- cases_14 %>%
-  group_by(age_group) %>% 
-  tally() %>% 
+  group_by(age_group) %>%
+  tally() %>%
   filter(!is.na(age_group))
 
 ggplot(dfs_age)+
@@ -1286,25 +1162,21 @@ ggplot(dfs_age)+
        y = "Number of Cases",
        x="Age (years)")
 
-```
-`r if(thursday){"__Average Daily Incidence by Age Group__  "}`
-
-`r if(thursday){"The chart below shows the average number of new COVID-19 cases per day per 100,000 population by age group. The rates in this chart are calculated by averaging the number of new cases diagnosed each day during the previous two weeks, dividing by the annual population in each age group, and then multiplying by 100,000.  "}`
 
 
-```{r plot_thurs_rate_by_age, eval=thursday, dpi=300, fig.height=6, fig.width= 7}
+## ----plot_thurs_rate_by_age, dpi=300, fig.height=6, fig.width= 7---------------------------------------------------
 weeks <-  case %>%
   select(date,mmwrweek) %>%
   mutate(
     #year = 2020,
     year = epiyear(date),
     mmwrweekdate = MMWRweek2Date(MMWRyear=year, MMWRweek=mmwrweek, MMWRday=7)
-  ) %>% 
-  # filter(mmwrweek >= epiweek(Sys.Date())-9) %>% 
-  filter(date >= beginofcurmmwr-63 & date <= Sys.Date()) %>%  
-  select(mmwrweekdate) %>% 
+  ) %>%
+  # filter(mmwrweek >= epiweek(Sys.Date())-9) %>%
+  filter(date >= beginofcurmmwr-63 & date <= Sys.Date()) %>%
+  select(mmwrweekdate) %>%
   arrange(mmwrweekdate) %>%
-  filter(!is.na(mmwrweekdate)) %>% 
+  filter(!is.na(mmwrweekdate)) %>%
   unique()
 maxweeks <- max(weeks$mmwrweekdate, na.rm = T)-7
 minweeks <- min(weeks$mmwrweekdate, na.rm = T)
@@ -1315,20 +1187,20 @@ agegrp <- case %>%
     #year = 2020,
     year = epiyear(date),
     mmwrweekdate = MMWRweek2Date(MMWRyear=year, MMWRweek=mmwrweek, MMWRday=7)
-  ) %>% 
- filter(mmwrweekdate %in% weeks) %>% 
-  mutate(age_group = 
-           cut(age, breaks = c(-1,9,19,29,39,49,59,69,79, Inf),labels = age_labels)) %>% 
-  group_by(age_group,mmwrweekdate) %>% 
-  tally() %>% 
-  filter(!is.na(age_group)) %>% 
-  complete(mmwrweekdate = weeks, fill = list( n = 0)) %>%  
+  ) %>%
+ filter(mmwrweekdate %in% weeks) %>%
+  mutate(age_group =
+           cut(age, breaks = c(-1,9,19,29,39,49,59,69,79, Inf),labels = age_labels)) %>%
+  group_by(age_group,mmwrweekdate) %>%
+  tally() %>%
+  filter(!is.na(age_group)) %>%
+  complete(mmwrweekdate = weeks, fill = list( n = 0)) %>%
   mutate(n2 = lag(n)) %>%
-  filter(!is.na(mmwrweekdate) &  !is.na(n2)) %>% 
-  arrange(mmwrweekdate) %>% 
-  mutate(n3 = n+n2) %>% 
-  left_join(pop, by=c("age_group" = "age_g")) %>% 
-  ungroup() %>% 
+  filter(!is.na(mmwrweekdate) &  !is.na(n2)) %>%
+  arrange(mmwrweekdate) %>%
+  mutate(n3 = n+n2) %>%
+  left_join(pop, by=c("age_group" = "age_g")) %>%
+  ungroup() %>%
   mutate(
     mmwrweekdate = factor(mmwrweekdate),
     rate_100k = (n3/14/total)*100000,
@@ -1342,9 +1214,9 @@ if(maxlim<= max(agegrp$rate_100k)){
 }
 
 graphdate <- Sys.Date() - 1
-ggplot(agegrp, aes(x = mmwrweekdate, 
+ggplot(agegrp, aes(x = mmwrweekdate,
                    y = rate_100k,
-                   color = age_group, 
+                   color = age_group,
                    group = age_group)) +
   geom_line(size = 1) +
   ylim(0, maxlim) +
@@ -1397,36 +1269,36 @@ nagegrp <- case %>%
   mutate(
     #year = 2020,
     year = epiyear(date),
-    mmwrweekdate = MMWRweek2Date(MMWRyear = year, 
-                                 MMWRweek = mmwrweek, 
+    mmwrweekdate = MMWRweek2Date(MMWRyear = year,
+                                 MMWRweek = mmwrweek,
                                  MMWRday=7)
-  ) %>% 
- filter(mmwrweekdate %in% weeks) %>% 
-  mutate(age_group = 
-           cut(age, breaks = c(-1, 15, 24, 34, 44, 54, 64, 74, Inf), 
-               labels = vaccine_labels)) %>% 
-  group_by(age_group, mmwrweekdate) %>% 
-  tally() %>% 
-  filter(!is.na(age_group)) %>% 
-  complete(mmwrweekdate = weeks, fill = list( n = 0)) %>%  
+  ) %>%
+ filter(mmwrweekdate %in% weeks) %>%
+  mutate(age_group =
+           cut(age, breaks = c(-1, 15, 24, 34, 44, 54, 64, 74, Inf),
+               labels = vaccine_labels)) %>%
+  group_by(age_group, mmwrweekdate) %>%
+  tally() %>%
+  filter(!is.na(age_group)) %>%
+  complete(mmwrweekdate = weeks, fill = list( n = 0)) %>%
   mutate(n2 = lag(n)) %>%
-  filter(!is.na(mmwrweekdate) &  !is.na(n2)) %>% 
-  arrange(mmwrweekdate) %>% 
-  mutate(n3 = n + n2) %>% 
-  left_join(vaccine_pop, by=c("age_group" = "age_g")) %>% 
-  ungroup() %>% 
+  filter(!is.na(mmwrweekdate) &  !is.na(n2)) %>%
+  arrange(mmwrweekdate) %>%
+  mutate(n3 = n + n2) %>%
+  left_join(vaccine_pop, by=c("age_group" = "age_g")) %>%
+  ungroup() %>%
   mutate(
     mmwrweekdate = factor(mmwrweekdate),
     rate_100k = (n3/14/total)*100000,
     age_group = factor(age_group, labels = vaccine_labels, levels = vaccine_labels )
          )
 
-ggplot(nagegrp, aes(x = mmwrweekdate, 
+ggplot(nagegrp, aes(x = mmwrweekdate,
                    y = rate_100k,
-                   color = age_group, 
+                   color = age_group,
                    group = age_group)) +
   geom_line(size = 1) +
-  expand_limits(y = 0) +
+  ylim(0, maxlim) +
   scale_color_brewer(palette = "Paired") +
   theme_minimal() +
   theme(
@@ -1448,21 +1320,14 @@ ggplot(nagegrp, aes(x = mmwrweekdate,
     col = guide_legend(nrow = 2)
   )
 
-```
 
-`r if(thursday){"**Average Daily Incidence by County**"}`
 
-`r if(thursday){"The chart below shows the average number of new COVID-19 cases per day per 100,000 population in the state of Connecticut and for each Connecticut county. The rates in this chart are calculated by averaging the number of new cases diagnosed each day during the previous two weeks, dividing by the annual estimated population, and then multiplying by 100,000.  "}`
+## ----plot_thurs_cases_county, message=FALSE, warning=FALSE, fig.align= "center", dpi=300, fig.height=5, fig.width= 7----
 
-```{r plot_thurs_cases_county, message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300, fig.height=6, fig.width= 7.5}
-
-#### But why though?
 #incidence by county
-# countypop <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv") %>%
-#   mutate(County = paste0(County, " County")) %>%
-#   rename(pop = Total)
-
-countypop <- county_pop %>% rename(pop = Total)
+countypop <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv") %>%
+  mutate(County = paste0(County, " County")) %>%
+  rename(pop = Total)
 
 
 wkincidencect <- case %>%
@@ -1470,16 +1335,16 @@ wkincidencect <- case %>%
     #year = 2020,
     year = epiyear(date),
     mmwrweekdate = MMWRweek2Date(MMWRyear=year, MMWRweek=mmwrweek, MMWRday=7)
-  ) %>% 
-  filter(!is.na(county) & mmwrweekdate %in% weeks) %>% 
+  ) %>%
+  filter(!is.na(county) & mmwrweekdate %in% weeks) %>%
   group_by(mmwrweekdate) %>%
   tally() %>%
-  complete(mmwrweekdate = weeks, fill = list( n = 0)) %>%  
+  complete(mmwrweekdate = weeks, fill = list( n = 0)) %>%
   mutate(n2 = lag(n)) %>%
-  filter(!is.na(mmwrweekdate) &  !is.na(n2)) %>% 
-  arrange(mmwrweekdate) %>% 
-  mutate(n3 = n+n2) %>% 
-  mutate(rate=(n3/14)/3572665 *100000, 
+  filter(!is.na(mmwrweekdate) &  !is.na(n2)) %>%
+  arrange(mmwrweekdate) %>%
+  mutate(n3 = n+n2) %>%
+  mutate(rate=(n3/14)/3572665 *100000,
          County="Connecticut",
           mmwrweekdate = factor(mmwrweekdate)
          )
@@ -1489,23 +1354,23 @@ wkincidence <- case %>%
     #year = 2020,
     year = epiyear(date),
     mmwrweekdate = MMWRweek2Date(MMWRyear=year, MMWRweek=mmwrweek, MMWRday=7)
-  ) %>% 
-  filter(!is.na(county) & mmwrweekdate %in% weeks) %>% 
+  ) %>%
+  filter(!is.na(county) & mmwrweekdate %in% weeks) %>%
   group_by(county, mmwrweekdate) %>%
   tally() %>%
-  complete(mmwrweekdate = weeks, fill = list( n = 0)) %>%  
+  complete(mmwrweekdate = weeks, fill = list( n = 0)) %>%
   mutate(n2 = lag(n)) %>%
-  filter(!is.na(mmwrweekdate) &  !is.na(n2)) %>% 
-  arrange(mmwrweekdate) %>% 
-  rename(County = county) %>% 
+  filter(!is.na(mmwrweekdate) &  !is.na(n2)) %>%
+  arrange(mmwrweekdate) %>%
+  rename(County = county) %>%
   left_join(countypop, by="County") %>%
-  mutate(n3 = n+n2) %>% 
+  mutate(n3 = n+n2) %>%
   mutate(rate=(n3/14)/pop *100000,
           mmwrweekdate = factor(mmwrweekdate)
          )
 
-  
-weekincidence <- bind_rows(wkincidence, wkincidencect) 
+
+weekincidence <- bind_rows(wkincidence, wkincidencect)
 
 maxlim <- round(max(weekincidence$rate)/5)*5
 if(maxlim<= max(weekincidence$rate)){
@@ -1540,41 +1405,35 @@ ggplot(weekincidence, aes(mmwrweekdate, rate, col = County, group = County))+
    col = guide_legend(nrow = 3)
   )
 
-```
 
 
-`r if(thursday){"__Cumulative Number of COVID-19 Cases and COVID-19-Associated Deaths by Date__  "}`
-
-`r if(thursday){"_Test results may be reported several days after the result. Data are incomplete for most recent dates shaded in grey. Data from previous dates are routinely updated._  "}`
-
-
-```{r plot_thurs_cases_date, message=FALSE, warning=FALSE, fig.align= "center", eval = thursday, dpi = 300}
+## ----plot_thurs_cases_date, message=FALSE, warning=FALSE, fig.align= "center", dpi = 300---------------------------
 case <- case %>% filter(date >= "2020-03-01" & date < Sys.Date())
 
-case_epi <- case %>% 
-  filter(disease_status  == "Confirmed") %>% 
-  group_by(date) %>% 
-  tally() %>% 
-  filter(!is.na(date)) %>% 
+case_epi <- case %>%
+  filter(disease_status  == "Confirmed") %>%
+  group_by(date) %>%
+  tally() %>%
+  filter(!is.na(date)) %>%
   mutate(type = "Confirmed")
 
 
 #confirmed > specimen date then probable date of symp onsent, if na then report date
-prob_epi <- case %>% 
+prob_epi <- case %>%
  filter(disease_status  == "Probable") %>%
-  group_by(date) %>% 
-  tally() %>% 
-  filter(!is.na(date)) %>% 
+  group_by(date) %>%
+  tally() %>%
+  filter(!is.na(date)) %>%
   mutate(
     type = "Probable"
   )
-epicurve <- bind_rows(case_epi, prob_epi) %>% 
-  arrange(date) %>% 
+epicurve <- bind_rows(case_epi, prob_epi) %>%
+  arrange(date) %>%
   mutate(type = factor(type, levels = c("Probable", "Confirmed"), labels = c("Probable", "Confirmed")))
 
 ymx <- epicurve %>% group_by(date) %>%  summarize(n=sum(n)) %>%  select(n) %>%  max(.$n)
- 
-epicurve %>% 
+
+epicurve %>%
   ggplot()+
   geom_col(aes(date, n, fill = type), width = 1)+
   geom_rect(aes(xmin = Sys.Date()-5.5, xmax =max(epicurve$date)+1, ymax = ymx, ymin = 0), col = "black", alpha = 0.01, fill = "gray")+
@@ -1597,19 +1456,18 @@ epicurve %>%
     fill = ""
     )
 
-```
 
 
-```{r plot_thursday_deaths, message=FALSE, warning=FALSE, fig.align= "center" , eval = thursday}
+## ----plot_thursday_deaths, message=FALSE, warning=FALSE, fig.align= "center"---------------------------------------
 dfs_daily_dead <- case %>%
   ungroup() %>%
   filter(outcome == "Died") %>%
   select(death_date) %>%
-  filter(year(death_date)>=2020) %>% 
-  group_by(death_date) %>% 
-  tally() %>% 
+  filter(year(death_date)>=2020) %>%
+  group_by(death_date) %>%
+  tally() %>%
   filter(!is.na(death_date))
-dfs_daily_dead <- dfs_daily_dead %>% 
+dfs_daily_dead <- dfs_daily_dead %>%
     complete(
       death_date = seq.Date(min(death_date), max(death_date), by = "day"), fill =list(n = 0)
              )
@@ -1619,11 +1477,11 @@ dfs_daily_dead_proto <- case %>%
   ungroup() %>%
   filter(outcome == "Died") %>%
   select(death_date, disease_status ) %>%
-  filter(year(death_date)>=2020) %>% 
-  group_by(death_date, disease_status) %>% 
-  tally() %>% 
+  filter(year(death_date)>=2020) %>%
+  group_by(death_date, disease_status) %>%
+  tally() %>%
   filter(!is.na(death_date))
-  dfs_daily_dead_proto <- dfs_daily_dead_proto %>% 
+  dfs_daily_dead_proto <- dfs_daily_dead_proto %>%
     complete(
       death_date= seq.Date(min(death_date), max(death_date), by = "day"), disease_status = c("Confirmed", "Probable"), fill =list(n = 0)
              )
@@ -1647,17 +1505,9 @@ ggplot(dfs_daily_dead_proto)+
        x="Date of Death",
     fill = "")
 
-``` 
 
-### Hospitalization Surveillance  
 
-The map below shows the number of patients currently hospitalized with laboratory-confirmed COVID-19 by county based on data collected by the Connecticut Hospital Association. The distribution is by location of hospital, not patient residence. The labels indicate the number of patients currently hospitalized with the change since yesterday in parentheses.  
-
-**Patients Currently Hospitalized by Connecticut County**  
-
-*Distribution by location of hospital not patient residence. Data from the Connecticut Hospital Association.*  
-
-```{r plot_hospitalizations, message=FALSE, warning=FALSE, dpi=300, fig.height=5, fig.width= 7}
+## ----plot_hospitalizations, message=FALSE, warning=FALSE, dpi=300, fig.height=5, fig.width= 7----------------------
 ggplot(subdat2)+
   geom_sf(aes(fill = ngrp), col= "black")+
   geom_sf_label(aes(label =paste0(NAME, "\n",today, " (",sign, Change, ")") ), col = "black", size =3)+#, size = 6)+
@@ -1672,34 +1522,23 @@ ggplot(subdat2)+
      legend.title = element_text(size = 9),
      legend.text = element_text(size=9)
    )
-```
-More information about hospitalized cases of COVID-19 in New Haven and Middlesex Counties is available from [COVID-NET.](https://gis.cdc.gov/grasp/COVIDNet/COVID19_3.html) 
 
 
-
-```{r hospital_census, message=FALSE, warning=FALSE, include=FALSE}
+## ----hospital_census, message=FALSE, warning=FALSE, include=FALSE--------------------------------------------------
 total_hosp <- cha %>%
   filter(Type == "CumAdmit" & State == "TOTAL")
-total_hosp <-  total_hosp[ncol(total_hosp)-1]%>% 
+total_hosp <-  total_hosp[ncol(total_hosp)-1]%>%
   rename(today = names(total_hosp[ncol(total_hosp)-1]))
-total_discharged <- cha %>% 
+total_discharged <- cha %>%
   filter(Type == 'Discharge' & State == "TOTAL")
-total_discharged <- total_discharged[ncol(total_discharged)-1] %>% 
+total_discharged <- total_discharged[ncol(total_discharged)-1] %>%
   rename(today = names(total_discharged[ncol(total_discharged)-1]))
-```
 
 
-
-
-
-`r if(thursday){"**COVID-19 Hospital Census in Connecticut**"}`
-
- `r if(thursday){"The chart below shows the COVID-19 hospital census, which is the number of patients currently hospitalized with laboratory-confirmed COVID-19 on each day. Data were collected by the Connecticut Hospital Association and are shown since August 1, 2020"}`
-
-```{r hosp_cuml,  message=FALSE, warning=FALSE, eval = thursday}
-newcha2 <- newcha %>% 
+## ----hosp_cuml,  message=FALSE, warning=FALSE----------------------------------------------------------------------
+newcha2 <- newcha %>%
     filter(admit_date >= "2020-08-01")
-           
+
 maxlimit25 <- (round(max(newcha2$admissions)/25)*25)+25
 if(maxlimit25<= max(newcha2$admissions)){
   maxlimit25 <- maxlimit2+25
@@ -1719,39 +1558,39 @@ theme(axis.text.x = element_text(
     y = paste0("Number of patients hospitalized with COVID-19"),
     title= "Number of patients hospitalized\nwith laboratory-confirmed COVID-19 by Day",
     subtitle ="",#"text for us to see for an example" ,
-    caption =""#text for us to see for an example"   
+    caption =""#text for us to see for an example"
   )
 
 
 deadweeks <- as.character(seq.Date(as.Date("2020-08-01"), Sys.Date(), by = "7 days"))
 
-deadbar <- case %>% 
-  filter(outcome == "Died") %>% 
+deadbar <- case %>%
+  filter(outcome == "Died") %>%
   filter(!is.na(death_date) & death_date >="2020-08-01") %>%
   mutate(
     deadweek=epiweek(death_date),
     deadyear=epiyear(death_date),
     deaddate= MMWRweek2Date(MMWRyear = deadyear, MMWRweek = deadweek, MMWRday = 7)
-  ) %>% 
-  filter(as.character(deaddate) %in% deadweeks) %>% 
-  group_by(deaddate,cong_yn) %>% 
-  tally() %>% 
-  ungroup() %>% 
-  arrange(deaddate) %>% 
-  mutate(deaddate = factor(deaddate)) %>% 
-  complete(deaddate = deadweeks, 
+  ) %>%
+  filter(as.character(deaddate) %in% deadweeks) %>%
+  group_by(deaddate,cong_yn) %>%
+  tally() %>%
+  ungroup() %>%
+  arrange(deaddate) %>%
+  mutate(deaddate = factor(deaddate)) %>%
+  complete(deaddate = deadweeks,
            cong_yn =c("Yes", "No"),
-           fill = list(n = 0)) 
+           fill = list(n = 0))
 
-deadbarmax <- deadbar %>% 
-  group_by(deaddate) %>% 
-  summarise(n= sum(n)) %>% 
-  top_n(1) %>% 
+deadbarmax <- deadbar %>%
+  group_by(deaddate) %>%
+  summarise(n= sum(n)) %>%
+  top_n(1) %>%
   select(n)
 maxlimit6 <- (round(deadbarmax$n/5)*5)+5
 if(maxlimit6<= deadbarmax$n){
   maxlimit6 <- maxlimit6+5
-} 
+}
 ggplot(deadbar)+
   geom_col(aes(deaddate, n, fill = cong_yn), col = "black")+
   #geom_text(aes(deaddate,n,label=n), position = position_dodge(width=0.9), vjust =-0.25, size = 3.3)+
@@ -1779,173 +1618,115 @@ ggplot(deadbar)+
         axis.text.x=element_text(angle=45,hjust=1)
         )
 
-```
 
-`r if(thursday){"### Daycare Surveillance"}`
 
-`r if(thursday){"Licensed daycare providers are required to report cases of COVID-19 among attendees and staff to the Department of Public Health (DPH) and the local health department. This figure shows the number of cases among daycare attendees and staff reported to DPH since September 1, 2020. Data are preliminary and like other passive surveillance systems, under reporting occurs and the true incidence of disease is more than the number of cases reported."}`
-```{r plot_daycare_data, message=FALSE, warning=FALSE, fig.align="center", eval=thursday}
-
-# Initial foray into the new repeatable fields CRF April 7
-# Pull the new table
-daycare_pull <- table_to_df("CTEDSS_CRF_DAYCARE")
-
-# join adding new columns but no new rows
-case <-
-  left_join(case,
-            daycare_pull %>% select(Event_ID, CRF_DATE:Daycare_State),
-            by = c("eventid" = "Event_ID"))
-
-# Rather than new logic simply replicate
-# the logic from below by mutate and
-# case_when
-# Daycare_Yes_No goes to daycare_attendee
-# Daycare_Name goes to daycare_staff
-case <-
-  case %>%
-  mutate(daycare_attendee =
-           case_when(Daycare_Yes_No == "YES" ~ "YES",
-                     TRUE                    ~ daycare_attendee),
-         daycare_staff =
-           case_when(Daycare_Yes_No == "YES" ~ Daycare_Name,
-                     TRUE                    ~ daycare_staff)
-         )
-
+## ----plot_daycare_data, message=FALSE, warning=FALSE, fig.align="center"-------------------------------------------
 ########### DAYCARE EDITS ###############
 ## set logic: no attendees 6+, attendees 18+ are assumed to be staff
-attendee_to_staff <- case %>% 
+attendee_to_staff <- case %>%
   filter(daycare_attendee == "YES" & age >=18)
-edit_daycare <- case %>% 
+edit_daycare <- case %>%
   mutate(daycare_attendee = ifelse(age >=6, "NO", daycare_attendee))%>%
   mutate(daycare_staff = ifelse(eventid %in% attendee_to_staff$eventid, "YES", daycare_staff))
-  
+
 ## hardcode edits after logic: 12/17:
 ## This still needed????
 edit_daycare$daycare_staff[edit_daycare$eventid %in% c(101096038, 102729292, 102939247, 101346815, 102851466, 102755473, 103255551, 101708189, 103226614, 103382925, 103191123, 103315505)]<- "NO"
 
 edit_daycare$daycare_attendee[edit_daycare$eventid %in% c(103382925)]<- "NO"
 
-daycare_attendee <- edit_daycare %>% 
-  filter(daycare_attendee == "YES")%>% 
+daycare_attendee <- edit_daycare %>%
+  filter(daycare_attendee == "YES")%>%
   select(c(eventid, date, mmwrweek, week))%>%
-  mutate(year = epiyear(date)) %>% 
+  mutate(year = epiyear(date)) %>%
   filter(date < Sys.Date())%>%
-  filter((week > 35 & year ==2020) | (week >= 1 & year ==2021)) %>% 
-  group_by(year,week) %>% 
+  filter((week > 35 & year ==2020) | (week >= 1 & year ==2021)) %>%
+  group_by(year,week) %>%
   tally()%>%
   mutate(role="Attendees")%>%
   ungroup()
-daycare_attendee1 <- edit_daycare %>% 
-  filter(daycare_attendee == "YES")%>% 
+daycare_attendee1 <- edit_daycare %>%
+  filter(daycare_attendee == "YES")%>%
   select(c(eventid, date, mmwrweek, week))%>%
-  mutate(year = epiyear(date)) %>% 
-  filter((week > 35 & year ==2020) | (week >= 1 & year ==2021)) %>% 
-  group_by(year,week) 
+  mutate(year = epiyear(date)) %>%
+  filter((week > 35 & year ==2020) | (week >= 1 & year ==2021)) %>%
+  group_by(year,week)
 
-daycare_staff <- edit_daycare %>%  
-  filter(daycare_staff == "YES")%>% 
+daycare_staff <- edit_daycare %>%
+  filter(daycare_staff == "YES")%>%
   select(c(eventid, date, mmwrweek, week))%>%
-  mutate(year = epiyear(date)) %>% 
+  mutate(year = epiyear(date)) %>%
   filter(date < Sys.Date())%>%
-  filter((week > 35 & year ==2020) | (week>= 1 & year==2021)) %>% 
-  group_by(year,week) %>% 
-  tally() %>% 
+  filter((week > 35 & year ==2020) | (week>= 1 & year==2021)) %>%
+  group_by(year,week) %>%
+  tally() %>%
   mutate(role="Staff")%>%
   ungroup()
 
-daycare_staff1 <- edit_daycare %>%  
-  filter(daycare_staff == "YES")%>% 
+daycare_staff1 <- edit_daycare %>%
+  filter(daycare_staff == "YES")%>%
   select(c(eventid, date, mmwrweek, week))%>%
-  mutate(year = epiyear(date)) %>% 
-  filter((week > 35 & year ==2020) | (week>= 1 & year==2021)) %>% 
+  mutate(year = epiyear(date)) %>%
+  filter((week > 35 & year ==2020) | (week>= 1 & year==2021)) %>%
   group_by(year,week)
 
-daycare <- bind_rows(daycare_attendee, daycare_staff) %>%
+daycare <- bind_rows(daycare_attendee, daycare_staff)%>%
   mutate(
     date= MMWRweek2Date(MMWRyear = year, MMWRweek = week, MMWRday = 7)
-  ) %>% 
-  filter(date < today()) %>%
-  arrange(date) %>% 
+  ) %>%
+  arrange(date) %>%
   mutate(
         date = format(date, "%b-%d"),
         date = factor(date, levels = date, labels = date)
         )
 
-ggplot(daycare, aes(x = date, y = n, fill = role)) +
-  geom_bar(stat = "identity", color = "black") +
-  scale_fill_manual(name = "", values = c('#7fcdbb', "#2c7fb8")) +
-  labs(x = "Week", y = "Number of Cases", title = "Daycare Associated Cases") +
-  theme_classic() +
+ggplot(daycare, aes(x=date, y=n, fill=role))+
+  geom_bar(stat = "identity", color="black")+
+  scale_fill_manual(name="",values = c('#7fcdbb',"#2c7fb8" ))+
+  labs(x="Week", y="Number of Cases", title = "Daycare Associated Cases")+
+  theme_classic()+
 theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     title = element_text(size = 7.5)
   )
 
-```
 
-`r if(thursday){"### Laboratory Surveillance"}  `
-
-`r if(thursday){"Molecular Tests"}  `
-
-`r if(thursday){"To date, DPH has received reports on a total of "}` `r if(thursday){total_pcr_tests}` `r if(thursday){" molecular COVID-19 laboratory tests; of these"}` `r if(thursday) {number_of_elr} ` `r if(thursday){"test results were received via electronic laboratory reporting (ELR) methods from commercial laboratories, hospital laboratories, and the Dr. Katherine A. Kelley State Public Health Laboratory. The chart below shows the number of tests reported via ELR by date of specimen collection and test result."}`  
-
-`r if(thursday){"*Test results may be reported several days after specimen collection. Data are incomplete for most recent dates shaded in grey. Data for previous dates are routinely updated.*"}`
-
-
-```{r plot_pcr_test_by_date,  message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300}
-
-elr_linelist_elronly %>% 
-  filter(spec_col_date >= "2020-02-28" & 
-           spec_col_date <= today() & 
-           result %in% c("detected", "not detected")) %>% 
-  mutate(result = if_else(result == "detected", "Positive", "Negative")) %>% 
-  group_by(spec_col_date, result) %>% 
-  tally() %>% 
-  ggplot() +
-  geom_col(aes(spec_col_date, n, fill = result)) +
-  geom_rect(aes(xmin = today() - 4.5, 
-                xmax = today(), 
-                ymax = max(n), 
-                ymin = 0), 
-            col = "black", 
-            alpha = 0.01, 
-            fill = "gray") +
-  #scale_fill_brewer(palette = "Blues") +
-  scale_fill_manual(values = c('#7fcdbb',"#2c7fb8" )) +
-  scale_x_date(date_labels = "%b-%d", 
-               date_breaks = "2 weeks", 
-               expand = c(0, 0)) +
-  theme_minimal() +
+## ----plot_pcr_test_by_date,  message=FALSE, warning=FALSE, fig.align= "center", dpi=300----------------------------
+elr_linelist_elronly %>%
+  filter(spec_col_date >= "2020-02-28" & result %in% c("detected", "not detected")) %>%
+  mutate(result = ifelse(result == "detected", "Positive", "Negative")) %>%
+  group_by(spec_col_date, result) %>%
+  tally() %>%
+ggplot()+
+  geom_col(aes(spec_col_date, n, fill = result))+
+  geom_rect(aes(xmin = Sys.Date()-4.5, xmax = Sys.Date(), ymax = max(n) , ymin = 0), col = "black", alpha = 0.01, fill = "gray")+
+  #scale_fill_brewer(palette = "Blues")+
+  scale_fill_manual(values = c('#7fcdbb',"#2c7fb8" ))+
+  scale_x_date(date_labels = "%b-%d", date_breaks = "2 weeks", limits = c(ymd("2020-03-03"), Sys.Date()))+
+  theme_minimal()+
   theme(
-    panel.grid.minor.x = element_blank(),
-    panel.grid.major.x = element_blank(),
-    legend.position = c(0.25,0.8),
-    legend.direction = "horizontal",
-    axis.text.x=element_text(angle=45, hjust=1)) +
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        legend.position = c(0.25,0.8),
+        legend.direction = "horizontal",
+        axis.text.x=element_text(angle=45,hjust=1)
+        )+
   labs(
-    title = "Number of Molecular Laboratory Tests for COVID-19\nReported via ELR by Specimen Collection Date ",
+    title = "Number of Molecular Laboratory Tests for COVID-19 \nReported via ELR by Specimen Collection Date ",
     subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
     y = "Number of Tests",
-    x = "Specimen Collection Date",
+    x="Specimen Collection Date",
     fill = "",
     caption = "Shading indicates data are incomplete for the current week."
-  )
-
-```
-`r if(thursday){"*Testing of recently collected specimens is ongoing and does not reflect a decrease in testing. Chart only includes test results received by electronic laboratory reporting.*"}`  
-
-`r if(thursday){"*ELR = Electronic Laboratory Reporting*"}`
+    )
 
 
-`r if(thursday){"To date, DPH has received reports on a total of "}` `r if(thursday){total_ag_tests}`  `r if(thursday){" COVID-19 antigen laboratory tests. The chart below shows the number of antigen tests reported to DPH by specimen collection date and test result."}`
-
-`r if(thursday){"*Test results may be reported several days after specimen collection. Data are incomplete for most recent dates shaded in grey. Data for previous dates are routinely updated.*"}`
-```{r plot_antigen_tests_by_date,  message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300}
-elr_linelist %>% 
-  filter(spec_col_date >= "2020-08-01" & test_method %in% agtests & result %in% c("detected", "not detected")) %>% 
-  mutate(result = ifelse(result == "detected", "Positive", "Negative")) %>% 
-  group_by(spec_col_date, result) %>% 
-  tally() %>% 
+## ----plot_antigen_tests_by_date,  message=FALSE, warning=FALSE, fig.align= "center", dpi=300-----------------------
+elr_linelist %>%
+  filter(spec_col_date >= "2020-08-01" & test_method %in% agtests & result %in% c("detected", "not detected")) %>%
+  mutate(result = ifelse(result == "detected", "Positive", "Negative")) %>%
+  group_by(spec_col_date, result) %>%
+  tally() %>%
 ggplot()+
   geom_col(aes(spec_col_date, n, fill = result))+
   geom_rect(aes(xmin = Sys.Date()-4.5, xmax = Sys.Date(), ymax = max(n) , ymin = 0), col = "black", alpha = 0.01, fill = "gray")+
@@ -1969,40 +1750,34 @@ ggplot()+
     caption = "Shading indicates data are incomplete for the current week."
     )
 
-```
-  
-`r if(thursday){"*Testing of recently collected specimens is ongoing and does not reflect a decrease in testing.*"}`  
 
 
-
-### Characteristics of COVID-19 Cases and Associated Deaths  
-
-```{r plot_cases_by_date, message=FALSE, warning=FALSE, fig.align= "center", eval = not_thursday}
-case_epi <- case %>% 
-  filter(disease_status  == "Confirmed") %>% 
-  group_by(date) %>% 
-  tally() %>% 
-  filter(!is.na(date)) %>% 
+## ----plot_cases_by_date, message=FALSE, warning=FALSE, fig.align= "center"-----------------------------------------
+case_epi <- case %>%
+  filter(disease_status  == "Confirmed") %>%
+  group_by(date) %>%
+  tally() %>%
+  filter(!is.na(date)) %>%
   mutate(type = "Confirmed")
 
 
 #confirmed > specimen date then probable date of symp onsent, if na then report date
-prob_epi <- case %>% 
+prob_epi <- case %>%
  filter(disease_status  == "Probable") %>%
-  group_by(date) %>% 
-  tally() %>% 
-  filter(!is.na(date)) %>% 
+  group_by(date) %>%
+  tally() %>%
+  filter(!is.na(date)) %>%
   mutate(
     type = "Probable"
   )
-epicurve <- bind_rows(case_epi, prob_epi) %>% 
-  filter(date >= ymd("2020-08-01")) %>% 
-  arrange(date) %>% 
+epicurve <- bind_rows(case_epi, prob_epi) %>%
+  filter(date >= ymd("2020-08-01")) %>%
+  arrange(date) %>%
   mutate(type = factor(type, levels = c("Probable", "Confirmed"), labels = c("Probable", "Confirmed")))
 
 ymx <- epicurve %>% group_by(date) %>%  summarize(n=sum(n)) %>%  select(n) %>%  max(.$n)
- 
-epicurve %>% 
+
+epicurve %>%
   ggplot()+
   geom_col(aes(date, n, fill = type), width = 1)+
   geom_rect(aes(xmin = Sys.Date()-5.5, xmax =max(epicurve$date)+1, ymax = ymx, ymin = 0), col = "black", alpha = 0.01, fill = "gray")+
@@ -2024,20 +1799,19 @@ epicurve %>%
     fill = ""
     )
 
-```
 
 
-```{r plot_deaths_by_date, message=FALSE, warning=FALSE, fig.align= "center" , eval = not_thursday}
+## ----plot_deaths_by_date, message=FALSE, warning=FALSE, fig.align= "center"----------------------------------------
 dfs_daily_dead <- case %>%
   ungroup() %>%
   filter(outcome == "Died") %>%
   select(death_date) %>%
-  filter(year(death_date)>=2020) %>% 
-  group_by(death_date) %>% 
-  tally() %>% 
+  filter(year(death_date)>=2020) %>%
+  group_by(death_date) %>%
+  tally() %>%
   filter(!is.na(death_date))
 
-dfs_daily_dead <- dfs_daily_dead %>% 
+dfs_daily_dead <- dfs_daily_dead %>%
     complete(
       death_date = seq.Date(min(death_date), max(death_date), by = "day"), fill =list(n = 0)
              )
@@ -2046,21 +1820,21 @@ dfs_daily_dead_proto <- case %>%
   ungroup() %>%
   filter(outcome == "Died") %>%
   select(death_date, disease_status ) %>%
-  filter(death_date >= ymd("2020-08-01")) %>% 
-  group_by(death_date, disease_status) %>% 
-  tally() %>% 
+  filter(death_date >= ymd("2020-08-01")) %>%
+  group_by(death_date, disease_status) %>%
+  tally() %>%
   filter(!is.na(death_date))
-  dfs_daily_dead_proto <- dfs_daily_dead_proto %>% 
+  dfs_daily_dead_proto <- dfs_daily_dead_proto %>%
     complete(
       death_date= seq.Date(min(death_date), max(death_date), by = "day"), disease_status = c("Confirmed", "Probable"), fill =list(n = 0)
-             ) %>% 
-    group_by(death_date) %>% 
-    mutate(n2 = sum(n)) %>% 
+             ) %>%
+    group_by(death_date) %>%
+    mutate(n2 = sum(n)) %>%
     ungroup()
-  
-  
+
+
   decymx <- max(dfs_daily_dead_proto$n2)
-  
+
 ggplot(dfs_daily_dead_proto)+
   geom_col(aes(death_date, n, fill =factor(disease_status, levels = c("Probable", "Confirmed"))), width =1)+
   geom_rect(aes(xmin = Sys.Date()-7, xmax = Sys.Date(), ymax = decymx , ymin = 0), col = "black", alpha = 0.01, fill = "gray")+
@@ -2080,15 +1854,12 @@ ggplot(dfs_daily_dead_proto)+
        x="Date of Death",
     fill = "")
 
-```
 
 
-  `r if(thursday){"*Counts may not add up to total case count because demographic data may be missing.*"}`
-
-```{r plot_cases_by_age, message=FALSE, warning=FALSE, fig.align= "center", eval = thursday}
+## ----plot_cases_by_age, message=FALSE, warning=FALSE, fig.align= "center"------------------------------------------
 dfs_age <- case %>%
-  group_by(age_group) %>% 
-  tally() %>% 
+  group_by(age_group) %>%
+  tally() %>%
   filter(!is.na(age_group))
 
 ggplot(dfs_age)+
@@ -2101,21 +1872,21 @@ ggplot(dfs_age)+
        subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
        y = "Number of Cases",
        x="Age(years)")
-```
 
-```{r plot_deaths_by_age, message=FALSE, warning=FALSE, fig.align= "center", eval = thursday}
+
+## ----plot_deaths_by_age, message=FALSE, warning=FALSE, fig.align= "center"-----------------------------------------
 dfs_age_d <- case %>%
-  ungroup() %>% 
-  filter(outcome == "Died" & !is.na(age_group)) %>% 
-  group_by(age_group) %>% 
-  tally() %>% 
+  ungroup() %>%
+  filter(outcome == "Died" & !is.na(age_group)) %>%
+  group_by(age_group) %>%
+  tally() %>%
   complete(age_group = age_labels, fill = list( n = 0)) %>%
     mutate(age_group = factor(age_group, levels = age_labels, labels = age_labels),
-           type = "Lab Confirmed") %>% 
+           type = "Lab Confirmed") %>%
   arrange(age_group)
-nmx <- dfs_age_d %>% 
-  group_by(age_group) %>% 
-  tally() %>% 
+nmx <- dfs_age_d %>%
+  group_by(age_group) %>%
+  tally() %>%
   ungroup()
 ggplot(dfs_age_d)+
   geom_col(aes(age_group, n, fill = age_group), col = "black")+
@@ -2130,37 +1901,33 @@ ggplot(dfs_age_d)+
        y = "Number of Cases",
        x="Age(years)")
 
-```
 
 
-`r if(thursday){"*Counts may not add up to total case count because demographic data may be missing.*"}`
-
-```{r not_sure18,  message=FALSE, warning=FALSE, include=FALSE}
+## ----not_sure18,  message=FALSE, warning=FALSE, include=FALSE------------------------------------------------------
 gender_race_eth <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_re_gender_age.csv")
-```
 
 
-```{r plot_cases_by_gender,  message=FALSE, warning=FALSE, fig.align= "center" , eval = thursday}
-gender_count <- case %>% 
+## ----plot_cases_by_gender,  message=FALSE, warning=FALSE, fig.align= "center"--------------------------------------
+gender_count <- case %>%
   count(gender)
-gender_count_byday <- case %>% 
-  group_by(gender, date) %>% 
+gender_count_byday <- case %>%
+  group_by(gender, date) %>%
   tally()
-gender_rate_lookup <- gender_race_eth %>% 
-  group_by(gender) %>% 
-  summarize(tot = sum(n)) %>% 
+gender_rate_lookup <- gender_race_eth %>%
+  group_by(gender) %>%
+  summarize(tot = sum(n)) %>%
   mutate(gender = ifelse(gender == "f", "Female", "Male"))
-gender_total_rate <- gender_count %>% 
-  left_join(gender_rate_lookup) %>% 
+gender_total_rate <- gender_count %>%
+  left_join(gender_rate_lookup) %>%
   mutate(rate = round((n/tot)*100000))
-gender_count_dec <- case %>% 
-  filter(outcome == "Died") %>% 
+gender_count_dec <- case %>%
+  filter(outcome == "Died") %>%
   count(gender)
-gender_total_rate_dec <- gender_count_dec %>% 
-  left_join(gender_rate_lookup) %>% 
+gender_total_rate_dec <- gender_count_dec %>%
+  left_join(gender_rate_lookup) %>%
   mutate(rate = round((n/tot)*100000))
 ggplot(
-  gender_count %>% 
+  gender_count %>%
     filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
 )+
   geom_col(aes(gender,n, fill = gender), col = "black")+
@@ -2172,12 +1939,11 @@ ggplot(
        subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
        y = "Number of Cases",
        x="")
-```
 
 
-```{r plot_deaths_by_gender,  message=FALSE, warning=FALSE, fig.align= "center", eval = thursday}
+## ----plot_deaths_by_gender,  message=FALSE, warning=FALSE, fig.align= "center"-------------------------------------
 ggplot(
-  gender_count_dec %>% 
+  gender_count_dec %>%
     filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
 )+
   geom_col(aes(gender,n, fill = gender), col = "black")+
@@ -2190,16 +1956,9 @@ ggplot(
        y = "Number of Cases",
        x="")
 
-```
 
 
-
-
-### Cumulative Number of COVID-19 Cases by Town  
-
-*Map does not include `r pendingaddress_text` cases pending address validation*  
-
-```{r plot_cum_cases_town, message=FALSE, warning=FALSE, dpi=500, fig.height=7, fig.width= 9 }
+## ----plot_cum_cases_town, message=FALSE, warning=FALSE, dpi=500, fig.height=7, fig.width= 9------------------------
 
 ggplot(subdat)+
   geom_sf(aes(fill = n))+
@@ -2215,44 +1974,40 @@ ggplot(subdat)+
      legend.text = element_text(size=11)
    )
 
-```
 
 
-
-**APPENDIX A. Cumulative Number of COVID-19 Cases by Town**  
-*Table does not include `r pendingaddress_text` cases pending address validation*
-```{r tables_by_town, message=FALSE, warning=FALSE}
-tbl_town_confirmed_cases <- case %>% 
-  filter(disease_status == "Confirmed") %>% 
-  filter(!is.na(city)& city!= "Not Available" ) %>% 
+## ----tables_by_town, message=FALSE, warning=FALSE------------------------------------------------------------------
+tbl_town_confirmed_cases <- case %>%
+  filter(disease_status == "Confirmed") %>%
+  filter(!is.na(city)& city!= "Not Available" ) %>%
   group_by(city) %>%
-  tally(name = "Confirmed Cases") %>% 
-  complete(city = cc_map$CITY, fill = list("Confirmed Cases" = 0)) %>% 
+  tally(name = "Confirmed Cases") %>%
+  complete(city = cc_map$CITY, fill = list("Confirmed Cases" = 0)) %>%
   rename(Town = city)
 
-tbl_town_probable_cases <- case %>% 
-  filter(disease_status == "Probable") %>% 
-  filter(!is.na(city)& city!= "Not Available" ) %>% 
+tbl_town_probable_cases <- case %>%
+  filter(disease_status == "Probable") %>%
+  filter(!is.na(city)& city!= "Not Available" ) %>%
   group_by(city) %>%
-  tally(name = "Probable Cases") %>% 
-  complete(city = cc_map$CITY, fill = list("Probable Cases" = 0)) %>% 
+  tally(name = "Probable Cases") %>%
+  complete(city = cc_map$CITY, fill = list("Probable Cases" = 0)) %>%
   rename(Town = city)
 
 tbl_town_confirmed_cases1 <- tbl_town_confirmed_cases[1:57,] %>% rename(town1 =Town, n1="Confirmed Cases")
 tbl_town_confirmed_cases2 <- tbl_town_confirmed_cases[58:114,] %>% rename(town2 =Town, n2="Confirmed Cases")
-tbl_town_confirmed_cases3 <- tbl_town_confirmed_cases[115:169,] %>% rename(town3 =Town, n3="Confirmed Cases") %>% 
-  mutate(n3 = as.character(n3)) %>% 
-  add_row(town3 = " ", n3 = " " ) %>% 
+tbl_town_confirmed_cases3 <- tbl_town_confirmed_cases[115:169,] %>% rename(town3 =Town, n3="Confirmed Cases") %>%
+  mutate(n3 = as.character(n3)) %>%
+  add_row(town3 = " ", n3 = " " ) %>%
   add_row(town3 =" ", n3 = " " )
-tbl_town_probable_cases1 <- tbl_town_probable_cases[1:57,] %>% rename(m1='Probable Cases') %>% select(-Town)  
-tbl_town_probable_cases2 <- tbl_town_probable_cases[58:114,] %>% rename(m2='Probable Cases') %>% select(-Town) 
-tbl_town_probable_cases3 <- tbl_town_probable_cases[115:169,] %>% rename(m3='Probable Cases') %>% select(-Town) %>% 
-  mutate(m3 = as.character(m3)) %>% 
-  add_row( m3 = " " ) %>% 
+tbl_town_probable_cases1 <- tbl_town_probable_cases[1:57,] %>% rename(m1='Probable Cases') %>% select(-Town)
+tbl_town_probable_cases2 <- tbl_town_probable_cases[58:114,] %>% rename(m2='Probable Cases') %>% select(-Town)
+tbl_town_probable_cases3 <- tbl_town_probable_cases[115:169,] %>% rename(m3='Probable Cases') %>% select(-Town) %>%
+  mutate(m3 = as.character(m3)) %>%
+  add_row( m3 = " " ) %>%
   add_row( m3 = " " )
 
 tbl_town_cases4 <- bind_cols(tbl_town_confirmed_cases1,tbl_town_probable_cases1,  tbl_town_confirmed_cases2,tbl_town_probable_cases2, tbl_town_confirmed_cases3,tbl_town_probable_cases3)
-tbl_towns <- regulartable(tbl_town_cases4) #%>% 
+tbl_towns <- regulartable(tbl_town_cases4) #%>%
 tbl_towns <- set_header_labels(tbl_towns,
                         town1 = "Town",
                         town2 = "Town",
@@ -2263,46 +2018,43 @@ tbl_towns <- set_header_labels(tbl_towns,
                         m1 = "Probable Cases",
                         m2 = "Probable Cases",
                         m3 = "Probable Cases"
-                         ) #%>% 
+                         ) #%>%
 tbl_towns <- font(tbl_towns, fontname = "Calibri", part = "all")
 tbl_towns <- fontsize(tbl_towns, size = 8.5, part = "all" )
 tbl_towns <- width(tbl_towns, width = 0.75)
 tbl_towns <- height(tbl_towns, height = .15, part = "body")
 tbl_towns <- align_nottext_col(tbl_towns, align = "center")
-tbl_towns 
-```
+tbl_towns
 
 
-**APPENDIX B.** The following graphs show the number of cases per 100,000 Connecticut residents statewide and by county, age group, and gender. Population estimate from: [DPH Population Statistics](https://portal.ct.gov/DPH/Health-Information-Systems--Reporting/Population/Population-Statistics)  
-
-```{r plot_state_county, message=FALSE, warning=FALSE, fig.align= "center", dpi=300, eval=thursday}
-st_case_rate <-tibble(geo = "Connecticut", rate = round((nrow(case)/3572665)*100000), type = "Case Rate") 
+## ----plot_state_county, message=FALSE, warning=FALSE, fig.align= "center", dpi=300---------------------------------
+st_case_rate <-tibble(geo = "Connecticut", rate = round((nrow(case)/3572665)*100000), type = "Case Rate")
 st_dec_rate <- tibble(geo = "Connecticut",rate = round((
   nrow(
     case %>%
       filter(outcome == "Died"))/3572665)*100000), type = "Death Rate")
-state_rates <- bind_rows(st_case_rate, st_dec_rate) %>% 
+state_rates <- bind_rows(st_case_rate, st_dec_rate) %>%
   mutate(color = "a")
 county_case_rates <- case %>%
-  group_by(county) %>% 
-  tally() %>% 
-  left_join(county_pop, by=  c("county" = "County")) %>% 
-  mutate(rate = round((n/Total)*100000)) %>% 
-  filter(!is.na(county)) %>% 
-  select(county, rate) %>% 
-  rename(geo=county) %>% 
+  group_by(county) %>%
+  tally() %>%
+  left_join(county_pop, by=  c("county" = "County")) %>%
+  mutate(rate = round((n/Total)*100000)) %>%
+  filter(!is.na(county)) %>%
+  select(county, rate) %>%
+  rename(geo=county) %>%
   mutate(type ="Case Rate", color = "b")
-county_dec_rates <- case %>% 
-  filter(outcome == "Died") %>% 
-  group_by(county) %>% 
-  tally() %>% 
-  left_join(county_pop, by=  c("county" = "County")) %>% 
-  mutate(rate = round((n/Total)*100000)) %>% 
-  filter(!is.na(county)) %>% 
-  select(county, rate)%>% 
-  rename(geo=county) %>% 
-  mutate(type = "Death Rate", color = "b") 
-state_wide_rates <- bind_rows(state_rates, county_dec_rates, county_case_rates) 
+county_dec_rates <- case %>%
+  filter(outcome == "Died") %>%
+  group_by(county) %>%
+  tally() %>%
+  left_join(county_pop, by=  c("county" = "County")) %>%
+  mutate(rate = round((n/Total)*100000)) %>%
+  filter(!is.na(county)) %>%
+  select(county, rate)%>%
+  rename(geo=county) %>%
+  mutate(type = "Death Rate", color = "b")
+state_wide_rates <- bind_rows(state_rates, county_dec_rates, county_case_rates)
 
 ggplot(state_wide_rates%>% filter(type!="Death Rate") , aes(geo, rate, fill = color)) +
   geom_bar( col = "black", stat = "identity")+
@@ -2336,17 +2088,17 @@ ggplot(state_wide_rates%>% filter(type =="Death Rate") , aes(geo, rate, fill = c
        y="Rate per 100,000 Population",
        fill = "")
 
-```
 
-```{r plot_thurs_deaths_by_age, message=FALSE, warning=FALSE, fig.align= "center", eval=thursday}
+
+## ----plot_thurs_deaths_by_age, message=FALSE, warning=FALSE, fig.align= "center"-----------------------------------
 dfs_per_capita <- case %>%
-  ungroup() %>% 
-  group_by(age_group) %>% 
+  ungroup() %>%
+  group_by(age_group) %>%
   tally() %>%
-  filter(!is.na(age_group)) %>% 
-  left_join(pop, by=c("age_group" = "age_g")) %>% 
-  ungroup() %>% 
-  mutate(rate_100k = (n/total)*100000) %>% 
+  filter(!is.na(age_group)) %>%
+  left_join(pop, by=c("age_group" = "age_g")) %>%
+  ungroup() %>%
+  mutate(rate_100k = (n/total)*100000) %>%
   select(-c(n,total))
 dfs_per_capita$age_group <- factor(dfs_per_capita$age_group, labels = age_labels, levels = age_labels )
 ggplot(dfs_per_capita)+
@@ -2363,10 +2115,10 @@ ggplot(dfs_per_capita)+
        x="Age (years)")
 
 
-dfs_age_d %>% 
-  bind_cols(pop) %>% 
-  select(-c(type, age_g)) %>% 
-  mutate(dec_rate = round(n/total*100000)) %>% 
+dfs_age_d %>%
+  bind_cols(pop) %>%
+  select(-c(type, age_g)) %>%
+  mutate(dec_rate = round(n/total*100000)) %>%
   ggplot()+
   geom_col(aes(age_group, dec_rate, fill = age_group), col = "black")+
   geom_text(aes(age_group,dec_rate ,label=dec_rate), position = position_dodge(width=0.9), vjust =-0.25, size = 3.3)+
@@ -2378,15 +2130,15 @@ dfs_age_d %>%
        subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
        y = "Rate per 100,000 Population",
        x="Age (years)")
-```
 
-```{r plot_deaths_gender, message=FALSE, warning=FALSE, fig.align= "center", eval=thursday}
 
-gender_total_rate_dec <- gender_count_dec %>% 
-  left_join(gender_rate_lookup) %>% 
+## ----plot_deaths_gender, message=FALSE, warning=FALSE, fig.align= "center"-----------------------------------------
+
+gender_total_rate_dec <- gender_count_dec %>%
+  left_join(gender_rate_lookup) %>%
   mutate(rate = round((n/tot)*100000))
 ggplot(
-  gender_total_rate %>% 
+  gender_total_rate %>%
     filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
        )+
   geom_col(aes(gender,rate, fill = gender), col = "black")+
@@ -2400,8 +2152,8 @@ ggplot(
        x="")
 
 
-gender_total_rate_dec %>% 
-    filter(!is.na(gender) & gender != "Unknown") %>% 
+gender_total_rate_dec %>%
+    filter(!is.na(gender) & gender != "Unknown") %>%
   ggplot()+
   geom_col(aes(gender,rate, fill = gender), col = "black")+
   geom_text(aes(gender,rate,label=rate), position = position_dodge(width=0.9), vjust =-0.25, size = 3.3)+
@@ -2413,33 +2165,31 @@ gender_total_rate_dec %>%
        y = "Rate per 100,000 Population",
        x="")
 
-```
 
-**APPENDIX C.** The following graphs show the number of cases and deaths by race and ethnicity. *Categories are mutually exclusive. The category "multiracial" includes people who answered 'yes' to more than one race category. NH=Non-Hispanic*  
 
-```{r plot_cases_age_ethnicity, message=FALSE, warning=FALSE, fig.align= "center"}
-race_eth_SHA_lookup <- gender_race_eth %>% 
-  group_by(hisp_race) %>%  
+## ----plot_cases_age_ethnicity, message=FALSE, warning=FALSE, fig.align= "center"-----------------------------------
+race_eth_SHA_lookup <- gender_race_eth %>%
+  group_by(hisp_race) %>%
   summarize(tot=sum(n))
 race_eth_SHA_case <- case %>%
-  group_by(hisp_race) %>% 
+  group_by(hisp_race) %>%
   tally(name = "case_tot")
 
-race_eth_comb <- race_eth_SHA_case %>% 
-  left_join(race_eth_SHA_lookup) %>% 
+race_eth_comb <- race_eth_SHA_case %>%
+  left_join(race_eth_SHA_lookup) %>%
   mutate(rate100k = round((case_tot/tot)*100000))
 
 ####dec
 race_eth_SHA_case_dec <- case %>%
-  filter(outcome == "Died") %>% 
-  group_by(hisp_race) %>%  
+  filter(outcome == "Died") %>%
+  group_by(hisp_race) %>%
   tally(name = "deaths")
 
 
-race_eth_comb <- race_eth_comb %>% 
-  left_join(race_eth_SHA_case_dec) %>% 
-  replace_na(replace =list(deaths = 0)) %>% 
-  rename(caserate100k=rate100k) %>% 
+race_eth_comb <- race_eth_comb %>%
+  left_join(race_eth_SHA_case_dec) %>%
+  replace_na(replace =list(deaths = 0)) %>%
+  rename(caserate100k=rate100k) %>%
   mutate(deathrate100k = round((deaths/tot)*100000))
 race_eth_comb$hisp_race <- factor(race_eth_comb$hisp_race, levels =c("Hispanic", "NH White", "NH Black", "NH American Indian or Alaskan Native", "NH Asian or Pacific Islander", "NH Other", "NH Multiracial", "Unknown") , labels =c("Hispanic", "NH White", "NH Black", "NH American Indian or Alaskan Native", "NH Asian or Pacific Islander", "NH Other", "NH Multiracial", "Unknown"))
 
@@ -2450,7 +2200,7 @@ if(maxlimit2<= max(race_eth_comb$case_tot)){
 
 
 ggplot(
-  race_eth_comb #%>% 
+  race_eth_comb #%>%
 )+
   geom_col(aes(stringr::str_wrap(hisp_race,20), case_tot, fill = stringr::str_wrap(hisp_race,20)), col = "black")+
   geom_text(aes(stringr::str_wrap(hisp_race,20), case_tot, label = case_tot), position = position_dodge(width=0.9), vjust =-0.25, size = 2.9)+
@@ -2466,16 +2216,16 @@ ggplot(
        y = "Number of Cases",
        x="")
 
-```
 
-```{r plot_deaths_age_ethnicity, fig.align="center", message=FALSE, warning=FALSE, dpi = 300}
+
+## ----plot_deaths_age_ethnicity, fig.align="center", message=FALSE, warning=FALSE, dpi = 300------------------------
 maxlimit3 <- (round(max(race_eth_comb$deaths)/1000)*1000)+1000
 if(maxlimit3<= max(race_eth_comb$deaths)){
   maxlimit3 <- maxlimit3+1000
 }
 
 ggplot(
-  race_eth_comb #%>% 
+  race_eth_comb #%>%
 )+
   geom_col(aes(stringr::str_wrap(hisp_race,20), deaths, fill = stringr::str_wrap(hisp_race,20)), col = "black")+
   geom_text(aes(stringr::str_wrap(hisp_race,20), deaths, label = deaths), position = position_dodge(width=0.9), vjust =-0.25, size = 2.9)+
@@ -2492,22 +2242,15 @@ ggplot(
     y = "Number of Deaths",
     x="")
 
-```
-  
-The following graphs show the number of COVID-19 cases and COVID-19-associated deaths per 100,000 population by race and ethnicity. Crude rates represent the total cases or deaths per 100,000 people.  Age-adjusted rates consider the age of the person at diagnosis or death when estimating the rate and use a standardized population to provide a fair comparison between population groups with different age distributions. Age-adjustment is important in Connecticut as the median age of among the non-Hispanic white population is 47 years, whereas it is 34 years among non-Hispanic blacks, and 29 years among Hispanics. Because most non-Hispanic white residents who died were over 75 years of age, the age-adjusted rates are lower than the unadjusted rates. In contrast, Hispanic residents who died tend to be younger than 75 years of age which results in higher age-adjusted rates.
 
-The 2018 Connecticut and 2000 US Standard Million populations were used for age adjustment; population estimates from: [DPH Population Statistics.](https://portal.ct.gov/DPH/Health-Information-Systems--Reporting/Population/Population-Statistics) *Categories are mutually exclusive. Cases missing data on race/ethnicity are excluded from calculation of rates. NH=Non-Hispanic*
 
-```{r plot_age_ethnicity, message=FALSE, warning=FALSE, fig.align= "center", dpi = 300}
+## ----plot_age_ethnicity, message=FALSE, warning=FALSE, fig.align= "center", dpi = 300------------------------------
 stanpopas <- read_csv("L:/daily_reporting_figures_rdp/dependancies/stanpopas.csv")
 
-aamr_lookup <- 
-  read_csv("L:/daily_reporting_figures_rdp/dependancies/2018_State-level_ASRH _lookup.csv") %>% 
+aamr_lookup <- read_csv("L:/daily_reporting_figures_rdp/dependancies/2018_State-level_ASRH _lookup.csv") %>%
   rename(age_g = "Age Group")
-
-aamr_lookup <- 
-  aamr_lookup %>% 
-  pivot_longer(-age_g, names_to = "hisp_race", values_to = "denominator") %>% 
+aamr_lookup <- aamr_lookup %>%
+  pivot_longer(-age_g, names_to = "hisp_race", values_to = "denominator") %>%
   mutate(
     gender = str_sub(hisp_race, start = str_length(hisp_race), end  = str_length(hisp_race)),
     age_g = ifelse(
@@ -2524,61 +2267,107 @@ aamr_lookup <-
     hisp_race = str_replace(hisp_race, "AI", "American Indian or Alaskan Native"),
     hisp_race = str_replace(hisp_race, "API", "Asian or Pacific Islander"),
     gender = ifelse(gender == "M", "Male", "Female")
-  ) %>% 
-  group_by(hisp_race, age_g) %>% 
+  ) %>%
+  group_by(hisp_race, age_g) %>%
   summarize(denominator = sum(denominator))
 
-####
-age_labels2 <- c("<5 yrs", "5-9 yrs", "10-14 yrs", "15-19 yrs", "20-24 yrs",
-                "25-29 yrs", "30-34 yrs", "35-39 yrs", "40-44 yrs", "45-49 yrs",
-                "50-54 yrs", "55-59 yrs", "60-64 yrs", "65-69 yrs", "70-74 yrs",
-                "75-79 yrs", "80-84 yrs", "85+ yrs")
+
+case_by_age <-  case %>%
+  select(age, hisp_race) %>%
+  filter(!is.na(hisp_race) & !is.na(age) & age>=0 & !hisp_race %in% c("NH Other", "Unknown", "NH Multiracial")) %>%
+  mutate(
+    age_group2 = ifelse(
+      age <5, "<5 yrs",
+      ifelse(
+        age >=5 & age <10, "5-9 yrs",
+        ifelse(
+          age >=10 & age <15, "10-14 yrs",
+          ifelse(
+            age >=15 & age <20, "15-19 yrs",
+            ifelse(
+              age >=20 & age <25, "20-24 yrs",
+              ifelse(
+                age >=25 & age <30, "25-29 yrs",
+                ifelse(
+                  age >=30 & age <35, "30-34 yrs",
+                  ifelse(
+                    age >=35 & age <40, "35-39 yrs",
+                    ifelse(
+                      age >=40 & age <45, "40-44 yrs",
+                      ifelse(
+                        age >=45 & age <50, "45-49 yrs",
+                        ifelse(
+                          age >=50 & age <55, "50-54 yrs",
+                          ifelse(
+                            age >=55 & age <60, "55-59 yrs",
+                            ifelse(
+                              age >=60 & age <65, "60-64 yrs",
+                              ifelse(
+                                age >=65 & age <70, "65-69 yrs",
+                                ifelse(
+                                  age >=70 & age <75, "70-74 yrs",
+                                  ifelse(
+                                    age >=75 & age <80, "75-79 yrs",
+                                    ifelse(
+                                      age >=80 & age <85, "80-84 yrs",
+                                      ifelse(
+                                        age >=85 , "85+ yrs",
+                                        age
+                                      )
+                                    )
+                                  )
+                                )
+                              )
+                            )
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
 
 
-case_by_age <-  
-  case %>% 
-  select(age, hisp_race) %>% 
-  filter(!is.na(hisp_race) & !is.na(age) & age >= 0 & !hisp_race %in% c("NH Other", "Unknown", "NH Multiracial")) %>% 
-  mutate(age_group2 = cut(age,
-                          breaks = c(-1, 4, 9, 14, 19, 24, 29, 34, 39,
-                                     44, 49, 54, 59, 64, 69, 74, 79, 84, Inf),
-                          labels = age_labels2))
-
-
-case_by_age_grouped <- case_by_age %>% 
-  group_by(hisp_race,  age_group2) %>% 
+case_by_age_grouped <- case_by_age %>%
+  group_by(hisp_race,  age_group2) %>%
   tally()
 
-aamr_lookup_grouped <- aamr_lookup %>% 
-  group_by(hisp_race, age_g) %>% 
+aamr_lookup_grouped <- aamr_lookup %>%
+  group_by(hisp_race, age_g) %>%
   summarise(denominator = sum(denominator))
 
-agg_table <- aamr_lookup_grouped %>% 
-  left_join(case_by_age_grouped, by = c("hisp_race" = "hisp_race", "age_g" = "age_group2")) %>% 
+agg_table <- aamr_lookup_grouped %>%
+  left_join(case_by_age_grouped, by = c("hisp_race" = "hisp_race", "age_g" = "age_group2")) %>%
   left_join(stanpopas, by = "age_g") %>%
-  replace_na(replace =  list(n= 0)) %>% 
+  replace_na(replace =  list(n= 0)) %>%
   mutate(
     crude_rate = n/denominator*100000
-  ) %>% 
-  group_by(age_g) %>% 
-  mutate(standard_age_g = sum(spop2000)) %>% 
-  group_by(hisp_race) %>% 
+  ) %>%
+  group_by(age_g) %>%
+  mutate(standard_age_g = sum(spop2000)) %>%
+  group_by(hisp_race) %>%
   mutate(
     propn = standard_age_g/sum(standard_age_g),
     hisp_race_case_tot = sum(n),
     hisp_race_stan_tot = sum(denominator)
-  ) %>% 
-  ungroup() %>% 
+  ) %>%
+  ungroup() %>%
   mutate(age_specific_adjusted = crude_rate * propn,
-        Crude = hisp_race_case_tot/hisp_race_stan_tot*100000) %>% 
-  group_by(hisp_race) %>% 
+        Crude = hisp_race_case_tot/hisp_race_stan_tot*100000) %>%
+  group_by(hisp_race) %>%
   mutate(`Age adjusted` = sum(age_specific_adjusted))
 
-adj_table <- agg_table %>% 
-  select(hisp_race, Crude, `Age adjusted`) %>% 
+adj_table <- agg_table %>%
+  select(hisp_race, Crude, `Age adjusted`) %>%
   unique()
 
-adj_tbl_long <- adj_table %>% 
+adj_tbl_long <- adj_table %>%
   pivot_longer(-hisp_race, names_to = "rate_type", values_to = "n") %>%
   mutate(rate_type= factor(rate_type, levels=c("Crude", "Age adjusted"), labels=c("Crude", "Age adjusted")),
          n = round(n))
@@ -2598,7 +2387,7 @@ ggplot(adj_tbl_long, aes(fill = rate_type, y = n, x = hisp_race))+
     fill = "",
     y="Cases per 100,000 population",
     x="",
-    title=paste0("Rate of COVID-19 Cases by Race/Ethnicity, \nwith and without age adjustment"), 
+    title=paste0("Rate of COVID-19 Cases by Race/Ethnicity, \nwith and without age adjustment"),
     subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"))
   )+
   theme(
@@ -2609,52 +2398,105 @@ ggplot(adj_tbl_long, aes(fill = rate_type, y = n, x = hisp_race))+
     axis.text.x.bottom = element_text(angle = 45, hjust = 1)
   )
 
-dec_by_age <-  case %>% 
-  filter(outcome == "Died") %>% 
-  select(age, hisp_race) %>% 
-  filter(!is.na(hisp_race) & !is.na(age) & age >= 0 & !hisp_race %in% c("NH Other", "Unknown", "NH Multiracial") ) %>% 
-  mutate(age_group2 = cut(age,
-                          breaks = c(-1, 4, 9, 14, 19, 24, 29, 34, 39,
-                                     44, 49, 54, 59, 64, 69, 74, 79, 84, Inf),
-                          labels = age_labels2))
+dec_by_age <-  case %>%
+  filter(outcome == "Died") %>%
+  select(age, hisp_race) %>%
+  filter(!is.na(hisp_race) & !is.na(age) & age>=0 & !hisp_race %in% c("NH Other", "Unknown", "NH Multiracial") ) %>%
+  mutate(
+    age_group2 = ifelse(
+      age <5, "<5 yrs",
+      ifelse(
+        age >=5 & age <10, "5-9 yrs",
+        ifelse(
+          age >=10 & age <15, "10-14 yrs",
+          ifelse(
+            age >=15 & age <20, "15-19 yrs",
+            ifelse(
+              age >=20 & age <25, "20-24 yrs",
+              ifelse(
+                age >=25 & age <30, "25-29 yrs",
+                ifelse(
+                  age >=30 & age <35, "30-34 yrs",
+                  ifelse(
+                    age >=35 & age <40, "35-39 yrs",
+                    ifelse(
+                      age >=40 & age <45, "40-44 yrs",
+                      ifelse(
+                        age >=45 & age <50, "45-49 yrs",
+                        ifelse(
+                          age >=50 & age <55, "50-54 yrs",
+                          ifelse(
+                            age >=55 & age <60, "55-59 yrs",
+                            ifelse(
+                              age >=60 & age <65, "60-64 yrs",
+                              ifelse(
+                                age >=65 & age <70, "65-69 yrs",
+                                ifelse(
+                                  age >=70 & age <75, "70-74 yrs",
+                                  ifelse(
+                                    age >=75 & age <80, "75-79 yrs",
+                                    ifelse(
+                                      age >=80 & age <85, "80-84 yrs",
+                                      ifelse(
+                                        age >=85 , "85+ yrs",
+                                        age
+                                      )
+                                    )
+                                  )
+                                )
+                              )
+                            )
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
 
 
-dec_by_age_grouped <- dec_by_age %>% 
-  group_by(hisp_race, age_group2) %>% 
+dec_by_age_grouped <- dec_by_age %>%
+  group_by(hisp_race, age_group2) %>%
   tally()
 
-aamr_lookup_grouped <- aamr_lookup %>% 
-  group_by(hisp_race, age_g) %>% 
+aamr_lookup_grouped <- aamr_lookup %>%
+  group_by(hisp_race, age_g) %>%
   summarise(denominator = sum(denominator))
 
-agg_table_dec <- aamr_lookup_grouped%>% 
-  left_join(dec_by_age_grouped, by = c("hisp_race" = "hisp_race", "age_g" = "age_group2")) %>% 
+agg_table_dec <- aamr_lookup_grouped%>%
+  left_join(dec_by_age_grouped, by = c("hisp_race" = "hisp_race", "age_g" = "age_group2")) %>%
   left_join(stanpopas, by="age_g") %>%
-  replace_na(replace =  list(n= 0)) %>% 
+  replace_na(replace =  list(n= 0)) %>%
   mutate(
     crude_rate = n/denominator*100000
-  ) %>% 
-  group_by(age_g) %>% 
-  mutate(standard_age_g = sum(spop2000)) %>% 
-  group_by(hisp_race) %>% 
+  ) %>%
+  group_by(age_g) %>%
+  mutate(standard_age_g = sum(spop2000)) %>%
+  group_by(hisp_race) %>%
   mutate(
     propn = standard_age_g/sum(standard_age_g),
     hisp_race_case_tot = sum(n),
     hisp_race_stan_tot = sum(denominator)
-  ) %>% 
-  ungroup() %>% 
+  ) %>%
+  ungroup() %>%
   mutate(age_specific_adjusted = ifelse(
       hisp_race_case_tot >=20, crude_rate * propn, NA
       ),
-        Crude = hisp_race_case_tot/hisp_race_stan_tot*100000) %>% 
-  group_by(hisp_race) %>% 
+        Crude = hisp_race_case_tot/hisp_race_stan_tot*100000) %>%
+  group_by(hisp_race) %>%
   mutate(`Age adjusted` = sum(age_specific_adjusted))
 
-adj_table_dec <- agg_table_dec %>% 
-  select(hisp_race, Crude, `Age adjusted`) %>% 
+adj_table_dec <- agg_table_dec %>%
+  select(hisp_race, Crude, `Age adjusted`) %>%
   unique()
 
-adj_tbl_long_dec <- adj_table_dec %>% 
+adj_tbl_long_dec <- adj_table_dec %>%
   pivot_longer(-hisp_race, names_to = "rate_type", values_to = "n") %>%
   mutate(rate_type= factor(rate_type, levels=c("Crude", "Age adjusted"), labels=c("Crude", "Age adjusted")),
          n = round(n))
@@ -2674,7 +2516,7 @@ ggplot(adj_tbl_long_dec, aes(fill = rate_type, y = n, x = hisp_race))+
     fill = "",
     y="Deaths per 100,000 population",
     x="",
-    title=paste0("Rate of COVID-19-Associated Deaths\nby Race/Ethnicity, with and without age adjustment*"), 
+    title=paste0("Rate of COVID-19-Associated Deaths\nby Race/Ethnicity, with and without age adjustment*"),
     subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y"))
   )+
   theme(
@@ -2685,46 +2527,43 @@ ggplot(adj_tbl_long_dec, aes(fill = rate_type, y = n, x = hisp_race))+
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
 
-```
-  
-
-```{r plot_disproportion, message=FALSE, warning=FALSE, fig.align= "center", dpi = 600, eval= FALSE}
-re_grp <- race_eth_comb %>%
-  select(hisp_race, tot, deaths) %>%
-  mutate(
-    'Percentage of Connecticut Population' = round(tot/sum(tot, na.rm = T)*100),
-    'Percentage of COVID-19-Associated Deaths' =  round(deaths/sum(deaths, na.rm = T)*100)
-  ) %>%
-  filter(!hisp_race %in% c("NH Other", "NH Unknown"))
-
-longer <- re_grp %>% 
-  select(hisp_race, 'Percentage of Connecticut Population', 'Percentage of COVID-19-Associated Deaths')
-
-longer <- pivot_longer(longer, -hisp_race, names_to = "type", values_to = "perc") %>% 
-  filter(!hisp_race %in% c("NH Multiracial", "Unknown"))
-
-ggplot(longer, aes(stringr::str_wrap(hisp_race,15), perc, fill = type))+
-  geom_bar( col = "black", stat = "identity", position = position_dodge())+
-  geom_text(aes(stringr::str_wrap(hisp_race,15),perc, label = perc), position = position_dodge(1), vjust=-0.25, size =3.3)+
-  scale_fill_brewer(palette = "Blues", direction = -1)+
-  theme_classic()+
-  labs(
-    title = 'Non-Hispanic black people disproportionately\naffected by COVID-19 deaths in Connecticut',
-      subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
-    fill = "",
-    y = "Percent (%)",
-    x = ""
-  )+
-  theme(
-    legend.position = c(0.25, 0.8),
-    legend.direction = "vertical",
-      legend.background = element_blank()
-  )
-```
-_\*Age adjusted rates only calculated for groups with at least 30 deaths_
 
 
-```{r gary, message=FALSE, warning=FALSE, include=FALSE}
+## ----plot_disproportion, message=FALSE, warning=FALSE, fig.align= "center", dpi = 600, eval= FALSE-----------------
+## re_grp <- race_eth_comb %>%
+##   select(hisp_race, tot, deaths) %>%
+##   mutate(
+##     'Percentage of Connecticut Population' = round(tot/sum(tot, na.rm = T)*100),
+##     'Percentage of COVID-19-Associated Deaths' =  round(deaths/sum(deaths, na.rm = T)*100)
+##   ) %>%
+##   filter(!hisp_race %in% c("NH Other", "NH Unknown"))
+##
+## longer <- re_grp %>%
+##   select(hisp_race, 'Percentage of Connecticut Population', 'Percentage of COVID-19-Associated Deaths')
+##
+## longer <- pivot_longer(longer, -hisp_race, names_to = "type", values_to = "perc") %>%
+##   filter(!hisp_race %in% c("NH Multiracial", "Unknown"))
+##
+## ggplot(longer, aes(stringr::str_wrap(hisp_race,15), perc, fill = type))+
+##   geom_bar( col = "black", stat = "identity", position = position_dodge())+
+##   geom_text(aes(stringr::str_wrap(hisp_race,15),perc, label = perc), position = position_dodge(1), vjust=-0.25, size =3.3)+
+##   scale_fill_brewer(palette = "Blues", direction = -1)+
+##   theme_classic()+
+##   labs(
+##     title = 'Non-Hispanic black people disproportionately\naffected by COVID-19 deaths in Connecticut',
+##       subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
+##     fill = "",
+##     y = "Percent (%)",
+##     x = ""
+##   )+
+##   theme(
+##     legend.position = c(0.25, 0.8),
+##     legend.direction = "vertical",
+##       legend.background = element_blank()
+##   )
+
+
+## ----gary, message=FALSE, warning=FALSE, include=FALSE-------------------------------------------------------------
 path2 <- paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date())
 dir.create(path2)
 #state
@@ -2737,7 +2576,7 @@ HospitalizedCases <- tibble(HospitalizedCases = cha_c$today[9])
 TotalDeaths <- tibble("Deaths" = dec)
 ConfirmedDeaths <- tibble("ConfirmedDeaths" = nrow(case %>%  filter(outcome == "Died" & disease_status == "Confirmed")))
 ProbableDeaths <-  tibble("ProbableDeaths" = nrow(case %>%  filter(outcome == "Died" & disease_status == "Probable")))
- 
+
 gary_age_labels <- c("cases_age0_9", "cases_age10_19", "cases_age20_29", "cases_age30_39", "cases_age40_49", "cases_age50_59", "cases_age60_69", "cases_age70_79", "cases_age80_Older" )
 gary_ages <- case %>%
   group_by(age_group) %>%
@@ -2756,65 +2595,65 @@ if (SQL_write) {
 #town
 town_codes <- read_csv("L:/daily_reporting_figures_rdp/gary_csv/town_codes/Town_ID.csv") %>%
   select(ANPSADPI,TOWNNO)
-town_total_cases <- case %>% 
-    filter(city != "Not_available") %>% 
-  group_by(city) %>% 
+town_total_cases <- case %>%
+    filter(city != "Not_available") %>%
+  group_by(city) %>%
   tally() %>%
-  rename(CITY = city) %>% 
+  rename(CITY = city) %>%
   complete(CITY = cc_map$CITY, fill = list(n = 0))
-town_confirmed_cases <- case %>% 
-  filter(disease_status == "Confirmed") %>% 
-    filter(city != "Not_available") %>% 
-  group_by(city) %>% 
+town_confirmed_cases <- case %>%
+  filter(disease_status == "Confirmed") %>%
+    filter(city != "Not_available") %>%
+  group_by(city) %>%
   tally() %>%
-  rename(CITY = city) %>% 
+  rename(CITY = city) %>%
   complete(CITY = cc_map$CITY, fill = list(n = 0))
-town_probable_cases <- case %>% 
-  filter(disease_status == "Probable") %>% 
-    filter(city != "Not_available") %>% 
-  group_by(city) %>% 
+town_probable_cases <- case %>%
+  filter(disease_status == "Probable") %>%
+    filter(city != "Not_available") %>%
+  group_by(city) %>%
   tally() %>%
-  rename(CITY = city) %>% 
+  rename(CITY = city) %>%
   complete(CITY = cc_map$CITY, fill = list(n = 0))
 town_total_deaths <- case %>%
   filter(outcome == "Died")%>%
-  filter(city != "Not_available") %>% 
+  filter(city != "Not_available") %>%
   group_by(city) %>%
-  tally(name = "Deaths") %>% 
-  rename(CITY = city)%>% 
+  tally(name = "Deaths") %>%
+  rename(CITY = city)%>%
   complete(CITY = cc_map$CITY, fill = list(n = 0))
 town_confirmed_deaths <- case %>%
   filter(outcome == "Died" & disease_status == "Confirmed")%>%
-    filter(city != "Not_available") %>% 
+    filter(city != "Not_available") %>%
   group_by(city) %>%
-  tally(name = "Deaths") %>% 
-  rename(CITY = city)%>% 
+  tally(name = "Deaths") %>%
+  rename(CITY = city)%>%
   complete(CITY = cc_map$CITY, fill = list(n = 0))
 town_probable_deaths <- case %>%
   filter(outcome == "Died" & disease_status == "Probable")%>%
-    filter(city != "Not_available") %>% 
+    filter(city != "Not_available") %>%
   group_by(city) %>%
-  tally(name = "Deaths") %>% 
-  rename(CITY = city) %>% 
+  tally(name = "Deaths") %>%
+  rename(CITY = city) %>%
   complete(CITY = cc_map$CITY, fill = list(n = 0))
 TownCaseRate <- case %>%
-  filter(!is.na(city) & city != "Not_available") %>% 
-  group_by(city) %>% 
-  tally(name ='case_n') %>% 
-  complete(city = cc_map$CITY, fill = list(case_n = 0)) %>% 
-  left_join(town_pop18, by = c( "city" = "city")) %>% 
+  filter(!is.na(city) & city != "Not_available") %>%
+  group_by(city) %>%
+  tally(name ='case_n') %>%
+  complete(city = cc_map$CITY, fill = list(case_n = 0)) %>%
+  left_join(town_pop18, by = c( "city" = "city")) %>%
   mutate(CaseRate = round((case_n/pop)*100000),
          CITY = paste0(city, " town")
-         ) %>% 
-  select(-c(case_n, pop, city)) 
+         ) %>%
+  select(-c(case_n, pop, city))
 
 town_tests <- elr_linelist
 town_tests$result[town_tests$result == "detected"] <- "Positive"
 town_tests$result[town_tests$result == "not detected"] <- "Negative"
 town_tests$result[town_tests$result == "indeterminate"] <- "Indeterminate"
 
-town_tests <- town_tests %>% 
-filter(!is.na(city) & !city %in% c("Not_available", "Pending validation")) %>% 
+town_tests <- town_tests %>%
+filter(!is.na(city) & !city %in% c("Not_available", "Pending validation")) %>%
   group_by(city, result) %>%
   tally() %>%
   pivot_wider(id_cols = city, names_from = result, values_from = n) %>%
@@ -2829,8 +2668,8 @@ filter(!is.na(city) & !city %in% c("Not_available", "Pending validation")) %>%
 
 #count people tested by town
 #has ag implications
-peopletestbytown<- elr_linelist %>% 
-   mutate(simple_result = ifelse( 
+peopletestbytown<- elr_linelist %>%
+   mutate(simple_result = ifelse(
           # str_detect(string = str_to_lower(result),
           #            pattern = "(?<!not )detected|positive"
           #            ),
@@ -2841,14 +2680,14 @@ peopletestbytown<- elr_linelist %>%
   group_by(bigID) %>%
   arrange(simple_result,spec_col_date) %>%
   slice(1L) %>%
-  ungroup() %>% 
-  rename(Town = city, SpecimenCollectionDate = spec_col_date) %>% 
-  group_by(Town) %>% 
-  tally(name = "PeopleTested") %>% 
-  filter(Town != "Not_available") %>% 
-  mutate(Town = str_to_title(Town)) %>% 
-  left_join(town_pop18, by = c("Town" = "city")) %>% 
-  mutate(RateTested100k = round(PeopleTested/pop * 100000)) %>% 
+  ungroup() %>%
+  rename(Town = city, SpecimenCollectionDate = spec_col_date) %>%
+  group_by(Town) %>%
+  tally(name = "PeopleTested") %>%
+  filter(Town != "Not_available") %>%
+  mutate(Town = str_to_title(Town)) %>%
+  left_join(town_pop18, by = c("Town" = "city")) %>%
+  mutate(RateTested100k = round(PeopleTested/pop * 100000)) %>%
   select(-pop)
 
 
@@ -2874,7 +2713,7 @@ gary_town_file <- tibble(
   rename(Town_No = TOWNNO,
          Town = CITY) %>%
   select(Town_No, everything()) %>%
-  filter(!is.na(Town_No)) %>% 
+  filter(!is.na(Town_No)) %>%
   mutate(Town = paste0(str_replace(Town, " town", "")))
 gary_town_file[is.na(gary_town_file)] <- 0
 
@@ -2888,10 +2727,10 @@ if (SQL_write) {
 #ConProbByDate.csv
 ConProbByDate <- epicurve %>%
             filter(!is.na(date) & date >= "2020-03-05") %>%
-            rename(Date = date, CaseCount = n ) %>% 
-            pivot_wider(id_cols = Date, names_from = type, values_from = CaseCount) 
+            rename(Date = date, CaseCount = n ) %>%
+            pivot_wider(id_cols = Date, names_from = type, values_from = CaseCount)
 ConProbByDate[is.na(ConProbByDate)] <- 0
-ConProbByDate <- ConProbByDate %>% 
+ConProbByDate <- ConProbByDate %>%
   mutate(Total =  Confirmed + Probable)
 
 
@@ -2903,52 +2742,52 @@ if (SQL_write) {
 }
 
 #gendersummary
-gender_tots <- gender_race_eth %>% 
-  group_by(gender) %>% 
-  summarize(n=sum(n)) %>% 
+gender_tots <- gender_race_eth %>%
+  group_by(gender) %>%
+  summarize(n=sum(n)) %>%
   mutate(gender = ifelse(gender == "m",
                          "Male",
                          "Female"
                          ))
-gstotalcase <- case %>% 
-  group_by(gender) %>% 
-  tally(name = "Cases") %>% 
+gstotalcase <- case %>%
+  group_by(gender) %>%
+  tally(name = "Cases") %>%
   filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gsconfirmedcase <- case %>% 
-  filter(disease_status == "Confirmed") %>% 
-  group_by(gender) %>% 
-  tally(name = "Cases") %>% 
+gsconfirmedcase <- case %>%
+  filter(disease_status == "Confirmed") %>%
+  group_by(gender) %>%
+  tally(name = "Cases") %>%
   filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gsprobcase <- case %>% 
-  filter(disease_status == "Probable") %>% 
-  group_by(gender) %>% 
-  tally(name = "Cases") %>% 
-  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))  
-gstotaldeaths <- case %>% 
- filter(outcome =="Died") %>% 
-  group_by(gender) %>% 
-  tally(name = "Deaths")  %>% 
+gsprobcase <- case %>%
+  filter(disease_status == "Probable") %>%
+  group_by(gender) %>%
+  tally(name = "Cases") %>%
   filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gstotaldeaths <- case %>% 
- filter(outcome =="Died") %>% 
-  group_by(gender) %>% 
-  tally(name = "Deaths")  %>% 
+gstotaldeaths <- case %>%
+ filter(outcome =="Died") %>%
+  group_by(gender) %>%
+  tally(name = "Deaths")  %>%
   filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gsconfdeaths <- case %>% 
- filter(disease_status == "Confirmed" & outcome =="Died") %>% 
-  group_by(gender) %>% 
-  tally(name = "Deaths")  %>% 
+gstotaldeaths <- case %>%
+ filter(outcome =="Died") %>%
+  group_by(gender) %>%
+  tally(name = "Deaths")  %>%
   filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gsprobdeaths <- case %>% 
- filter(disease_status == "Probable" & outcome =="Died") %>% 
-  group_by(gender) %>% 
-  tally(name = "Deaths")  %>% 
+gsconfdeaths <- case %>%
+ filter(disease_status == "Confirmed" & outcome =="Died") %>%
+  group_by(gender) %>%
+  tally(name = "Deaths")  %>%
   filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-gstotalcaserate <- gstotalcase %>% 
-  left_join(gender_tots, by= c("gender" = "gender")) %>% 
-  mutate(TotalCaseRate = round((Cases/n)*100000)) %>% 
+gsprobdeaths <- case %>%
+ filter(disease_status == "Probable" & outcome =="Died") %>%
+  group_by(gender) %>%
+  tally(name = "Deaths")  %>%
+  filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
+gstotalcaserate <- gstotalcase %>%
+  left_join(gender_tots, by= c("gender" = "gender")) %>%
+  mutate(TotalCaseRate = round((Cases/n)*100000)) %>%
   select(TotalCaseRate)
-  
+
 
 GenderSummary <- tibble(
   Gender = gstotalcase$gender,
@@ -2960,59 +2799,59 @@ GenderSummary <- tibble(
   ProbableDeaths = gsprobdeaths$Deaths,
   TotalCaseRate = gstotalcaserate$TotalCaseRate,
   DateUpdated = format(graphdate, "%m/%d/%Y")
-) 
+)
 
 StateSummary <- tableforgary %>%
   rename(
     Measure ='Overall Summary',
     Total = "Total**",
     Change = 'Change Since Yesterday'
-         ) %>% 
+         ) %>%
   mutate(ChangeDirection = str_extract(Change, pattern = "\\+|\\-"),
          DateUpdated = graphdate,
          Change = str_remove(Change,pattern = "\\+|\\-|%")
-         ) %>% 
-  select(Measure, Total, ChangeDirection, Change, DateUpdated)%>% 
+         ) %>%
+  select(Measure, Total, ChangeDirection, Change, DateUpdated)%>%
   replace_na(replace = list(ChangeDirection = ""))
-  
+
 #agegroup summary
-agstotalcases <- case %>% 
-  filter(!is.na(age_group)) %>% 
-  group_by(age_group) %>% 
+agstotalcases <- case %>%
+  filter(!is.na(age_group)) %>%
+  group_by(age_group) %>%
   tally(name = "TotalCases")
-agsconfcases <- case %>% 
-  filter(!is.na(age_group) & disease_status == "Confirmed") %>% 
-  group_by(age_group) %>% 
+agsconfcases <- case %>%
+  filter(!is.na(age_group) & disease_status == "Confirmed") %>%
+  group_by(age_group) %>%
     tally(name = "ConfCases")
 
-agsprobcases<- case %>% 
-  filter(!is.na(age_group) & disease_status == "Probable") %>% 
-  group_by(age_group) %>% 
+agsprobcases<- case %>%
+  filter(!is.na(age_group) & disease_status == "Probable") %>%
+  group_by(age_group) %>%
   tally(name = "ProbCases")
-agstotaldeaths <- case %>% 
-  filter(!is.na(age_group)  & outcome == "Died") %>% 
-  group_by(age_group) %>% 
-  tally(name = "TotalDeaths") %>% 
+agstotaldeaths <- case %>%
+  filter(!is.na(age_group)  & outcome == "Died") %>%
+  group_by(age_group) %>%
+  tally(name = "TotalDeaths") %>%
   complete(age_group = unique(case$age_group), fill = list("TotalDeaths" = 0))
 
-agsconfdeaths <- case %>% 
-  filter(!is.na(age_group) & disease_status == "Confirmed" & outcome == "Died") %>% 
-  group_by(age_group) %>% 
-  tally(name = "ConfDeaths")%>% 
+agsconfdeaths <- case %>%
+  filter(!is.na(age_group) & disease_status == "Confirmed" & outcome == "Died") %>%
+  group_by(age_group) %>%
+  tally(name = "ConfDeaths")%>%
   complete(age_group = unique(case$age_group), fill = list("ConfDeaths" = 0))
 
-agsprobdeaths <- case %>% 
-  filter(!is.na(age_group) & disease_status == "Probable" & outcome == "Died") %>% 
-  group_by(age_group) %>% 
-  tally(name = "ProbDeaths") %>% 
+agsprobdeaths <- case %>%
+  filter(!is.na(age_group) & disease_status == "Probable" & outcome == "Died") %>%
+  group_by(age_group) %>%
+  tally(name = "ProbDeaths") %>%
   complete(age_group = unique(case$age_group), fill = list(ProbDeaths = 0))
 
 
-agstotalrate <- case %>% 
-  filter(!is.na(age_group)) %>% 
-  group_by(age_group) %>% 
-  tally(name = "TotalCases") %>% 
-  left_join(pop, by = c("age_group" = "age_g")) %>% 
+agstotalrate <- case %>%
+  filter(!is.na(age_group)) %>%
+  group_by(age_group) %>%
+  tally(name = "TotalCases") %>%
+  left_join(pop, by = c("age_group" = "age_g")) %>%
   mutate(TotalCaseRate = round((TotalCases/total)*100000))
 
 
@@ -3026,21 +2865,21 @@ AgeGroupSummary <- tibble(
   ProbableDeaths = agsprobdeaths$ProbDeaths,
   TotalCaseRate = agstotalrate$TotalCaseRate,
   DateUpdated = graphdate
-) %>% 
+) %>%
   mutate(AgeGroups = as.character(AgeGroups))
 AgeGroupSummary$AgeGroups[AgeGroupSummary$AgeGroups == ">=80"] <- "80 and older"
 
 
 ###county summary
 hospsum <- cha_c %>% filter(!is.na(NAME)) %>%  select(today)
-CountySummary <- tbl_cty_sum %>% 
+CountySummary <- tbl_cty_sum %>%
   rename(
     ConfirmedCases = cases.confirmed,
     ProbableCases = cases.probable,
     ConfirmedDeaths = dec.confirmed,
     ProbableDeaths = dec.probable
-         ) %>% 
-  filter(County != "Pending address validation") %>% 
+         ) %>%
+  filter(County != "Pending address validation") %>%
   bind_cols(county_pop %>% select(-County)) %>%
   mutate(
     TotalCases = ConfirmedCases + ProbableCases,
@@ -3052,44 +2891,33 @@ CountySummary <- tbl_cty_sum %>%
     Hospitalization =hospsum$today,
     DateUpdated = graphdate,
     TotalCaseRate = round(TotalCases/Total*100000)
-    ) %>% 
+    ) %>%
   select(CNTY_COD, County, TotalCases, ConfirmedCases,ProbableCases,TotalCaseRate,TotalDeaths,ConfirmedDeaths,ProbableDeaths,Hospitalization,DateUpdated) #CNTY_FIPS removed as of 11/9 per request
-  
+
 #deaths by date
-totaldeathsdate <- case %>% 
-  filter(outcome == "Died") %>% 
-  filter(!is.na(death_date) & death_date >= "2020-01-01" & death_date < today()) %>% 
-  group_by(death_date) %>% 
-  tally(name = "TotalDeathCount") %>% 
-  rename(dateofDeath = death_date) %>% 
-  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), 
-                                  today() - 1, 
-                                  by = "day"), 
-           fill = list(TotalDeathCount = 0))
+totaldeathsdate <- case %>%
+  filter(outcome == "Died") %>%
+  filter(!is.na(death_date) & death_date >="2020-01-01") %>%
+  group_by(death_date) %>%
+  tally(name = "TotalDeathCount") %>%
+  rename(dateofDeath = death_date) %>%
+  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), fill = list(TotalDeathCount = 0))
+confirmeddeathsdate <- case %>%
+  filter(outcome == "Died" & disease_status == "Confirmed") %>%
+  filter(!is.na(death_date) & death_date >="2020-01-01") %>%
+  group_by(death_date) %>%
+  tally(name = "ConfDeathCount") %>%
+  rename(dateofDeath = death_date) %>%
+  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), fill = list(ConfDeathCount = 0))
+probsdeathdate <- case %>%
+  filter(outcome == "Died" & disease_status == "Probable") %>%
+  filter(!is.na(death_date) & death_date >="2020-01-01") %>%
+  group_by(death_date) %>%
+  tally(name = "ProbDeathCount") %>%
+  rename(dateofDeath = death_date) %>%
+  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), fill = list(ProbDeathCount = 0))
 
-confirmeddeathsdate <- case %>% 
-  filter(outcome == "Died" & disease_status == "Confirmed") %>% 
-  filter(!is.na(death_date) & death_date >= "2020-01-01" & death_date < today()) %>% 
-  group_by(death_date) %>% 
-  tally(name = "ConfDeathCount") %>% 
-  rename(dateofDeath = death_date) %>% 
-  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), 
-                                  today() - 1, 
-                                  by = "day"), 
-           fill = list(ConfDeathCount = 0))
-
-probsdeathdate <- case %>% 
-  filter(outcome == "Died" & disease_status == "Probable") %>% 
-  filter(!is.na(death_date) & death_date >="2020-01-01") %>% 
-  group_by(death_date) %>% 
-  tally(name = "ProbDeathCount") %>% 
-  rename(dateofDeath = death_date) %>% 
-  complete(dateofDeath = seq.Date(as.Date("2020-01-01"), 
-                                  today() - 1, 
-                                  by = "day"), 
-           fill = list(ProbDeathCount = 0))
-
-death_by_deathdate <- tibble(
+death_by_deathdate <-tibble(
   dateofDeath = totaldeathsdate$dateofDeath,
   TotalDeaths = totaldeathsdate$TotalDeathCount,
   ConfirmedDeaths = confirmeddeathsdate$ConfDeathCount,
@@ -3097,7 +2925,7 @@ death_by_deathdate <- tibble(
 )
 
 #count positive, negative, indeterminate, total tests by spec date and county for ODP
-agg_tests_spec_date_ag <- elr_linelist %>% 
+agg_tests_spec_date_ag <- elr_linelist %>%
   filter(test_method %in% agtests)
 agg_tests_spec_date_ag$result[agg_tests_spec_date_ag$result == "detected"] <- "Positive"
 agg_tests_spec_date_ag$result[agg_tests_spec_date_ag$result == "not detected"] <- "Negative"
@@ -3105,33 +2933,32 @@ agg_tests_spec_date_ag$result[agg_tests_spec_date_ag$result == "indeterminate"] 
 
 
 agg_tests_spec_date_ag <- agg_tests_spec_date_ag %>%
-  group_by(county, spec_col_date, result) %>% 
-  tally() %>% 
+  group_by(county, spec_col_date, result) %>%
+  tally() %>%
   replace_na(replace = list(county= "Pending address validation")) %>%
-  complete(result = c("Positive", "Negative", "Indeterminate"),fill =  list (n = 0)) %>% 
+  complete(result = c("Positive", "Negative", "Indeterminate"),fill =  list (n = 0)) %>%
   pivot_wider(id_cols = c(county, spec_col_date), names_from = result, values_from = n ) %>%
-  replace_na(replace = list('Positive' = 0, 'Negative'= 0, 'Indeterminate' = 0)) %>%
+  replace_na(replace = list('Positive' = 0,'Negative'= 0, 'Indeterminate' = 0)) %>%
   mutate(state="CT",
-         number_of_ag_tests=sum(Positive, Negative, Indeterminate, na.rm = TRUE)) %>%
+         number_of_ag_tests=sum(Positive, Negative, Indeterminate, na.rm=TRUE)) %>%
   rename(date = spec_col_date,
          number_of_ag_positives = Positive,
          number_of_ag_negatives = Negative,
-         number_of_ag_indeterminates = Indeterminate) %>%
-    select(county,date, number_of_ag_tests, number_of_ag_positives, number_of_ag_negatives, number_of_ag_indeterminates)
+         number_of_ag_indeterminates = Indeterminate)%>%
+    select(county,date,number_of_ag_tests,number_of_ag_positives,number_of_ag_negatives,number_of_ag_indeterminates)
 
-agg_tests_spec_date_pcr <- 
-  elr_linelist %>% 
+agg_tests_spec_date_pcr <- elr_linelist %>%
   filter(test_method %in% pcrtests)
 agg_tests_spec_date_pcr$result[agg_tests_spec_date_pcr$result == "detected"] <- "Positive"
 agg_tests_spec_date_pcr$result[agg_tests_spec_date_pcr$result == "not detected"] <- "Negative"
 agg_tests_spec_date_pcr$result[agg_tests_spec_date_pcr$result == "indeterminate"] <- "Indeterminate"
 
- 
+
 agg_tests_spec_date_pcr <- agg_tests_spec_date_pcr %>%
-  group_by(county, spec_col_date, result) %>% 
-  tally() %>% 
+  group_by(county, spec_col_date, result) %>%
+  tally() %>%
   replace_na(replace = list(county= "Pending address validation")) %>%
-  complete(result = c("Positive", "Negative", "Indeterminate"),fill =  list (n = 0)) %>% 
+  complete(result = c("Positive", "Negative", "Indeterminate"),fill =  list (n = 0)) %>%
   pivot_wider(id_cols = c(county, spec_col_date), names_from = result, values_from = n ) %>%
   replace_na(replace = list('Positive' = 0,'Negative'= 0, 'Indeterminate' = 0)) %>%
   mutate(state="CT",
@@ -3143,57 +2970,57 @@ agg_tests_spec_date_pcr <- agg_tests_spec_date_pcr %>%
     select(county,date,number_of_pcr_tests,number_of_pcr_positives,number_of_pcr_negatives,number_of_pcr_indeterminates)
 
 agg_test_gary <- agg_tests_spec_date_pcr %>%
-    left_join(agg_tests_spec_date_ag, by = c('county', 'date')) %>% 
-    filter(!is.na(date) & !is.na(county)) 
+    left_join(agg_tests_spec_date_ag, by = c('county', 'date')) %>%
+    filter(!is.na(date) & !is.na(county))
 agg_test_gary[is.na(agg_test_gary)] <- 0
 
 
 #summary by race/ethnicity
-REStateSummary <- race_eth_comb %>% 
-  select(-c(caserate100k,deathrate100k)) %>% 
-  left_join(adj_table) %>% 
+REStateSummary <- race_eth_comb %>%
+  select(-c(caserate100k,deathrate100k)) %>%
+  left_join(adj_table) %>%
   rename(
     CrudeCaseRate = Crude,
-    CaseAgeAdjusted = 'Age adjusted',     
-         ) %>% 
+    CaseAgeAdjusted = 'Age adjusted',
+         ) %>%
   mutate(
     CrudeCaseRate =round(CrudeCaseRate),
     CaseAgeAdjusted = round(CaseAgeAdjusted)
-  ) %>% 
-  left_join(adj_table_dec) %>% 
+  ) %>%
+  left_join(adj_table_dec) %>%
   rename(
     CrudeDeathRate = Crude,
-    DeathAgeAdjusted = 'Age adjusted',     
-         ) %>% 
+    DeathAgeAdjusted = 'Age adjusted',
+         ) %>%
   mutate(
     CrudeDeathRate =round(CrudeDeathRate ),
     DeathAgeAdjusted= round(DeathAgeAdjusted),
     DateUpdated = graphdate
-  ) 
+  )
 
 
 #cases by date by county
-countycountDate <- case %>% 
-  group_by(date, county) %>% 
-  tally(name = "Count") %>% 
-  mutate(UpdateDate = Sys.Date()) %>% 
+countycountDate <- case %>%
+  group_by(date, county) %>%
+  tally(name = "Count") %>%
+  mutate(UpdateDate = Sys.Date()) %>%
   rename(
     County = county,
     Date = date
-         ) %>% 
-  ungroup() %>% 
+         ) %>%
+  ungroup() %>%
   filter(!is.na(County) & !is.na(Date))
 
 
 if (csv_write) {
-  write_csv(countycountDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", 
+  write_csv(countycountDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/",
                                     Sys.Date(), "/CountySummarybyDate.csv"))
   write_csv(death_by_deathdate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/DodSummary.csv"))
   write_csv(GenderSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/GenderSummary.csv"))
   write_csv(StateSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/StateSummary.csv"))
   write_csv(AgeGroupSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/AgeGroupSummary.csv"))
   write_csv(CountySummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/CountySummary.csv"))
-  write_csv(REStateSummary , paste0("L:/daily_reporting_figures_rdp/gary_csv/", 
+  write_csv(REStateSummary , paste0("L:/daily_reporting_figures_rdp/gary_csv/",
                                     Sys.Date(), "/REStateSummary.csv"), na = "")
   write_csv(agg_test_gary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/TestCounty.csv"))
 }
@@ -3208,72 +3035,72 @@ if (SQL_write) {
   df_to_table(agg_test_gary, "ODP_TestCounty", overwrite = TRUE, append = FALSE)
 }
 
-```
 
-```{r avg_incidence_gary, eval=wedthurs, message=FALSE, warning=FALSE, include=FALSE}
+
+## ----avg_incidence_gary, message=FALSE, warning=FALSE, include=FALSE-----------------------------------------------
 
 #calculate % positive by town for past 2 weeks
-pctpos14 <- test14nc %>% 
-  group_by(city, result) %>% 
+pctpos14 <- test14nc %>%
+  group_by(city, result) %>%
   tally() %>%
-  pivot_wider(names_from=result, values_from=n) %>% 
+  pivot_wider(names_from=result, values_from=n) %>%
   replace_na(replace=list(detected=0, `not detected`=0, indeterminate=0)) %>%
   mutate(PercentPositive = round(detected/(detected+`not detected`)*100, 1),
-         TotalTests=detected+`not detected`+indeterminate) %>% 
-  select(city, TotalTests,PercentPositive) %>% 
+         TotalTests=detected+`not detected`+indeterminate) %>%
+  select(city, TotalTests,PercentPositive) %>%
   filter(city != "Not Available")
 
 #community cases in the past 2 weeks with rates by town, case count for each week
-gary_dailyincidence <- 
-  cases_14_nc %>% 
-  group_by(week, city) %>% 
-  tally() %>%  
-  pivot_wider(names_from = week,  
-              values_from = n, 
-              values_fill = list(n = 0)) %>% 
+gary_dailyincidence <-
+  cases_14_nc %>%
+  group_by(week, city) %>%
+  tally() %>%
+  pivot_wider(names_from = week,
+              values_from = n,
+              values_fill = list(n = 0)) %>%
   rename(casesweek1 = 2,
-         casesweek2 = 3) %>% 
-  right_join(c14nc_count, by=c("city" = "NAME")) %>% 
-  replace_na(replace=list(casesweek1 = 0, 
-                          casesweek2 = 0, 
-                          n = 0)) %>% 
-  mutate(RateCategory = ifelse(avgrate =="<5 cases per 100,000 or <5 reported cases", 
+         casesweek2 = 3) %>%
+  right_join(c14nc_count, by=c("city" = "NAME")) %>%
+  replace_na(replace=list(casesweek1 = 0,
+                          casesweek2 = 0,
+                          n = 0)) %>%
+  mutate(RateCategory = ifelse(avgrate =="<5 cases per 100,000 or <5 reported cases",
                                "1. <5 cases per 100,000 or <5 reported cases",
-                               ifelse(avgrate=="5-9 cases per 100,000", 
-                                      "2. 5-9 cases per 100,000", 
-                                      ifelse(avgrate=="10-14 cases per 100,000", 
+                               ifelse(avgrate=="5-9 cases per 100,000",
+                                      "2. 5-9 cases per 100,000",
+                                      ifelse(avgrate=="10-14 cases per 100,000",
                                              "3. 10-14 cases per 100,000",
-                                             ifelse(avgrate=="15 or more cases per 100,000", 
-                                                    "4. 15 or more cases per 100,000", 
+                                             ifelse(avgrate=="15 or more cases per 100,000",
+                                                    "4. 15 or more cases per 100,000",
                                                     "other")))),
          UpdateDate = Sys.Date(),
          ReportPeriodStartDate = thursday_range_start,
          ReportPeriodEndDate = thursday_range_end,
          townname=paste0(city, " town")) %>%
   rename(totalcases = n,
-         NAME = city) %>% 
-  left_join(pctpos14, by = c("NAME" = "city")) %>% 
+         NAME = city) %>%
+  left_join(pctpos14, by = c("NAME" = "city")) %>%
   left_join(town_codes, by = c("townname" = "ANPSADPI")) %>%
-  rename(Town_No = TOWNNO) %>% 
-  select(Town_No, NAME, pop, casesweek1, casesweek2, totalcases, CaseRate, 
-         RateCategory, TotalTests, PercentPositive, UpdateDate, 
+  rename(Town_No = TOWNNO) %>%
+  select(Town_No, NAME, pop, casesweek1, casesweek2, totalcases, CaseRate,
+         RateCategory, TotalTests, PercentPositive, UpdateDate,
          ReportPeriodStartDate, ReportPeriodEndDate) %>%
   filter(!NAME == "Not Available")
 
 ### Why do we write the same thing to two different places?
 
 if(csv_write) {
-  write_csv(gary_dailyincidence, 
+  write_csv(gary_dailyincidence,
             paste0("L:/daily_reporting_figures_rdp/gary_csv/CTTown_Alert.csv"))
   dir.create(paste0("L:/daily_reporting_figures_rdp/yesterday/", Sys.Date(), "/avg_di"))
-  write_csv(gary_dailyincidence, 
-            paste0("L:/daily_reporting_figures_rdp/yesterday/", 
+  write_csv(gary_dailyincidence,
+            paste0("L:/daily_reporting_figures_rdp/yesterday/",
                    Sys.Date(),"/avg_di/avgdailyincidence.csv"))
 }
 
-```
 
-```{r avg_incidence_gary2, eval=wedthurs, message=FALSE, warning=FALSE, include=FALSE}
+
+## ----avg_incidence_gary2, message=FALSE, warning=FALSE, include=FALSE----------------------------------------------
 lvls <- c("<5 cases per 100,000 or <5 reported cases", "5-9 cases per 100,000", "10-14 cases per 100,000", "15 or more cases per 100,000")
  gdi <- gary_dailyincidence %>%
   mutate(
@@ -3309,9 +3136,9 @@ gdi <- gdi %>%
 
  gdi2 <- gdi%>%
   select(-c(Town_No, pop, UpdateDate, ReportPeriodStartDate,ReportPeriodEndDate)) %>%
-   arrange(desc(RateCategory), desc(CaseRate)) %>% 
-   left_join(town_pop18, by = c("NAME" = "city")) %>% 
-   mutate(PercentPop = round(pop/3572665*100, 2)) %>% 
+   arrange(desc(RateCategory), desc(CaseRate)) %>%
+   left_join(town_pop18, by = c("NAME" = "city")) %>%
+   mutate(PercentPop = round(pop/3572665*100, 2)) %>%
    rename(Population=pop)
 
  kable2 <-  gdi2 %>%
@@ -3322,64 +3149,64 @@ gdi <- gdi %>%
        TotalCases = totalcases
             ) %>%
      select(Town, Week1Cases, Week2Cases, TotalCases, CaseRate, RateCategory, TotalTests, PercentPositive, everything()) %>%
-    select(-PercentPop) %>% 
+    select(-PercentPop) %>%
     filter(Town != "Not_available")
 
   #kable2
 #  dir.create("tables")
  if(csv_write) {
    dir.create(paste0("L:/daily_reporting_figures_rdp/tables/", Sys.Date()))
-   write_csv(kable2, 
-             paste0("L:/daily_reporting_figures_rdp/tables/", 
+   write_csv(kable2,
+             paste0("L:/daily_reporting_figures_rdp/tables/",
                     Sys.Date(),"/TownAlertLevelsTable.csv"))
  }
- 
-```
 
-```{r town_alert_summary,  eval=wedthurs, message=FALSE, warning=FALSE, include=FALSE}
-towncatthisweek <- gdi2 %>%  group_by(RateCategory) %>%  tally(name = "Towns This Week") %>% 
-  mutate(Category= factor(RateCategory, levels = lvls, labels = c("Grey", "Yellow", "Orange", "Red"))) %>% 
+
+
+## ----town_alert_summary, message=FALSE, warning=FALSE, include=FALSE-----------------------------------------------
+towncatthisweek <- gdi2 %>%  group_by(RateCategory) %>%  tally(name = "Towns This Week") %>%
+  mutate(Category= factor(RateCategory, levels = lvls, labels = c("Grey", "Yellow", "Orange", "Red"))) %>%
   select(-RateCategory)
 
-towncatlastweek <- yestgdi %>%  group_by(`Previous Rate Category`) %>%  tally(name = "Towns Last Week") %>% 
-  mutate(Category= factor(`Previous Rate Category`, levels = lvls, labels = c("Grey", "Yellow", "Orange", "Red")))%>% 
+towncatlastweek <- yestgdi %>%  group_by(`Previous Rate Category`) %>%  tally(name = "Towns Last Week") %>%
+  mutate(Category= factor(`Previous Rate Category`, levels = lvls, labels = c("Grey", "Yellow", "Orange", "Red")))%>%
   select(-`Previous Rate Category`)
 #newtowns
-yestred <- yestgdi %>% 
-           filter(`Previous Rate Category` == '15 or more cases per 100,000') %>% 
+yestred <- yestgdi %>%
+           filter(`Previous Rate Category` == '15 or more cases per 100,000') %>%
            select(Town_No)
-redtownnew <- gdi %>% 
+redtownnew <- gdi %>%
   filter(RateCategory == '15 or more cases per 100,000' & !Town_No %in% yestred$Town_No) %>%
     summarise(
     Category = "Red",
     "New Towns" = nrow(.)
   )
 
-yestorange<- yestgdi %>% 
-           filter(`Previous Rate Category` == "10-14 cases per 100,000") %>% 
+yestorange<- yestgdi %>%
+           filter(`Previous Rate Category` == "10-14 cases per 100,000") %>%
            select(Town_No)
-orangetownnew <- gdi %>% 
-  filter(RateCategory == "10-14 cases per 100,000" & !Town_No %in% yestorange$Town_No) %>% 
+orangetownnew <- gdi %>%
+  filter(RateCategory == "10-14 cases per 100,000" & !Town_No %in% yestorange$Town_No) %>%
    summarise(
     Category = "Orange",
     "New Towns" = nrow(.)
   )
 
-yestyellow <- yestgdi %>% 
-           filter(`Previous Rate Category` == "5-9 cases per 100,000" ) %>% 
+yestyellow <- yestgdi %>%
+           filter(`Previous Rate Category` == "5-9 cases per 100,000" ) %>%
            select(Town_No)
-yellowtownnew <- gdi %>% 
-  filter(RateCategory == "5-9 cases per 100,000"  & !Town_No %in% yestyellow$Town_No) %>% 
+yellowtownnew <- gdi %>%
+  filter(RateCategory == "5-9 cases per 100,000"  & !Town_No %in% yestyellow$Town_No) %>%
     summarise(
     Category = "Yellow",
     "New Towns" = nrow(.)
   )
 
-yestgrey <- yestgdi %>% 
-           filter(`Previous Rate Category` == "<5 cases per 100,000 or <5 reported cases") %>% 
+yestgrey <- yestgdi %>%
+           filter(`Previous Rate Category` == "<5 cases per 100,000 or <5 reported cases") %>%
            select(Town_No)
-greytownnew <- gdi %>% 
-  filter(RateCategory == "<5 cases per 100,000 or <5 reported cases" & !Town_No %in% yestgrey$Town_No) %>% 
+greytownnew <- gdi %>%
+  filter(RateCategory == "<5 cases per 100,000 or <5 reported cases" & !Town_No %in% yestgrey$Town_No) %>%
   summarise(
     Category = "Grey",
     "New Towns" = nrow(.)
@@ -3387,41 +3214,41 @@ greytownnew <- gdi %>%
 newtowns <- bind_rows(greytownnew, yellowtownnew, orangetownnew, redtownnew)
 
 #lost towns
-yestred <- yestgdi %>% 
-           filter(`Previous Rate Category` == '15 or more cases per 100,000') %>% 
+yestred <- yestgdi %>%
+           filter(`Previous Rate Category` == '15 or more cases per 100,000') %>%
            select(Town_No)
-redtownlost <- gdi %>% 
+redtownlost <- gdi %>%
   filter(RateCategory != '15 or more cases per 100,000' & Town_No %in% yestred$Town_No) %>%
     summarise(
     Category = "Red",
     "Lost Towns" = nrow(.)
   )
 
-yestorange<- yestgdi %>% 
-           filter(`Previous Rate Category` == "10-14 cases per 100,000") %>% 
+yestorange<- yestgdi %>%
+           filter(`Previous Rate Category` == "10-14 cases per 100,000") %>%
            select(Town_No)
-orangetownlost <- gdi %>% 
-  filter(RateCategory != "10-14 cases per 100,000" & Town_No %in% yestorange$Town_No) %>% 
+orangetownlost <- gdi %>%
+  filter(RateCategory != "10-14 cases per 100,000" & Town_No %in% yestorange$Town_No) %>%
    summarise(
     Category = "Orange",
     "Lost Towns" = nrow(.)
   )
 
-yestyellow <- yestgdi %>% 
-           filter(`Previous Rate Category` == "5-9 cases per 100,000" ) %>% 
+yestyellow <- yestgdi %>%
+           filter(`Previous Rate Category` == "5-9 cases per 100,000" ) %>%
            select(Town_No)
-yellowtownlost <- gdi %>% 
-  filter(RateCategory != "5-9 cases per 100,000"  & Town_No %in% yestyellow$Town_No) %>% 
+yellowtownlost <- gdi %>%
+  filter(RateCategory != "5-9 cases per 100,000"  & Town_No %in% yestyellow$Town_No) %>%
     summarise(
     Category = "Yellow",
     "Lost Towns" = nrow(.)
   )
 
-yestgrey <- yestgdi %>% 
-           filter(`Previous Rate Category` == "<5 cases per 100,000 or <5 reported cases") %>% 
+yestgrey <- yestgdi %>%
+           filter(`Previous Rate Category` == "<5 cases per 100,000 or <5 reported cases") %>%
            select(Town_No)
-greytownlost <- gdi %>% 
-  filter(RateCategory != "<5 cases per 100,000 or <5 reported cases" & Town_No %in% yestgrey$Town_No) %>% 
+greytownlost <- gdi %>%
+  filter(RateCategory != "<5 cases per 100,000 or <5 reported cases" & Town_No %in% yestgrey$Town_No) %>%
   summarise(
     Category = "Grey",
     "Lost Towns" = nrow(.)
@@ -3429,40 +3256,40 @@ greytownlost <- gdi %>%
 losttowns <- bind_rows(greytownlost, yellowtownlost, orangetownlost, redtownlost)
 
 
-Summary <- towncatthisweek %>% 
-  left_join(towncatlastweek) %>% 
-  select(Category, `Towns This Week`, `Towns Last Week`, everything()) %>% 
-  left_join(newtowns) %>% 
-  left_join(losttowns) 
+Summary <- towncatthisweek %>%
+  left_join(towncatlastweek) %>%
+  select(Category, `Towns This Week`, `Towns Last Week`, everything()) %>%
+  left_join(newtowns) %>%
+  left_join(losttowns)
 
 if(csv_write){
-  write_csv(Summary, paste0("L:/daily_reporting_figures_rdp/tables/", 
+  write_csv(Summary, paste0("L:/daily_reporting_figures_rdp/tables/",
                             Sys.Date(), "/SummaryAlertLevelsTable.csv"))
 }
 
 Summary
 
 
-```
 
-```{r model_data, message=FALSE, warning=FALSE, include=FALSE, eval = thursday}
 
-spec_dates <- case %>% 
-  select(spec_col_date) %>% 
-  rename(spec_date = spec_col_date) %>% 
+## ----model_data, message=FALSE, warning=FALSE, include=FALSE-------------------------------------------------------
+
+spec_dates <- case %>%
+  select(spec_col_date) %>%
+  rename(spec_date = spec_col_date) %>%
   filter(!is.na(spec_date) & spec_date >= "2020-03-01" & spec_date <= Sys.Date()) %>%
-  group_by(spec_date) %>% 
-  tally(name = "speccollected") %>% 
+  group_by(spec_date) %>%
+  tally(name = "speccollected") %>%
   complete(spec_date = seq.Date(as.Date(ymd("2020-03-01")), Sys.Date(), by ="day"), fill = list(speccollected = 0))
 
-admissions <- newcha %>% 
+admissions <- newcha %>%
   complete(admit_date = seq.Date(as.Date(ymd("2020-03-01")), Sys.Date(), by ="day"), fill = list(admissions = 0))
 
-deathsdata <- case%>% 
-  rename(dod= death_date) %>% 
-  group_by(dod) %>% 
+deathsdata <- case%>%
+  rename(dod= death_date) %>%
+  group_by(dod) %>%
   tally(name = "deaths") %>%
-  filter(!is.na(dod)& dod >= "2020-03-01"  & dod <= Sys.Date()) %>% 
+  filter(!is.na(dod)& dod >= "2020-03-01"  & dod <= Sys.Date()) %>%
   complete(dod = seq.Date(as.Date(ymd("2020-03-01")), Sys.Date(), by ="day"), fill = list(deaths = 0))
 
 labdata <- elr_linelist %>%
@@ -3471,18 +3298,18 @@ labdata <- elr_linelist %>%
   tally(name = "tests") %>%
   complete(spec_col_date = seq.Date(as.Date(ymd("2020-03-01")), Sys.Date(), by ="day"), fill = list(tests = 0))
 
-modelingdata <- bind_cols(spec_dates, admissions, deathsdata, labdata) %>% 
-  rename(date = spec_date) %>% 
+modelingdata <- bind_cols(spec_dates, admissions, deathsdata, labdata) %>%
+  rename(date = spec_date) %>%
   mutate(
     spec_cum = cumsum(speccollected),
     admit_cum = cumsum(admissions),
     death_cum = cumsum(deaths),
     test_cum = cumsum(tests)
-         ) %>% 
+         ) %>%
   select(-c(admit_date, dod, spec_col_date))
 
 if(csv_write){
-  write_csv(modelingdata, 
+  write_csv(modelingdata,
             paste0("L:/daily_reporting_figures_rdp/gary_csv/CT_daily_counts_totals.csv"))
 }
 
@@ -3498,112 +3325,111 @@ forrestdata <- testgeo2 %>%
 #create dataset for Forrest
 
 if(csv_write){
-  write_csv(forrestdata, 
-            paste0("L:/daily_reporting_figures_rdp/csv/", 
+  write_csv(forrestdata,
+            paste0("L:/daily_reporting_figures_rdp/csv/",
                    Sys.Date(), "/", Sys.Date(), "dailytest_communityonly.csv"))
 }
 
 #create dataset for sde indicator for county test counts
 # added epiyear
 sdedata <- testgeo2 %>%
-  filter(cong_test !="Yes") %>% 
+  filter(cong_test !="Yes") %>%
   mutate(week = epiweek(spec_col_date),
          year = epiyear(spec_col_date),
          result2=ifelse(result=="detected", "Positive",
-                        ifelse(result=="not detected", "Negative", "Indeterminate"))) %>% 
+                        ifelse(result=="not detected", "Negative", "Indeterminate"))) %>%
   group_by(county, year, week, result2) %>%
-  tally() %>% 
-  spread(result2, n) %>% 
-  replace_na(replace=list(Positive=0, Negative=0, Indeterminate=0)) 
+  tally() %>%
+  spread(result2, n) %>%
+  replace_na(replace=list(Positive=0, Negative=0, Indeterminate=0))
 
 if(csv_write){
-  write_csv(sdedata, 
-            paste0("L:/daily_reporting_figures_rdp/csv/", 
+  write_csv(sdedata,
+            paste0("L:/daily_reporting_figures_rdp/csv/",
                    Sys.Date(), "/", Sys.Date(), "communitytest_county.csv"))
 }
 
-```
 
-```{r county_data_request, message=FALSE, warning=FALSE, include=FALSE, eval=FALSE}
-case_county_cum <-  case %>% 
-  group_by(county) %>% 
-  tally() %>% 
-  filter(!is.na(county) & county != "Unknown") %>% 
-  select(-county)
-  
-c7_logic <- case %>% 
-  filter(date %in% seq.Date(Sys.Date()-7, Sys.Date(), by = "day")) 
-if(nrow(c7_logic ) >=1){
-county7 <- case %>% 
-  filter(date %in% seq.Date(Sys.Date()-7, Sys.Date(), by = "day")) %>% 
-  group_by(county) %>% 
-  tally(name = "n7") %>% 
-  filter(!is.na(county) & county != "Unknown") %>% 
-  bind_cols(case_county_cum) %>% 
-  rename(
-    County= county,
-    "Cases in last 7 days" =n7,
-    "Total cases to date" =n
-         )
-}else{
-county7 <- tibble(
-  County = c("Fairfield County", "Hartford County", "Litchfield County", "New Haven County", "Tolland County", "Middlesex County", "New London County","Windham County", NA ),
-  "Cases in last 7 days" = 0,
-  "Total cases to date" = 0
-)  
-}
 
-if(csv_write){
-  write_csv(county7, 
-            paste0("L:/daily_reporting_figures_rdp/csv/", 
-                   Sys.Date(), "/", "county7days.csv"))
-}
+## ----county_data_request, message=FALSE, warning=FALSE, include=FALSE, eval=FALSE----------------------------------
+## case_county_cum <-  case %>%
+##   group_by(county) %>%
+##   tally() %>%
+##   filter(!is.na(county) & county != "Unknown") %>%
+##   select(-county)
+##
+## c7_logic <- case %>%
+##   filter(date %in% seq.Date(Sys.Date()-7, Sys.Date(), by = "day"))
+## if(nrow(c7_logic ) >=1){
+## county7 <- case %>%
+##   filter(date %in% seq.Date(Sys.Date()-7, Sys.Date(), by = "day")) %>%
+##   group_by(county) %>%
+##   tally(name = "n7") %>%
+##   filter(!is.na(county) & county != "Unknown") %>%
+##   bind_cols(case_county_cum) %>%
+##   rename(
+##     County= county,
+##     "Cases in last 7 days" =n7,
+##     "Total cases to date" =n
+##          )
+## }else{
+## county7 <- tibble(
+##   County = c("Fairfield County", "Hartford County", "Litchfield County", "New Haven County", "Tolland County", "Middlesex County", "New London County","Windham County", NA ),
+##   "Cases in last 7 days" = 0,
+##   "Total cases to date" = 0
+## )
+## }
+##
+## if(csv_write){
+##   write_csv(county7,
+##             paste0("L:/daily_reporting_figures_rdp/csv/",
+##                    Sys.Date(), "/", "county7days.csv"))
+## }
+##
 
-```
 
-```{r town_case_eids,  message=FALSE, warning=FALSE, include=FALSE}
+## ----town_case_eids,  message=FALSE, warning=FALSE, include=FALSE--------------------------------------------------
 thisweek <-  epiweek(Sys.Date())
 townlhd <- read_csv("L:/daily_reporting_figures_rdp/dependancies/towntolhd10_30.csv")
 
-cases <- case %>% 
+cases <- case %>%
   # mutate(cong_yn = if_else((str_detect(cong_exposure_type, "Reside")) &
   #                            (str_detect(cong_setting, "Jail / Prison") | str_detect(cong_setting, "Long term care facility") | str_detect(cong_setting, "Assisted Living Facility")),
   #                          "Yes", "No", missing = "No")
-  # ) %>% 
+  # ) %>%
   filter(mmwrweek >= thisweek-2 & mmwrweek <= thisweek-1) %>%
-  filter(cong_yn == "No") %>% 
+  filter(cong_yn == "No") %>%
   select(eventid, city)
-TOI <- unique(town_pop18$city) 
+TOI <- unique(town_pop18$city)
 # dir.create("town_case_eventids")
 dir.create(paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", Sys.Date()))
-mastercase <- cases %>% 
-  left_join(townlhd, by = c("city" = "Town")) %>% 
-  select(eventid, city, `Health Department Name`) %>% 
-  filter(!is.na(city) & !is.na(`Health Department Name`) & city != "Not Available") %>% 
+mastercase <- cases %>%
+  left_join(townlhd, by = c("city" = "Town")) %>%
+  select(eventid, city, `Health Department Name`) %>%
+  filter(!is.na(city) & !is.na(`Health Department Name`) & city != "Not Available") %>%
   arrange(`Health Department Name`, city)
 
 if(csv_write){
-  write_csv(mastercase, 
-            path = paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", 
+  write_csv(mastercase,
+            path = paste0("L:/daily_reporting_figures_rdp/town_case_eventids/",
                           Sys.Date(), "/", "mastereventidlist.csv"))
 }
 
 if(csv_write) {
   for(i in TOI){
-    casesi <- cases %>%  
-      filter(city == i) %>% 
+    casesi <- cases %>%
+      filter(city == i) %>%
       select(eventid)
-    
-    dir.create(paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", 
-                      Sys.Date(), "/", 
-                      townlhd$`Health Department Name`[townlhd$Town == i]))  
-    write_csv(casesi, 
-              path = paste0("L:/daily_reporting_figures_rdp/town_case_eventids/", 
-                            Sys.Date(), "/", 
+
+    dir.create(paste0("L:/daily_reporting_figures_rdp/town_case_eventids/",
+                      Sys.Date(), "/",
+                      townlhd$`Health Department Name`[townlhd$Town == i]))
+    write_csv(casesi,
+              path = paste0("L:/daily_reporting_figures_rdp/town_case_eventids/",
+                            Sys.Date(), "/",
                             townlhd$`Health Department Name`[townlhd$Town == i] ,
-                            "/", i, "last2week.csv"))  
+                            "/", i, "last2week.csv"))
   }
 }
 
-```
 
