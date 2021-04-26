@@ -284,8 +284,9 @@ ConProbByDate <- epicurve %>%
   pivot_wider(id_cols = Date, names_from = type, values_from = CaseCount) 
 ConProbByDate[is.na(ConProbByDate)] <- 0
 ConProbByDate <- ConProbByDate %>% 
-  mutate(Total =  Confirmed + Probable) %>% 
-  select(Date, Confirmed, Probable, Total)
+  mutate(Total =  Confirmed + Probable,
+         DateUpdated = graphdate) %>% 
+  select(Date, Confirmed, Probable, Total, DateUpdated)
 
 #printing
 if (csv_write) {
@@ -384,10 +385,11 @@ DodSummary<- case %>%
   complete(death_date = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), 
            disease_status = c("Confirmed", "Probable"), fill = list(n = 0)) %>% 
   pivot_wider(id_cols = c(death_date, disease_status), names_from = c(disease_status), values_from = n) %>%
-  mutate(TotalDeaths = Confirmed + Probable) %>% 
+  mutate(TotalDeaths = Confirmed + Probable,
+         DateUpdated = graphdate) %>% 
   rename(dateofDeath = death_date, ConfirmedDeaths = Confirmed,
          ProbableDeaths = Probable) %>% 
-  select(dateofDeath, TotalDeaths, ConfirmedDeaths, ProbableDeaths)
+  select(dateofDeath, TotalDeaths, ConfirmedDeaths, ProbableDeaths,DateUpdated)
 
 #printing
 if(csv_write){
@@ -421,9 +423,10 @@ TestCounty <- elr_linelist %>%
   rename(date = spec_col_date, number_of_ag_indeterminates = ag_Indeterminate,
          number_of_ag_positives = ag_Positive, number_of_ag_negatives = ag_Negative,
          number_of_pcr_positives = pcr_Positive, number_of_pcr_negatives = pcr_Negative, 
-         number_of_pcr_indeterminates = pcr_Indeterminate) %>% 
+         number_of_pcr_indeterminates = pcr_Indeterminate,
+         DateUpdated = graphdate) %>% 
   select(county, date, number_of_pcr_tests, number_of_pcr_positives, number_of_pcr_negatives,	number_of_pcr_indeterminates,
-         number_of_ag_tests, number_of_ag_positives, number_of_ag_negatives, number_of_ag_indeterminates)
+         number_of_ag_tests, number_of_ag_positives, number_of_ag_negatives, number_of_ag_indeterminates,DateUpdated)
 
 #printing
 if(csv_write){
