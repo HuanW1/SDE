@@ -1,11 +1,27 @@
 #### Module 5 / misc thursday requested_outputs ####
 #This script will generate the COVID-19 reporting thursday-specific outputs needed for historical use cases and other stakeholders
 message("Thursday-specific output process will now begin")
+
+####0 thursday setup ####
 #replaces chunk at line 3451 and chunk at line 3488
 thursday_range_start <- floor_date(Sys.Date() - 12, unit = "week")
 thursday_range_end <- thursday_range_start + 13
 
-#set up by mod5 setup
+testgeo_con <- DBI::dbConnect(odbc::odbc(), "epicenter")
+
+geocoded_community_tests <- 
+  tbl(testgeo_con, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.CTEDSS_GEOCODED_RECORDS")) %>%
+  select(case_id,name, DBA) %>%
+  mutate(newName = if_else(name %in% c("", "NULL"), NA_character_, name),
+         DBA = if_else(DBA %in% c("", "NULL"), NA_character_, DBA),
+         facil_name = if_else(is.na(newName), DBA, name),
+         cong_test = if_else(!is.na(facil_name), "Yes", "No"),
+         eventid = as.numeric(case_id)) %>%
+  select(eventid, cong_test) %>%
+  collect() %>% 
+  filter(!cong_test %in% "Yes") %>% 
+  inner_join(elr_linelist, by = "eventid")
+
 
 ####1 CT_daily_counts_totals.csv / modelingdata ####
 spec_dates <- case %>% 
@@ -51,21 +67,6 @@ rm(spec_dates, admissions, labdata, CT_daily_counts_totals)
 message("1/8 thursday tables have finished")
 
 ####2 newcases+tests.csv / newcasetable ####
-testgeo_con <- DBI::dbConnect(odbc::odbc(), "epicenter")
-
-geocoded_community_tests <- 
-  tbl(testgeo_con, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.CTEDSS_GEOCODED_RECORDS")) %>%
-  select(case_id,name, DBA) %>%
-  mutate(newName = if_else(name %in% c("", "NULL"), NA_character_, name),
-         DBA = if_else(DBA %in% c("", "NULL"), NA_character_, DBA),
-         facil_name = if_else(is.na(newName), DBA, name),
-         cong_test = if_else(!is.na(facil_name), "Yes", "No"),
-         eventid = as.numeric(case_id)) %>%
-  select(eventid, cong_test) %>%
-  collect() %>% 
-  filter(!cong_test %in% "Yes") %>% 
-  inner_join(elr_linelist, by = "eventid")
-
 newcases_tests <- case %>%
   filter(date >= thursday_range_start & date <= thursday_range_end 
          & city %in% city_file$TOWN_LC & cong_yn == "No") %>%
@@ -231,7 +232,12 @@ CTTown_Alert  <-
                by = c("city" = "TOWN_LC")) %>% 
     inner_join(CTTown_Alert, by = "city") %>% 
   select(TOWNNO, city, pop_2019, caseweek1, caseweek2, totalcases, CaseRate, RateCategory, TotalTests, PercentPositive, DateUpdated, ReportPeriodStartDate, ReportPeriodEndDate) %>% 
-  rename(Town_No = TOWNNO, Town = city)
+  rename(Town_No = TOWNNO, Town = city) %>% 
+  #censoring counts and rates for small numbers
+  mutate(caseweek1 = ifelse(RateCategory == "1. <5 cases per 100,000 or <5 reported cases", NA, caseweek1),
+         caseweek2 =ifelse(RateCategory == "1. <5 cases per 100,000 or <5 reported cases", NA, caseweek2),
+         totalcases =ifelse(RateCategory == "1. <5 cases per 100,000 or <5 reported cases", NA, totalcases),
+         CaseRate =ifelse(RateCategory == "1. <5 cases per 100,000 or <5 reported cases", NA, CaseRate))
     
 if(csv_write) {
   write_csv(CTTown_Alert, 
