@@ -209,10 +209,12 @@ newggslopegraph <- function(dataframe,
                             ReverseYAxis = FALSE,
                             ReverseXAxis = FALSE,
                             RemoveMissing = TRUE,
+                            includeX0 = FALSE,
+                            xlab_position = "top",
                             ThemeChoice = "bw") {
-  
+
   # ---------------- theme selection ----------------------------
-  
+
   if (ThemeChoice == "bw") {
     theme_set(theme_bw())
   } else if (ThemeChoice == "ipsum") {
@@ -236,13 +238,13 @@ newggslopegraph <- function(dataframe,
   } else {
     theme_set(theme_bw())
   }
-  
+
   # ---------------- ggplot setup work ----------------------------
-  
+
   # Since ggplot2 objects are just regular R objects, put them in a list
   MySpecial <- list(
     # Format tweaks
-    scale_x_discrete(position = "top"), # move the x axis labels up top
+    scale_x_discrete(position = xlab_position), # move the x axis labels up top
     theme(legend.position = "none"), # Remove the legend
     theme(panel.border = element_blank()), # Remove the panel border
     theme(axis.title.y = element_blank()), # Remove just about everything from the y axis
@@ -267,9 +269,9 @@ newggslopegraph <- function(dataframe,
       hjust = justifyme(CaptionJustify)
     ))
   )
-  
+
   # ---------------- input checking ----------------------------
-  
+
   # error checking and setup
   if (length(match.call()) <= 4) {
     stop("Not enough arguments passed requires a dataframe, plus at least three variables")
@@ -278,11 +280,11 @@ newggslopegraph <- function(dataframe,
   if (!hasArg(dataframe)) {
     stop("You didn't specify a dataframe to use", call. = FALSE)
   }
-  
+
   NTimes <- deparse(substitute(Times)) # name of Times variable
   NMeasurement <- deparse(substitute(Measurement)) # name of Measurement variable
   NGrouping <- deparse(substitute(Grouping)) # name of Grouping variable
-  
+
   if(is.null(argList$Data.label)) {
     NData.label <- deparse(substitute(Measurement))
     Data.label <- argList$Measurement
@@ -290,7 +292,7 @@ newggslopegraph <- function(dataframe,
     NData.label <- deparse(substitute(Data.label))
     #     Data.label <- argList$Data.label
   }
-  
+
   Ndataframe <- argList$dataframe # name of dataframe
   if (!is(dataframe, "data.frame")) {
     stop(paste0("'", Ndataframe, "' does not appear to be a data frame"))
@@ -326,27 +328,31 @@ newggslopegraph <- function(dataframe,
       }
     }
   }
-  
+
   Times <- enquo(Times)
   Measurement <- enquo(Measurement)
   Grouping <- enquo(Grouping)
   Data.label <- enquo(Data.label)
-  
+
   # ---------------- handle some special options ----------------------------
-  
+
   if (ReverseXAxis) {
     dataframe[[NTimes]] <- forcats::fct_rev(dataframe[[NTimes]])
   }
-  
+
   NumbOfLevels <- nlevels(factor(dataframe[[NTimes]]))
   if (WiderLabels) {
     MySpecial <- c(MySpecial, expand_limits(x = c(0, NumbOfLevels + 1)))
   }
-  
+
+  if (includeX0) {
+    MySpecial <- c(MySpecial, expand_limits(y = 0))
+  }
+
   if (ReverseYAxis) {
     MySpecial <- c(MySpecial, scale_y_reverse())
   }
-  
+
   if (length(LineColor) > 1) {
     if (length(LineColor) < length(unique(dataframe[[NGrouping]]))) {
       message(paste0("\nYou gave me ", length(LineColor), " colors I'm recycling colors because you have ", length(unique(dataframe[[NGrouping]])), " ", NGrouping, "s\n"))
@@ -360,7 +366,7 @@ newggslopegraph <- function(dataframe,
       LineGeom <- list(geom_line(aes_(), size = LineThickness, color = LineColor))
     }
   }
-  
+
   # logic to sort out missing values if any
   if (anyNA(dataframe[[NMeasurement]])) { # are there any missing
     if (RemoveMissing) { # which way should we handle them
@@ -373,9 +379,9 @@ newggslopegraph <- function(dataframe,
         filter(!is.na(!!Measurement))
     }
   }
-  
+
   # ---------------- main ggplot routine ----------------------------
-  
+
   dataframe %>%
     ggplot(aes_(group = Grouping, y = Measurement, x = Times)) +
     LineGeom +
@@ -430,7 +436,7 @@ newggslopegraph <- function(dataframe,
       subtitle = SubTitle,
       caption = Caption
     )
-  
+
   # implicitly return plot object
 } # end of function
 
