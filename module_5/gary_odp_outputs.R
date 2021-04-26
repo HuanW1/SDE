@@ -353,7 +353,6 @@ AgeGroupSummary <- case %>%
          DateUpdated = graphdate) %>% 
   left_join(pop, by = c("age_group" = "age_group")) %>% 
   mutate(TotalCaseRate = round((TotalCases/pop)*100000),
-         DateUpdated = graphdate,
          age_group = factor(age_group, levels = age_labels, labels = age_labels)) %>% 
   rename(AgeGroups = age_group, ProbableDeaths = Probable_Died, 
          ConfirmedDeaths = Confirmed_Died) %>% 
@@ -419,12 +418,12 @@ TestCounty <- elr_linelist %>%
   pivot_wider(id_cols = c(county, pcrag, result, spec_col_date), names_from = c(pcrag, result),
               values_from = n) %>% 
   mutate(number_of_ag_tests = ag_Indeterminate + ag_Negative + ag_Positive,
-         number_of_pcr_tests = pcr_Indeterminate + pcr_Negative + pcr_Positive) %>% 
+         number_of_pcr_tests = pcr_Indeterminate + pcr_Negative + pcr_Positive,
+         DateUpdated = graphdate) %>% 
   rename(date = spec_col_date, number_of_ag_indeterminates = ag_Indeterminate,
          number_of_ag_positives = ag_Positive, number_of_ag_negatives = ag_Negative,
          number_of_pcr_positives = pcr_Positive, number_of_pcr_negatives = pcr_Negative, 
-         number_of_pcr_indeterminates = pcr_Indeterminate,
-         DateUpdated = graphdate) %>% 
+         number_of_pcr_indeterminates = pcr_Indeterminate) %>% 
   select(county, date, number_of_pcr_tests, number_of_pcr_positives, number_of_pcr_negatives,	number_of_pcr_indeterminates,
          number_of_ag_tests, number_of_ag_positives, number_of_ag_negatives, number_of_ag_indeterminates,DateUpdated)
 
@@ -449,7 +448,7 @@ CountySummarybyDate <- case %>%
   ungroup() %>% 
   complete(date = seq.Date(as.Date("2020-03-02"), Sys.Date()-1, by = "day"), 
            county = counties, fill = list(Count = 0)) %>% 
-  mutate(DateUpdated = Sys.Date()) %>% 
+  mutate(DateUpdated = graphdate) %>% 
   rename(County = county, Date = date) %>% 
   arrange(Date, County)
 
