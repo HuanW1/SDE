@@ -1,13 +1,21 @@
 #jan 2021 originated by AK
 
-# loading the required libraries
-library(readxl)			# read_excel
-library(dplyr)			# filter
-library(stringr)			# str_to_title
-library(tidyr)
-library(tidyverse)
-library(stringdist)
-library(lubridate)
+#pointing to L drive for libraries
+if(!dir.exists("L:/")) message("You need to have L drive mapped")
+
+source("helpers/StartMeUp.R")
+
+.libPaths("L:/newlib")
+
+# # loading the required libraries
+# library(readxl)			# read_excel
+# library(dplyr)			# filter
+# library(stringr)			# str_to_title
+# library(tidyr)
+# library(tidyverse)
+# library(stringdist)
+# library(lubridate)
+
 
 ###########################
 ## importing the old OCME list, subseting to covid deaths
@@ -20,6 +28,7 @@ newocme <-  read.csv("L:/daily_reporting_figures_rdp/DeathRostering/new.csv") %>
 
 #### link on ocme id and only keep the new people for the day
 OCME_newdeaths <- anti_join(newocme, oldocme, by=c("OCME."))
+
 
 Roster <- OCME_newdeaths  %>% 
   separate(col = Name, into = c("lname", "fname"), sep = ",") %>% 
@@ -48,7 +57,6 @@ black_inds = grep("Black",Roster$Race,ignore.case=TRUE)
 if (length(black_inds)>0){
   Roster$Race[black_inds]="Black or African American"
 }
-
 
 
 # SQL connection
