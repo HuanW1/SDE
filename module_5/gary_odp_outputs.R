@@ -5,6 +5,7 @@ message("Gary's ODP output process will now begin")
 ####1 REStateSummary.csv ####
 #summary by race/ethnicity
 REStateSummary <- race_eth_comb %>% 
+  select(-c(caserate100k, deathrate100k)) %>% 
   left_join(adj_table) %>% 
   rename(
     CrudeCaseRate = Crude,
