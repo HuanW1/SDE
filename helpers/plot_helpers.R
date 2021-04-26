@@ -254,6 +254,7 @@ newggslopegraph <- function(dataframe,
     theme(axis.title.x = element_blank()), # Remove a few things from the x axis
     theme(panel.grid.major.x = element_blank()),
     theme(axis.text.x.top = element_text(size = XTextSize, face = "bold")), # and increase font size
+    theme(axis.text.x.bottom = element_text(size = XTextSize, face = "bold")), # and increase font size
     theme(axis.ticks = element_blank()), # Remove x & y tick marks
     theme(plot.title = element_text(
       size = TitleTextSize,
@@ -358,7 +359,9 @@ newggslopegraph <- function(dataframe,
       message(paste0("\nYou gave me ", length(LineColor), " colors I'm recycling colors because you have ", length(unique(dataframe[[NGrouping]])), " ", NGrouping, "s\n"))
       LineColor <- rep(LineColor, length.out = length(unique(dataframe[[NGrouping]])))
     }
-    LineGeom <- list(geom_line(aes_(color = Grouping), size = LineThickness), scale_color_manual(values = LineColor))
+    LineGeom <- list(geom_line(aes_(color = Grouping),
+                               size = LineThickness),
+                     scale_color_manual(values = LineColor))
   } else {
     if (LineColor == "ByGroup") {
       LineGeom <- list(geom_line(aes_(color = Grouping, alpha = 1), size = LineThickness))
@@ -392,8 +395,8 @@ newggslopegraph <- function(dataframe,
       hjust = "left",
       box.padding = 0.10,
       point.padding = 0.10,
-      segment.color = "gray",
-      segment.alpha = 0.6,
+      segment.color = "darkgray",
+      segment.alpha = 0.8,
       fontface = "bold",
       size = YTextSize,
       nudge_x = -1.95,
@@ -408,8 +411,8 @@ newggslopegraph <- function(dataframe,
       hjust = "right",
       box.padding = 0.10,
       point.padding = 0.10,
-      segment.color = "gray",
-      segment.alpha = 0.6,
+      segment.color = "darkgray",
+      segment.alpha = 0.8,
       fontface = "bold",
       size = YTextSize,
       nudge_x = 1.95,
