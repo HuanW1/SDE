@@ -182,6 +182,14 @@ not_a_factor <- function(x){
 #'   DataLabelPadding = .2,
 #'   DataLabelLineSize = .5
 #' )
+#'
+
+library("ggrepel",
+        lib.loc = "L:/newlib",
+        quietly = TRUE,
+        warn.conflicts = FALSE,
+        logical.return = TRUE)
+
 newggslopegraph <- function(dataframe,
                             Times,
                             Measurement,
