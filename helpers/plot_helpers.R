@@ -351,7 +351,16 @@ newggslopegraph <- function(dataframe,
 
   NumbOfLevels <- nlevels(factor(dataframe[[NTimes]]))
   if (WiderLabels) {
-    MySpecial <- c(MySpecial, expand_limits(x = c(0, NumbOfLevels + 1)))
+    MySpecial <- c(MySpecial, expand_limits(x = c(-2, NumbOfLevels + 3)))
+    ybox.padding <-  .50
+    yforce <- 15
+    lnudge_x = -4.95
+    rnudge_x = 4.95
+  } else {
+    ybox.padding <-  .10
+    yforce <- .5
+    lnudge_x = -1.95
+    rnudge_x = 1.95
   }
 
   if (includeX0) {
@@ -401,15 +410,15 @@ newggslopegraph <- function(dataframe,
       data = . %>% filter(!!Times == min(!!Times)),
       aes_(label = Grouping),
       hjust = "left",
-      box.padding = 0.10,
+      box.padding = ybox.padding,
       point.padding = 0.10,
       segment.color = "darkgray",
       segment.alpha = 0.8,
       fontface = "bold",
       size = YTextSize,
-      nudge_x = -1.95,
+      nudge_x = lnudge_x,
       direction = "y",
-      force = .5,
+      force = yforce,
       max.iter = 3000
     ) +
     # right side y axis labels
@@ -417,15 +426,15 @@ newggslopegraph <- function(dataframe,
       data = . %>% filter(!!Times == max(!!Times)),
       aes_(label = Grouping),
       hjust = "right",
-      box.padding = 0.10,
+      box.padding = ybox.padding,
       point.padding = 0.10,
       segment.color = "darkgray",
       segment.alpha = 0.8,
       fontface = "bold",
       size = YTextSize,
-      nudge_x = 1.95,
+      nudge_x = rnudge_x,
       direction = "y",
-      force = .5,
+      force = yforce,
       max.iter = 3000
     ) +
     # data point labels
