@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
 
 #### required packages are on L: ####
 source("helpers/StartMeUp.R")
+source("helpers/plot_helpers.R")
 
 
 dir <- "L:/daily_reporting_figures_rdp/"
@@ -69,53 +70,8 @@ casenew <- casenew %>%
   ) 
 count(casenew, cong_yn)
 
-#6. create community only testing dataset - changing the logic to capture the latest geo coded dataset
+#6. create community only testing dataset
 monthday <- format(Sys.Date()-1, "%b_%d_%y")
-
-# con <- DBI::dbConnect(odbc::odbc(), "epicenter")
-# 
-# most_current_geo <- 
-#   odbc::odbcListObjects(con, 
-#                         catalog = "DPH_COVID_IMPORT", 
-#                         schema = "dbo") %>% 
-#   filter(stringr::str_detect(string = name, 
-#                              pattern = "Geo_Tract")) %>%
-#   tidyr::separate(data = .,
-#                   col = name,
-#                   sep = "_",
-#                   into = c("month", "day"),
-#                   extra = "drop",
-#                   remove = FALSE) %>%
-#   mutate(table_date = mdy(paste(month, 
-#                                 day, 
-#                                 year(Sys.Date()), 
-#                                 sep = "-"))) %>%
-#   slice_max(order_by = table_date) %>%
-#   pull(name)
-# 
-# statement <- paste0("SELECT [r].[case_id]
-#                               ,[r].[X]
-#                               ,[r].[Y]
-#                               ,[r].[geoid10]
-#                               ,[r].[Name]
-#                               ,[r].[License__]
-#                               ,[r].[DBA]
-#                               ,[r].[type]
-#                     FROM [DPH_COVID_IMPORT].[dbo].[", most_current_geo,"] as [r]")
-# alltestgeo <-  DBI::dbGetQuery(conn = con , statement = statement)
-# 
-# testgeo <- alltestgeo %>%
-#   mutate(Name = ifelse(Name %in% c("", "NULL"), NA, Name),
-#          DBA = ifelse(DBA %in% c("", "NULL"), NA, DBA),
-#          facil_name = if_else(is.na(Name), DBA, Name),
-#          cong_test = if_else(!is.na(facil_name), "Yes", "No"),
-#          eventid = as.numeric(case_id)) %>%
-#   rename(GEOID10 = geoid10) %>%
-#   select(-c("case_id", "Name", "License__", "DBA")) %>%
-#   group_by(eventid) %>%
-#   arrange(facil_name) %>%
-#   slice(1L) %>%
-#   ungroup()
 
 # Reflects new table from Tom CTEDSS_GEOCODED_RECORDS
 # eliminates expensive group and slice
@@ -1766,5 +1722,127 @@ ggplot(bigtowns)+
 
 ```
 
+```{r vaccine_age_grp, echo=FALSE, fig.height=6, fig.width=8}
+
+source("helpers/Fetch_case.R")
+
+graphdate <- today() - 1
+default_subtitle <- paste0("As of ", format(graphdate, "%m/%d/%Y"))
+
+thursday <- wday(today()) == 5
+wedthurs <- wday(today()) %in% c(5) # makes no sense this is the same as previous line
+not_thursday <- wday(today()) != 5
+
+thursday_range_start <- floor_date(today() - 12, unit = "week")
+thursday_range_end <- thursday_range_start + 13
+monthsame <- month(thursday_range_start) == month(thursday_range_end)
+
+if (monthsame) {
+  thursday_range <- paste0(
+    month(thursday_range_start, label = TRUE, abbr = FALSE), " ",
+    format(thursday_range_start, "%d"), '-',
+    format(thursday_range_end, "%d")
+  )
+} else {
+  thursday_range <- paste0(
+    lubridate::month(thursday_range_start, label = TRUE, abbr = FALSE), " ",
+    format(thursday_range_start, "%d"), '-', lubridate::month(thursday_range_end, label= TRUE, abbr = FALSE),
+    " ",
+    format(thursday_range_end, "%d")
+  )
+}
+
+thursday_case <- case %>%
+  filter(date >= thursday_range_start & date <= thursday_range_end )
+
+casenew <- thursday_case
+thisweek <- epiweek(today())
+thisyear <- epiyear(today())
+beginofcurmmwr <- MMWRweek2Date(MMWRyear = thisyear,
+                                MMWRweek = thisweek,
+                                MMWRday = 1)
+
+weeks <-  case %>%
+  select(date, mmwrweek) %>%
+  mutate(
+    year = epiyear(date),
+    mmwrweekdate = MMWRweek2Date(MMWRyear=year, MMWRweek=mmwrweek, MMWRday=7)
+  ) %>%
+  # filter(mmwrweek >= epiweek(today())-9) %>%
+  filter(date >= beginofcurmmwr - 63 & date <= today()) %>%
+  select(mmwrweekdate) %>%
+  arrange(mmwrweekdate) %>%
+  filter(!is.na(mmwrweekdate)) %>%
+  unique()
+
+maxweeks <- max(weeks$mmwrweekdate, na.rm = TRUE) - 7
+minweeks <- min(weeks$mmwrweekdate, na.rm = TRUE)
+weeks <- seq.Date(from = minweeks, to =  maxweeks, by= "7 days")
+
+epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
+ghost_data <- tbl(epi_connect, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.RPT_STATE_REA_DENOMS"))
+
+vaccine_pop <-
+  ghost_data %>%
+  filter(year == 2019) %>%
+  group_by(vax_age_groups) %>%
+  summarise(poppy = sum(pop, na.rm = TRUE)) %>%
+  rename(age_g = vax_age_groups,
+         total = poppy) %>%
+  arrange(vax_age_groups) %>%
+  collect()
+
+odbc::dbDisconnect(epi_connect)
+
+vaccine_labels <- c("<=15", "16-24", "25-34", "35-44", "45-54", "55-64", "65-74", "75+")
+
+nagegrp <- case %>%
+  mutate(
+    #year = 2020,
+    year = epiyear(date),
+    mmwrweekdate = MMWRweek2Date(MMWRyear = year,
+                                 MMWRweek = mmwrweek,
+                                 MMWRday=7)
+  ) %>%
+  filter(mmwrweekdate %in% weeks) %>%
+  mutate(age_group =
+           cut(age, breaks = c(-1, 15, 24, 34, 44, 54, 64, 74, Inf),
+               labels = vaccine_labels)) %>%
+  group_by(age_group, mmwrweekdate) %>%
+  tally() %>%
+  filter(!is.na(age_group)) %>%
+  complete(mmwrweekdate = weeks, fill = list( n = 0)) %>%
+  mutate(n2 = lag(n)) %>%
+  filter(!is.na(mmwrweekdate) &  !is.na(n2)) %>%
+  arrange(mmwrweekdate) %>%
+  mutate(n3 = n + n2) %>%
+  left_join(vaccine_pop, by=c("age_group" = "age_g")) %>%
+  ungroup() %>%
+  mutate(
+    mmwrweekdate = factor(mmwrweekdate),
+    rate_100k = (n3/14/total)*100000,
+    age_group = factor(age_group, labels = vaccine_labels, levels = vaccine_labels ),
+    pretty = paste0(round(rate_100k)),
+    rate_rounded = round(rate_100k),
+    better_age_group = fct_relabel(age_group, ~ paste("Age", .))
+  )
+
+my_colors <- colorspace::sequential_hcl(n = nlevels(nagegrp$age_group),
+                                        palette = "Plasma")
+
+newggslopegraph(nagegrp,
+                Times = mmwrweekdate,
+                Measurement = rate_rounded,
+                Grouping = age_group,
+                Title = "Average daily rate of COVID-19 cases by Vaccine age group",
+                SubTitle = default_subtitle,
+                Caption = NULL,
+                LineThickness = 2,
+                DataLabelPadding = 0.1,
+                XTextSize = 10,
+                LineColor = my_colors
+)
+
+```
 
 
