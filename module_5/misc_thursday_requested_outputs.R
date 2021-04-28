@@ -60,7 +60,7 @@ CT_daily_counts_totals <- bind_cols(spec_dates, admissions, deathsdata, labdata)
 
 if(csv_write){
   write_csv(CT_daily_counts_totals, 
-            paste0("L:/Outputs/",Sys.Date(),"/THR_CT_daily_counts_totals.csv"))
+            paste0("L:/Outputs/",Sys.Date(),"/THR_EPI_CT_daily_counts_totals.csv"))
 }
 #clear trash
 rm(spec_dates, admissions, labdata, CT_daily_counts_totals)
@@ -92,7 +92,7 @@ newcases_tests <- geocoded_community_tests %>%
   
 if(csv_write){
   write_csv(newcases_tests, 
-            paste0("L:/Outputs/",Sys.Date(),"/THR_newcases_tests.csv"))
+            paste0("L:/Outputs/",Sys.Date(),"/THR_EPI_newcases_tests.csv"))
 }
 #clear trash
 rm(newcases_tests)
@@ -116,7 +116,7 @@ dailytest_communityonly <-
 
 if(csv_write){
   write_csv(dailytest_communityonly, 
-            paste0("L:/Outputs/",Sys.Date(),"/THR_dailytest_communityonly.csv"))
+            paste0("L:/Outputs/",Sys.Date(),"/THR_EPI_dailytest_communityonly.csv"))
 }
 #clear trash
 rm(dailytest_communityonly)
@@ -142,7 +142,7 @@ communitytest_county <-
 
 if(csv_write){
   write_csv(communitytest_county, 
-            paste0("L:/Outputs/",Sys.Date(),"/THR_communitytest_county.csv"))
+            paste0("L:/Outputs/",Sys.Date(),"/THR_EPI_communitytest_county.csv"))
 }
 #clear trash
 rm(communitytest_county)
@@ -241,7 +241,7 @@ CTTown_Alert  <-
     
 if(csv_write) {
   write_csv(CTTown_Alert, 
-            paste0("L:/Outputs/",Sys.Date(),"/ODP_CTTown_Alert.csv"))
+            paste0("L:/Outputs/",Sys.Date(),"/ODP_EPI_CTTown_Alert.csv"))
 }
 
 if(SQL_write){
@@ -299,7 +299,7 @@ TownAlertLevelsTable <-
 
 if(csv_write) {
   write_csv(TownAlertLevelsTable, 
-            paste0("L:/Outputs/",Sys.Date(),"/THR_TownAlertLevelsTable.csv"))
+            paste0("L:/Outputs/",Sys.Date(),"/THR_EPI_TownAlertLevelsTable.csv"))
 }
 #clear trash
 rm(rank, lastdate)
@@ -327,7 +327,7 @@ SummaryAlertLevelsTable <- TownAlertLevelsTable %>%
  
 if(csv_write){
   write_csv(SummaryAlertLevelsTable, paste0("L:/Outputs/",Sys.Date(),
-                                            "/THR_SummaryAlertLevelsTable.csv"))
+                                            "/THR_EPI_SummaryAlertLevelsTable.csv"))
 }
 
 rm(geocoded_community_tests, thursday_range_start, thursday_range_end,
