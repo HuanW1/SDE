@@ -23,6 +23,8 @@ options(scipen = 999)
 source("helpers/StartMeUp.R")
 source("helpers/testtypes.R")
 source("helpers/outofstatecolleges.R")
+source("helpers/plot_helpers.R")
+
 
 #### kable options ####
 options(kableExtra.auto_format = FALSE)
@@ -91,12 +93,6 @@ cc_map <-
   read_csv(paste0("L:/daily_reporting_figures_rdp/dependancies/City County Mapping.csv"),
            col_types = "cc") %>% 
   mutate(COUNTY = paste0(COUNTY," County"))
-
-# #county populations
-# county_pop <- 
-#   read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv",
-#            col_types = "cn") %>% 
-#   mutate(County = paste0(County, " County"))
 
 ### Using SQL 2019 county populations
 epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
@@ -491,13 +487,6 @@ congregate_pull <-
   mutate(cong_yn = str_to_sentence(cong_yn),
          cong_setting = if_else(cong_setting == "NA", "Other", cong_setting),
          cong_facility = if_else(cong_facility == "NA", "Unknown", cong_facility))
-
-# glimpse(congregate_pull)
-
-# Do a left_join and replace
-# cong_yn, cong_facility, cong_setting
-# with updated values
-# end result same number of case rows and columns
 
 case <-
   left_join(case, congregate_pull, by = c("eventid" = "Event_ID")) %>%
@@ -1376,77 +1365,77 @@ save(agegrp,
      file = paste0("l:/recent_rdata/for_josh.RData" ))
 
 
-epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
-ghost_data <- tbl(epi_connect, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.RPT_STATE_REA_DENOMS"))
-
-vaccine_pop <-
-  ghost_data %>%
-  filter(year == 2019) %>%
-  group_by(vax_age_groups) %>%
-  summarise(poppy = sum(pop, na.rm = TRUE)) %>%
-  rename(age_g = vax_age_groups,
-         total = poppy) %>%
-  arrange(vax_age_groups) %>%
-  collect()
-
-odbc::dbDisconnect(epi_connect)
-
-vaccine_labels <- c("<=15", "16-24", "25-34", "35-44", "45-54", "55-64", "65-74", "75+")
-
-nagegrp <- case %>%
-  mutate(
-    #year = 2020,
-    year = epiyear(date),
-    mmwrweekdate = MMWRweek2Date(MMWRyear = year, 
-                                 MMWRweek = mmwrweek, 
-                                 MMWRday=7)
-  ) %>% 
- filter(mmwrweekdate %in% weeks) %>% 
-  mutate(age_group = 
-           cut(age, breaks = c(-1, 15, 24, 34, 44, 54, 64, 74, Inf), 
-               labels = vaccine_labels)) %>% 
-  group_by(age_group, mmwrweekdate) %>% 
-  tally() %>% 
-  filter(!is.na(age_group)) %>% 
-  complete(mmwrweekdate = weeks, fill = list( n = 0)) %>%  
-  mutate(n2 = lag(n)) %>%
-  filter(!is.na(mmwrweekdate) &  !is.na(n2)) %>% 
-  arrange(mmwrweekdate) %>% 
-  mutate(n3 = n + n2) %>% 
-  left_join(vaccine_pop, by=c("age_group" = "age_g")) %>% 
-  ungroup() %>% 
-  mutate(
-    mmwrweekdate = factor(mmwrweekdate),
-    rate_100k = (n3/14/total)*100000,
-    age_group = factor(age_group, labels = vaccine_labels, levels = vaccine_labels )
-         )
-
-ggplot(nagegrp, aes(x = mmwrweekdate, 
-                   y = rate_100k,
-                   color = age_group, 
-                   group = age_group)) +
-  geom_line(size = 1) +
-  expand_limits(y = 0) +
-  scale_color_brewer(palette = "Paired") +
-  theme_minimal() +
-  theme(
-    panel.grid.minor.x = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.y = element_blank(),
-    axis.text.x=element_text(angle=45, hjust=1),
-    legend.background = element_rect(),
-    legend.position = "bottom"
-  ) +
-  labs(
-    title= "Average daily rate of COVID-19 cases by vaccine age group",
-    subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
-    x = NULL,
-    y = "Rate per 100,000 population",
-    color = "Age group (years)"
-  ) +
-  guides(
-    col = guide_legend(nrow = 2)
-  )
+# epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
+# ghost_data <- tbl(epi_connect, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.RPT_STATE_REA_DENOMS"))
+# 
+# vaccine_pop <-
+#   ghost_data %>%
+#   filter(year == 2019) %>%
+#   group_by(vax_age_groups) %>%
+#   summarise(poppy = sum(pop, na.rm = TRUE)) %>%
+#   rename(age_g = vax_age_groups,
+#          total = poppy) %>%
+#   arrange(vax_age_groups) %>%
+#   collect()
+# 
+# odbc::dbDisconnect(epi_connect)
+# 
+# vaccine_labels <- c("<=15", "16-24", "25-34", "35-44", "45-54", "55-64", "65-74", "75+")
+# 
+# nagegrp <- case %>%
+#   mutate(
+#     #year = 2020,
+#     year = epiyear(date),
+#     mmwrweekdate = MMWRweek2Date(MMWRyear = year, 
+#                                  MMWRweek = mmwrweek, 
+#                                  MMWRday=7)
+#   ) %>% 
+#  filter(mmwrweekdate %in% weeks) %>% 
+#   mutate(age_group = 
+#            cut(age, breaks = c(-1, 15, 24, 34, 44, 54, 64, 74, Inf), 
+#                labels = vaccine_labels)) %>% 
+#   group_by(age_group, mmwrweekdate) %>% 
+#   tally() %>% 
+#   filter(!is.na(age_group)) %>% 
+#   complete(mmwrweekdate = weeks, fill = list( n = 0)) %>%  
+#   mutate(n2 = lag(n)) %>%
+#   filter(!is.na(mmwrweekdate) &  !is.na(n2)) %>% 
+#   arrange(mmwrweekdate) %>% 
+#   mutate(n3 = n + n2) %>% 
+#   left_join(vaccine_pop, by=c("age_group" = "age_g")) %>% 
+#   ungroup() %>% 
+#   mutate(
+#     mmwrweekdate = factor(mmwrweekdate),
+#     rate_100k = (n3/14/total)*100000,
+#     age_group = factor(age_group, labels = vaccine_labels, levels = vaccine_labels )
+#          )
+# 
+# ggplot(nagegrp, aes(x = mmwrweekdate, 
+#                    y = rate_100k,
+#                    color = age_group, 
+#                    group = age_group)) +
+#   geom_line(size = 1) +
+#   expand_limits(y = 0) +
+#   scale_color_brewer(palette = "Paired") +
+#   theme_minimal() +
+#   theme(
+#     panel.grid.minor.x = element_blank(),
+#     panel.grid.major.x = element_blank(),
+#     panel.grid.minor.y = element_blank(),
+#     axis.text.x=element_text(angle=45, hjust=1),
+#     legend.background = element_rect(),
+#     legend.position = "bottom"
+#   ) +
+#   labs(
+#     title= "Average daily rate of COVID-19 cases by vaccine age group",
+#     subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
+#     x = NULL,
+#     y = "Rate per 100,000 population",
+#     color = "Age group (years)"
+#   ) +
+#   guides(
+#     col = guide_legend(nrow = 2)
+#   )
 
 ```
 
@@ -1455,12 +1444,6 @@ ggplot(nagegrp, aes(x = mmwrweekdate,
 `r if(thursday){"The chart below shows the average number of new COVID-19 cases per day per 100,000 population in the state of Connecticut and for each Connecticut county. The rates in this chart are calculated by averaging the number of new cases diagnosed each day during the previous two weeks, dividing by the annual estimated population, and then multiplying by 100,000.  "}`
 
 ```{r plot_thurs_cases_county, message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300, fig.height=6, fig.width= 7.5}
-
-#### But why though?
-#incidence by county
-# countypop <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv") %>%
-#   mutate(County = paste0(County, " County")) %>%
-#   rename(pop = Total)
 
 countypop <- county_pop %>% rename(pop = Total)
 
