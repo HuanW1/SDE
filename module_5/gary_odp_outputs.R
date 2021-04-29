@@ -1,56 +1,11 @@
 #### Module 5 / gary_odp_outputs ####
 #This script will generate the COVID-19 reporting outputs needed for ODP and other stakeholders
-message("Gary's ODP output process will now begin.  This usually takes 3.5 minutes")
-
-####0 libraries, connections and data, oh my ####
-source("helpers/StartMeUp.R")
-gary_con <- DBI::dbConnect(odbc::odbc(), "epicenter")
-csv_write <- FALSE
-SQL_write <- FALSE
-
-#grab relevant test names, cases data, test data, and CHA data
-source("helpers/testtypes.R")
-source("helpers/Fetch_case.R")
-source("helpers/Fetch_ELR.R")
-source("helpers/Fetch_cha_c.R")
-
-####1 Load Lookups and Dependancies ####
-age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
-
-gary_age_labels <- c("cases_age0_9", "cases_age10_19", "cases_age20_29", "cases_age30_39", "cases_age40_49", "cases_age50_59", "cases_age60_69", "cases_age70_79", "cases_age80_Older" )
-
-statement <- paste0("SELECT * FROM [DPH_COVID_IMPORT].[dbo].[RPT_TOWN_CODES]")
-city_file <-  DBI::dbGetQuery(conn = gary_con , statement = statement)
-
-HospitalizedCases <- tibble(HospitalizedCases = cha_c$today[9])
-dec <- case %>% filter(outcome == "Died") %>%  nrow()
-counties <-c("Fairfield County", "Hartford County", "Litchfield County", "Middlesex County", "New Haven County", "New London County", "Tolland County", "Windham County")
-
-#sets up rea tables and percents
-source("race_ethnicity/race_ethnicity_setup.R")
-
-#state denoms
-ct_rea_denoms <- county_rea_denoms %>%
-  group_by(hisp_race) %>% 
-  summarize(pop = sum(pop))
-
-graphdate <- Sys.Date() - 1
-
-#only keep what we need
-case <- case %>% 
-  select(c(bigID,eventid,disease_status,age,gender,street, city,county, state,zip_code, hisp_race,outcome, spec_col_date,date, age_group,death_date)) %>% 
-  mutate(outcome = ifelse(is.na(outcome), "Survived", outcome)) 
-
-elr_linelist <- elr_linelist %>% 
-  select(c(eventid, bigID, city,county, test_method, result,spec_col_date, pcrag))
-
-#clear trash for race_ethnicity_setup
-odbc::dbDisconnect(gary_con)
-rm(adj_tbl_long, adj_tbl_long_dec, agg_table, agg_table_dec, more_ages, spop2000)
+message("Gary's ODP output process will now begin")
 
 ####1 REStateSummary.csv ####
 #summary by race/ethnicity
 REStateSummary <- race_eth_comb %>% 
+  select(-c(caserate100k, deathrate100k)) %>% 
   left_join(adj_table) %>% 
   rename(
     CrudeCaseRate = Crude,
@@ -73,16 +28,16 @@ REStateSummary <- race_eth_comb %>%
 
 #printing
 if(csv_write){
-  write_csv(REStateSummary , paste0("L:/daily_reporting_figures_rdp/gary_csv/", 
-                                    Sys.Date(), "/REStateSummary.csv"), na = "")
+  write_csv(REStateSummary , paste0("L:/Outputs/", 
+                                    Sys.Date(), "/ODP_EPI_REStateSummary.csv"), na = "")
 }
 if(SQL_write){
-  df_to_table(REStateSummary, "ODP_REStateSummary", overwrite = TRUE, append = FALSE)
+  df_to_table(REStateSummary, "ODP_EPI_REStateSummary", overwrite = TRUE, append = FALSE)
 }
 message("Table 1/11 complete, printed and pushed to SQL")
 
 #clear trash
-rm(race_eth_comb, REStateSummary, adj_table, adj_table_dec, gender_race_eth)
+rm(REStateSummary)
 
 ####2 CountySummary.csv####
 hospsum <- cha_c %>% filter(!is.na(NAME)) %>%  pull(today)
@@ -104,17 +59,20 @@ CountySummary<- case %>%
   mutate(TotalCaseRate = round((TotalCases/pop)*100000),
          DateUpdated = graphdate,
          county = factor(county, levels = counties, labels = counties),
-         Hospitalizations = hospsum) %>% 
+         Hospitalizations = hospsum,
+         CNTY_COD = factor(county, levels =c(
+             'Fairfield County','Hartford County','Litchfield County','Middlesex County','New Haven County','New London County', 'Tolland County', 'Windham County'), labels = c(1,2,3,4,5,6,7,8 ))) %>% 
   rename(County = county, ProbableDeaths = Probable_Died, 
          ConfirmedDeaths = Confirmed_Died) %>% 
-  select(County, TotalCases, ConfirmedCases, ProbableCases,TotalCaseRate, TotalDeaths, ConfirmedDeaths, ProbableDeaths, Hospitalizations,DateUpdated) 
+  select(CNTY_COD, County, TotalCases, ConfirmedCases, ProbableCases,TotalCaseRate, TotalDeaths, ConfirmedDeaths, ProbableDeaths, Hospitalizations,DateUpdated) %>% 
+  arrange(CNTY_COD)
 
 if(csv_write){
-  write_csv(CountySummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/CountySummary.csv"))
+  write_csv(CountySummary, paste0("L:/Outputs/", Sys.Date(), "/ODP_EPI_CountySummary.csv"))
 }
 
 if(SQL_write){
-  df_to_table(CountySummary, "ODP_CountySummary", overwrite = TRUE, append = FALSE)
+  df_to_table(CountySummary, "ODP_EPI_CountySummary", overwrite = TRUE, append = FALSE)
 }
 message("Table 2/11 complete, printed and pushed to SQL")
 #clear trash
@@ -137,7 +95,7 @@ tbl_total_col <-
   c(as.character(ncases),
     as.character(ntests),
     "",
-    as.character(HospitalizedCases$HospitalizedCases),
+    as.character(HospitalizedCases),
     as.character(dec))
 
 mock_table$`Total**` <- tbl_total_col
@@ -159,9 +117,9 @@ yesterday_col <-
     paste0("+", ncases - last_rpt_data$Cases),
     paste0("+", ntests - last_rpt_data$Tests),
     paste0(round(Positivity * 100, 2), "%"),
-    ifelse(HospitalizedCases$HospitalizedCases - last_rpt_data$Hospitalized > 0,
-           paste0("+", HospitalizedCases$HospitalizedCases - last_rpt_data$Hospitalized),
-           paste0(HospitalizedCases$HospitalizedCases - last_rpt_data$Hospitalized)),
+    ifelse(HospitalizedCases - last_rpt_data$Hospitalized > 0,
+           paste0("+", HospitalizedCases - last_rpt_data$Hospitalized),
+           paste0(HospitalizedCases - last_rpt_data$Hospitalized)),
     ifelse(dec - last_rpt_data$Deaths > 0,
            paste0("+", dec - last_rpt_data$Deaths),
            paste0(dec - last_rpt_data$Deaths))
@@ -184,10 +142,10 @@ StateSummary <- mock_table %>%
 
 #printing
 if (csv_write) {
-  write_csv(StateSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/StateSummary.csv"))
+  write_csv(StateSummary, paste0("L:/Outputs/", Sys.Date(), "/ODP_EPI_StateSummary.csv"))
 }
 if(SQL_write){
-  df_to_table(StateSummary, "ODP_StateSummary", overwrite = FALSE, append = TRUE)
+  df_to_table(StateSummary, "ODP_EPI_StateSummary", overwrite = FALSE, append = TRUE)
 }
 message("Table 3/11 complete, printed and pushed to SQL")
 #clear trash
@@ -200,7 +158,7 @@ state_Result <- case %>%
   mutate(outcome = ifelse(is.na(outcome), "Survived", outcome)) 
 
 state_Result <- tibble(`State` = "CONNECTICUT",
-                       `LastUppdateDate` = graphdate,
+                       DateUpdated = graphdate,
                        TotalCases = sum(state_Result$n),
                        ConfirmedCases = sum(state_Result %>% filter(disease_status == "Confirmed") %>%  pull(n)),
                        ProbableCases = sum(state_Result %>% filter(disease_status == "Probable") %>%  pull(n)),
@@ -213,18 +171,21 @@ state_Result <- tibble(`State` = "CONNECTICUT",
               filter(!is.na(age_group)) %>%
               group_by(age_group) %>%
               tally() %>%
-              pivot_wider(names_from = age_group, values_from = n))
+              pivot_wider(names_from = age_group, values_from = n)) %>% 
+  select(State, TotalCases, ConfirmedCases, ProbableCases, HospitalizedCases, 
+         TotalDeaths, ConfirmedDeaths, ProbableDeaths, `0-9`, `10-19`, `20-29`, 
+         `30-39`, `40-49`, `50-59`, `60-69`, `70-79`, `>=80`, DateUpdated)
 
 #printing
 if (csv_write) {
-  write_csv(state_Result, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/state_Result.csv"))
+  write_csv(state_Result, paste0("L:/Outputs/", Sys.Date(), "/ODP_EPI_state_Result.csv"))
 }
 if (SQL_write) {
-  df_to_table(state_Result, "ODP_state_Result", overwrite = TRUE, append = FALSE)
+  df_to_table(state_Result, "ODP_EPI_state_Result", overwrite = TRUE, append = FALSE)
 }
-message("Table 4/11 complete, printed and pushed to SQL")
+message("Table 4/11 complete, printed and pushed to SQL, 5 is a bit of a doozy.")
 #clear trash
-rm(state_Result, cha_c)
+rm(state_Result)
 
 ####5 town_Result.csv ####
   town_cases <- case %>% 
@@ -233,7 +194,8 @@ rm(state_Result, cha_c)
     tally() %>%
     rename(Town = city) %>% 
     ungroup() %>% 
-    complete(Town = city_file$TOWN_LC, outcome = c("Died", "Survived"),disease_status = c("Confirmed", "Probable"), fill = list(n = 0)) %>% 
+    complete(Town = city_file$TOWN_LC, outcome = c("Died", "Survived"),
+             disease_status = c("Confirmed", "Probable"), fill = list(n = 0)) %>% 
     left_join(city_file %>% select(TOWNNO, TOWN_LC,pop_2019),
                 by = c("Town" = "TOWN_LC")) %>% 
     group_by(Town) %>% 
@@ -242,13 +204,13 @@ rm(state_Result, cha_c)
     ungroup() %>% 
     pivot_wider(id_cols = c(Town, outcome, disease_status,TownTotalCases, TownCaseRate, TOWNNO ), names_from = c(outcome, disease_status), values_from = n) %>% 
     mutate(TownTotalDeaths = Died_Confirmed + Died_Probable,
-           LastUpdateDate = graphdate,
+           DateUpdated = graphdate,
            TownConfirmedCases = Died_Confirmed + Survived_Confirmed,
            TownProbableCases = Died_Probable + Survived_Probable) %>% 
   rename(Town_No = TOWNNO,
          TownConfirmedDeaths = Died_Confirmed,
          TownProbableDeaths = Died_Probable) %>% 
-  select(Town_No, Town, LastUpdateDate, TownTotalCases, TownConfirmedCases, TownProbableCases, TownTotalDeaths, TownConfirmedDeaths, TownProbableDeaths, TownCaseRate)
+  select(Town_No, Town, TownTotalCases, TownConfirmedCases, TownProbableCases, TownTotalDeaths, TownConfirmedDeaths, TownProbableDeaths, TownCaseRate, DateUpdated)
 
 #creating test counts by town and cleaning up names
 town_tests <- elr_linelist
@@ -271,7 +233,8 @@ town_tests <- town_tests %>%
 
 #Number of people tested by town
 town_people<- elr_linelist %>% 
-  filter(!city %in% c("Not_available", "Pending validation") & !is.na(city) & !is.na(spec_col_date) & city %in% city_file$TOWN_LC) %>%
+  filter(city %in% city_file$TOWN_LC & !is.na(city) 
+         & !is.na(spec_col_date) & city %in% city_file$TOWN_LC) %>%
   select(bigID, result, spec_col_date, city) %>% 
   mutate(simple_result = ifelse(result == "detected", 1, 2)) %>%
   group_by(bigID) %>%
@@ -282,7 +245,7 @@ town_people<- elr_linelist %>%
   group_by(Town) %>% 
   tally(name = "PeopleTested") %>% 
   mutate(Town = str_to_title(Town)) %>% 
-  left_join(city_file %>% select(TOWN_LC,pop_2019),
+  inner_join(city_file %>% select(TOWN_LC,pop_2019),
             by = c("Town" = "TOWN_LC")) %>% 
   mutate(RateTested100k = round(PeopleTested/pop_2019 * 100000)) %>% 
   select(-pop_2019)
@@ -290,14 +253,19 @@ town_people<- elr_linelist %>%
 #binding all the columns into gary_town_file
 town_Result <- town_cases %>% 
   inner_join(town_tests, by = "Town") %>% 
-  inner_join(town_people, by = "Town")
+  inner_join(town_people, by = "Town") %>% 
+  select(Town_No,Town, DateUpdated, TownTotalCases,	TownConfirmedCases, 
+         TownProbableCases,	TownTotalDeaths,	TownConfirmedDeaths,
+         TownProbableDeaths,	TownCaseRate,	PeopleTested,	NumberofTests,
+         NumberofPositives,	NumberofNegatives,	NumberofIndeterminates,
+         RateTested100k)
 
 #printing
  if (csv_write) {
-   write_csv(town_Result, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/town_Result.csv"))
+   write_csv(town_Result, paste0("L:/Outputs/", Sys.Date(), "/ODP_EPI_town_Result.csv"))
  }
  if (SQL_write) {
-   df_to_table(town_Result, "ODP_town_Result", overwrite = TRUE, append = FALSE)
+   df_to_table(town_Result, "ODP_EPI_town_Result", overwrite = TRUE, append = FALSE)
  }
 message("Table 5/11 complete, printed and pushed to SQL")
 #clear trash
@@ -320,14 +288,16 @@ ConProbByDate <- epicurve %>%
   pivot_wider(id_cols = Date, names_from = type, values_from = CaseCount) 
 ConProbByDate[is.na(ConProbByDate)] <- 0
 ConProbByDate <- ConProbByDate %>% 
-  mutate(Total =  Confirmed + Probable)
+  mutate(Total =  Confirmed + Probable,
+         DateUpdated = graphdate) %>% 
+  select(Date, Confirmed, Probable, Total, DateUpdated)
 
 #printing
 if (csv_write) {
-  write_csv(ConProbByDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/ConProbByDate.csv"))
+  write_csv(ConProbByDate, paste0("L:/Outputs/", Sys.Date(), "/ODP_EPI_ConProbByDate.csv"))
 }
 if (SQL_write) {
-  df_to_table(ConProbByDate, "ODP_ConProbByDate", overwrite = TRUE, append = FALSE)
+  df_to_table(ConProbByDate, "ODP_EPI_ConProbByDate", overwrite = TRUE, append = FALSE)
 }
 message("Table 6/11 complete, printed and pushed to SQL")
 rm(epicurve, ConProbByDate)
@@ -358,10 +328,10 @@ GenderSummary <- case %>%
   
 #printing
 if (csv_write) {
-write_csv(GenderSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/GenderSummary.csv"))
+write_csv(GenderSummary, paste0("L:/Outputs/", Sys.Date(), "/ODP_EPI_GenderSummary.csv"))
 }
 if(SQL_write){
-  df_to_table(GenderSummary, "ODP_GenderSummary", overwrite = TRUE, append = FALSE)
+  df_to_table(GenderSummary, "ODP_EPI_GenderSummary", overwrite = TRUE, append = FALSE)
 }
 message("Table 7/11 complete, printed and pushed to SQL")
 #clear trash
@@ -378,30 +348,30 @@ AgeGroupSummary <- case %>%
   group_by(age_group, disease_status,outcome) %>% 
   tally() %>% 
   ungroup() %>%
-  complete(age_group = age_labels, disease_status = c("Confirmed", "Probable"), outcome = c("Died", "Survived"), fill = list(n = 0)) %>% 
-  pivot_wider(id_cols = c(age_group, disease_status, outcome), names_from = c(disease_status, outcome), values_from = n) %>% 
-  mutate(ConfirmedCases = Confirmed_Survived + Confirmed_Died,
-         ProbableCases = Probable_Survived + Probable_Died,
-         TotalDeaths = Confirmed_Died + Probable_Died,
-         TotalCases = ConfirmedCases + ProbableCases,
+  complete(age_group = age_labels, disease_status = c("Confirmed", "Probable"),
+           outcome = c("Died", "Survived"), fill = list(n = 0)) %>% 
+  pivot_wider(id_cols = c(age_group, disease_status, outcome), 
+              names_from = c(disease_status, outcome), values_from = n) %>% 
+  mutate(ConfirmedCases = Confirmed_Survived + Confirmed_Died, ProbableCases = Probable_Survived + Probable_Died,
+         TotalDeaths = Confirmed_Died + Probable_Died, TotalCases = ConfirmedCases + ProbableCases,
          DateUpdated = graphdate) %>% 
   left_join(pop, by = c("age_group" = "age_group")) %>% 
   mutate(TotalCaseRate = round((TotalCases/pop)*100000),
-         DateUpdated = graphdate,
          age_group = factor(age_group, levels = age_labels, labels = age_labels)) %>% 
   rename(AgeGroups = age_group, ProbableDeaths = Probable_Died, 
          ConfirmedDeaths = Confirmed_Died) %>% 
-  select(AgeGroups, TotalCases, ConfirmedCases, ProbableCases,TotalDeaths, ConfirmedDeaths, ProbableDeaths, TotalCaseRate, DateUpdated) %>% 
+  select(AgeGroups, TotalCases, ConfirmedCases, ProbableCases,TotalDeaths,
+         ConfirmedDeaths, ProbableDeaths, TotalCaseRate, DateUpdated) %>% 
   arrange(AgeGroups) %>% 
   mutate(AgeGroups = as.character(AgeGroups),
          AgeGroups = ifelse(AgeGroups == ">=80", "80 and older", AgeGroups))
 
 #printing
 if (csv_write) {
-  write_csv(AgeGroupSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/AgeGroupSummary.csv"))
+  write_csv(AgeGroupSummary, paste0("L:/Outputs/", Sys.Date(), "/ODP_EPI_AgeGroupSummary.csv"))
 }
 if(SQL_write){
-  df_to_table(AgeGroupSummary, "ODP_AgeGroupSummary", overwrite = TRUE, append = FALSE)
+  df_to_table(AgeGroupSummary, "ODP_EPI_AgeGroupSummary", overwrite = TRUE, append = FALSE)
 }
 message("Table 8/11 complete, printed and pushed to SQL")
 #clear trash
@@ -415,19 +385,21 @@ DodSummary<- case %>%
   group_by(disease_status, death_date) %>%
   tally() %>% 
   ungroup() %>% 
-  complete(death_date = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), disease_status = c("Confirmed", "Probable"), fill = list(n = 0)) %>% 
+  complete(death_date = seq.Date(as.Date("2020-01-01"), Sys.Date()-1, by = "day"), 
+           disease_status = c("Confirmed", "Probable"), fill = list(n = 0)) %>% 
   pivot_wider(id_cols = c(death_date, disease_status), names_from = c(disease_status), values_from = n) %>%
-  mutate(TotalDeaths = Confirmed + Probable) %>% 
+  mutate(TotalDeaths = Confirmed + Probable,
+         DateUpdated = graphdate) %>% 
   rename(dateofDeath = death_date, ConfirmedDeaths = Confirmed,
          ProbableDeaths = Probable) %>% 
-  select(dateofDeath, TotalDeaths, ConfirmedDeaths, ProbableDeaths)
+  select(dateofDeath, TotalDeaths, ConfirmedDeaths, ProbableDeaths,DateUpdated)
 
 #printing
 if(csv_write){
-  write_csv(DodSummary, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/DodSummary.csv"))
+  write_csv(DodSummary, paste0("L:/Outputs/", Sys.Date(), "/ODP_EPI_DodSummary.csv"))
 }
 if(SQL_write){
-  df_to_table(DodSummary, "ODP_DodSummary", overwrite = TRUE, append = FALSE)
+  df_to_table(DodSummary, "ODP_EPI_DodSummary", overwrite = TRUE, append = FALSE)
 }
 message("Table 9/11 complete, printed and pushed to SQL")
 #clear trash
@@ -450,20 +422,21 @@ TestCounty <- elr_linelist %>%
   pivot_wider(id_cols = c(county, pcrag, result, spec_col_date), names_from = c(pcrag, result),
               values_from = n) %>% 
   mutate(number_of_ag_tests = ag_Indeterminate + ag_Negative + ag_Positive,
-         number_of_pcr_tests = pcr_Indeterminate + pcr_Negative + pcr_Positive) %>% 
+         number_of_pcr_tests = pcr_Indeterminate + pcr_Negative + pcr_Positive,
+         DateUpdated = graphdate) %>% 
   rename(date = spec_col_date, number_of_ag_indeterminates = ag_Indeterminate,
          number_of_ag_positives = ag_Positive, number_of_ag_negatives = ag_Negative,
          number_of_pcr_positives = pcr_Positive, number_of_pcr_negatives = pcr_Negative, 
          number_of_pcr_indeterminates = pcr_Indeterminate) %>% 
   select(county, date, number_of_pcr_tests, number_of_pcr_positives, number_of_pcr_negatives,	number_of_pcr_indeterminates,
-         number_of_ag_tests, number_of_ag_positives, number_of_ag_negatives, number_of_ag_indeterminates)
+         number_of_ag_tests, number_of_ag_positives, number_of_ag_negatives, number_of_ag_indeterminates,DateUpdated)
 
 #printing
 if(csv_write){
-  write_csv(TestCounty, paste0("L:/daily_reporting_figures_rdp/gary_csv/", Sys.Date(), "/TestCounty.csv"))
+  write_csv(TestCounty, paste0("L:/Outputs/", Sys.Date(), "/ODP_EPI_TestCounty.csv"))
 }
 if(SQL_write){
-  df_to_table(TestCounty, "ODP_TestCounty", overwrite = TRUE, append = FALSE)
+  df_to_table(TestCounty, "ODP_EPI_TestCounty", overwrite = TRUE, append = FALSE)
 }
 message("Table 10/11 complete, printed and pushed to SQL")
 
@@ -473,27 +446,27 @@ rm(TestCounty)
 ####11 CountySummarybyDate.csv####
 #cases by date by county
 CountySummarybyDate <- case %>% 
+  filter(!is.na(county) & !is.na(date)) %>% 
   group_by(date, county) %>% 
   tally(name = "Count") %>% 
-  mutate(UpdateDate = Sys.Date()) %>% 
-  rename(
-    County = county,
-    Date = date
-  ) %>% 
   ungroup() %>% 
-  filter(!is.na(County) & !is.na(Date))
+  complete(date = seq.Date(as.Date("2020-03-02"), Sys.Date()-1, by = "day"), 
+           county = counties, fill = list(Count = 0)) %>% 
+  mutate(DateUpdated = graphdate) %>% 
+  rename(County = county, Date = date) %>% 
+  arrange(Date, County)
 
 #printing
 if (csv_write) {
-  write_csv(CountySummarybyDate, paste0("L:/daily_reporting_figures_rdp/gary_csv/", 
-                                    Sys.Date(), "/CountySummarybyDate.csv"))
+  write_csv(CountySummarybyDate, paste0("L:/Outputs/",Sys.Date(), 
+                                        "/ODP_EPI_CountySummarybyDate.csv"))
 }
 if(SQL_write){
-  df_to_table(CountySummarybyDate, "ODP_CountySummarybyDate", overwrite = TRUE, append = FALSE)
+  df_to_table(CountySummarybyDate, "ODP_EPI_CountySummarybyDate", overwrite = TRUE, append = FALSE)
 }
 message("Table 11/11 complete, printed and pushed to SQL")
 
 #clear trash
-rm(list = ls())
+rm(CountySummarybyDate)
 gc(verbose = FALSE)
 message("Gary's ODP Output process complete")
