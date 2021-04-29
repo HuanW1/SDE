@@ -4,7 +4,7 @@ message("Over here on our right here we have our start up helper")
 source("helpers/StartMeUp.R")
 
 csv_write <- TRUE
-SQL_write <- FALSE
+SQL_write <- TRUE
 
 thursday <- lubridate::wday(lubridate::today()) == 5
 message("and over here on the left we have our module 5 setup and ODP outputs")
