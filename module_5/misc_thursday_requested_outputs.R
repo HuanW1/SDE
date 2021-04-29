@@ -62,6 +62,12 @@ if(csv_write){
   write_csv(CT_daily_counts_totals, 
             paste0("L:/Outputs/",Sys.Date(),"/THR_EPI_CT_daily_counts_totals.csv"))
 }
+
+if(SQL_write){
+  df_to_table(CT_daily_counts_totals, "ODP_EPI_CT_daily_counts_totals", overwrite = TRUE, append = FALSE)
+}
+
+
 #clear trash
 rm(spec_dates, admissions, labdata, CT_daily_counts_totals)
 message("1/8 thursday tables have finished")
@@ -148,7 +154,7 @@ if(csv_write){
 rm(communitytest_county)
 message("4/8 thursday tables have finished")
 
-####5 mastereventidlist.csv ####
+####5 THR_EPI_mastereventidlist.csv ####
 TOI <- city_file$TOWN_LC
 
 mastereventidlist <- case %>% 
@@ -181,7 +187,7 @@ if(csv_write) {
 rm(TOI,  mastereventidlist)
 message("5ish/8 thursday tables have finished")
 
-####6 CTTown_Alert (for gary)  ####
+####6 ODP_EPI_CTTown_Alert (for gary)  ####
 CTTown_Alert <- 
   geocoded_community_tests %>% 
     mutate(date = if_else(!is.na(spec_col_date), spec_col_date, mdy(spec_rec_date))) %>% 
@@ -230,11 +236,11 @@ CTTown_Alert  <-
     inner_join(city_file %>% select(c(TOWN_LC, TOWNNO)),
                by = c("city" = "TOWN_LC")) %>% 
     inner_join(CTTown_Alert, by = "city") %>% 
-  select(TOWNNO, city, pop_2019, caseweek1, caseweek2, totalcases, CaseRate, RateCategory, TotalTests, PercentPositive, DateUpdated, ReportPeriodStartDate, ReportPeriodEndDate) %>% 
+  select(TOWNNO, city, pop_2019, caseweek1, caseweek2, totalcases, CaseRate, RateCategory, TotalTests, PercentPositive, ReportPeriodStartDate, ReportPeriodEndDate, DateUpdated) %>% 
   rename(Town_No = TOWNNO, Town = city) 
 
 if(SQL_write){
-  df_to_table(CTTown_Alert, "ODP_CTTown_Alert", overwrite = FALSE, append = TRUE)
+  df_to_table(CTTown_Alert, "ODP_EPI_CTTown_Alert", overwrite = FALSE, append = TRUE)
 } 
 
 CTTown_Alert_censored  <- 
@@ -253,7 +259,7 @@ if(csv_write) {
  
 message("6/8 thursday tables have finished and this extra special one has gone up onto SQL022")
 
-####7 TownAlertLevelsTable  (for leadership) ########
+####7 THR_EPI_TownAlertLevelsTable  (for leadership) ########
 lvls <- c("<5 cases per 100,000 or <5 reported cases", "5-9 cases per 100,000", "10-14 cases per 100,000", "15 or more cases per 100,000")
 TownAlertLevelsTable<- CTTown_Alert %>%
   mutate(
@@ -263,17 +269,17 @@ TownAlertLevelsTable<- CTTown_Alert %>%
   arrange(desc(RateCategory))
 
 lastdate <- 
-  tbl(testgeo_con, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.ODP_CTTown_Alert")) %>%
+  tbl(testgeo_con, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.ODP_EPI_CTTown_Alert")) %>%
   select(DateUpdated) %>% 
   collect() %>% 
   unique() %>% 
   arrange(desc(DateUpdated)) %>% 
   mutate(order = row_number())
 rank <- min(max(lastdate$order), 2) #take rank 2, 2nd most recent date, or rank 1 if there is only 1 rank
-lastdate <- lastdate %>% filter(order ==rank) %>%  pull(DateUpdated)
+lastdate <- lastdate %>% filter(order == rank) %>%  pull(DateUpdated)
   
 TownAlertLevelsTable <- 
-  tbl(testgeo_con, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.ODP_CTTown_Alert")) %>%
+  tbl(testgeo_con, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.ODP_EPI_CTTown_Alert")) %>%
   collect() %>% 
   filter(DateUpdated == lastdate) %>% 
   mutate(

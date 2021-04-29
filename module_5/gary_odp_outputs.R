@@ -32,7 +32,7 @@ if(csv_write){
                                     Sys.Date(), "/ODP_EPI_REStateSummary.csv"), na = "")
 }
 if(SQL_write){
-  df_to_table(REStateSummary, "ODP_REStateSummary", overwrite = TRUE, append = FALSE)
+  df_to_table(REStateSummary, "ODP_EPI_REStateSummary", overwrite = TRUE, append = FALSE)
 }
 message("Table 1/11 complete, printed and pushed to SQL")
 
@@ -72,7 +72,7 @@ if(csv_write){
 }
 
 if(SQL_write){
-  df_to_table(CountySummary, "ODP_CountySummary", overwrite = TRUE, append = FALSE)
+  df_to_table(CountySummary, "ODP_EPI_CountySummary", overwrite = TRUE, append = FALSE)
 }
 message("Table 2/11 complete, printed and pushed to SQL")
 #clear trash
@@ -145,7 +145,7 @@ if (csv_write) {
   write_csv(StateSummary, paste0("L:/Outputs/", Sys.Date(), "/ODP_EPI_StateSummary.csv"))
 }
 if(SQL_write){
-  df_to_table(StateSummary, "ODP_StateSummary", overwrite = FALSE, append = TRUE)
+  df_to_table(StateSummary, "ODP_EPI_StateSummary", overwrite = FALSE, append = TRUE)
 }
 message("Table 3/11 complete, printed and pushed to SQL")
 #clear trash
@@ -181,7 +181,7 @@ if (csv_write) {
   write_csv(state_Result, paste0("L:/Outputs/", Sys.Date(), "/ODP_EPI_state_Result.csv"))
 }
 if (SQL_write) {
-  df_to_table(state_Result, "ODP_state_Result", overwrite = TRUE, append = FALSE)
+  df_to_table(state_Result, "ODP_EPI_state_Result", overwrite = TRUE, append = FALSE)
 }
 message("Table 4/11 complete, printed and pushed to SQL, 5 is a bit of a doozy.")
 #clear trash
@@ -265,7 +265,7 @@ town_Result <- town_cases %>%
    write_csv(town_Result, paste0("L:/Outputs/", Sys.Date(), "/ODP_EPI_town_Result.csv"))
  }
  if (SQL_write) {
-   df_to_table(town_Result, "ODP_town_Result", overwrite = TRUE, append = FALSE)
+   df_to_table(town_Result, "ODP_EPI_town_Result", overwrite = TRUE, append = FALSE)
  }
 message("Table 5/11 complete, printed and pushed to SQL")
 #clear trash
@@ -297,7 +297,7 @@ if (csv_write) {
   write_csv(ConProbByDate, paste0("L:/Outputs/", Sys.Date(), "/ODP_EPI_ConProbByDate.csv"))
 }
 if (SQL_write) {
-  df_to_table(ConProbByDate, "ODP_ConProbByDate", overwrite = TRUE, append = FALSE)
+  df_to_table(ConProbByDate, "ODP_EPI_ConProbByDate", overwrite = TRUE, append = FALSE)
 }
 message("Table 6/11 complete, printed and pushed to SQL")
 rm(epicurve, ConProbByDate)
@@ -331,7 +331,7 @@ if (csv_write) {
 write_csv(GenderSummary, paste0("L:/Outputs/", Sys.Date(), "/ODP_EPI_GenderSummary.csv"))
 }
 if(SQL_write){
-  df_to_table(GenderSummary, "ODP_GenderSummary", overwrite = TRUE, append = FALSE)
+  df_to_table(GenderSummary, "ODP_EPI_GenderSummary", overwrite = TRUE, append = FALSE)
 }
 message("Table 7/11 complete, printed and pushed to SQL")
 #clear trash
@@ -371,7 +371,7 @@ if (csv_write) {
   write_csv(AgeGroupSummary, paste0("L:/Outputs/", Sys.Date(), "/ODP_EPI_AgeGroupSummary.csv"))
 }
 if(SQL_write){
-  df_to_table(AgeGroupSummary, "ODP_AgeGroupSummary", overwrite = TRUE, append = FALSE)
+  df_to_table(AgeGroupSummary, "ODP_EPI_AgeGroupSummary", overwrite = TRUE, append = FALSE)
 }
 message("Table 8/11 complete, printed and pushed to SQL")
 #clear trash
@@ -399,7 +399,7 @@ if(csv_write){
   write_csv(DodSummary, paste0("L:/Outputs/", Sys.Date(), "/ODP_EPI_DodSummary.csv"))
 }
 if(SQL_write){
-  df_to_table(DodSummary, "ODP_DodSummary", overwrite = TRUE, append = FALSE)
+  df_to_table(DodSummary, "ODP_EPI_DodSummary", overwrite = TRUE, append = FALSE)
 }
 message("Table 9/11 complete, printed and pushed to SQL")
 #clear trash
@@ -436,7 +436,7 @@ if(csv_write){
   write_csv(TestCounty, paste0("L:/Outputs/", Sys.Date(), "/ODP_EPI_TestCounty.csv"))
 }
 if(SQL_write){
-  df_to_table(TestCounty, "ODP_TestCounty", overwrite = TRUE, append = FALSE)
+  df_to_table(TestCounty, "ODP_EPI_TestCounty", overwrite = TRUE, append = FALSE)
 }
 message("Table 10/11 complete, printed and pushed to SQL")
 
@@ -462,7 +462,7 @@ if (csv_write) {
                                         "/ODP_EPI_CountySummarybyDate.csv"))
 }
 if(SQL_write){
-  df_to_table(CountySummarybyDate, "ODP_CountySummarybyDate", overwrite = TRUE, append = FALSE)
+  df_to_table(CountySummarybyDate, "ODP_EPI_CountySummarybyDate", overwrite = TRUE, append = FALSE)
 }
 message("Table 11/11 complete, printed and pushed to SQL")
 
