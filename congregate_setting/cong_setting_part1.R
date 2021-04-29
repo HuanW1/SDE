@@ -115,4 +115,4 @@ DBI::dbWriteTable(conn = con, value = justran, name = SQL("DPH_COVID_IMPORT.dbo.
 odbc::dbDisconnect(con)
 
 message("Part 1/4 finished- you're off to a good start!")
-source("cong_setting_part2.R")
+source("congregate_setting/cong_setting_part2.R")
