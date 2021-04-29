@@ -21,8 +21,7 @@ pcrtests <- c('SARS CoV 2 ORF1 resp',
               'SARS-CoV-2 N gene Saliva',
               'COVID-19 PCR (CEPHEID)',
               'SARS CoV 2 NAA resp',
-              'SARS-CoV-2 (COVID19) N gene [Presence] in Nose by NAA with probe detection',
-              'SARS-CoV-2 specific TCRB gene in Blood by Seq'
+              'SARS-CoV-2 (COVID19) N gene [Presence] in Nose by NAA with probe detection'
 )
 
 
