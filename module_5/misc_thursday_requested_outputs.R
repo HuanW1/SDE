@@ -232,7 +232,14 @@ CTTown_Alert  <-
                by = c("city" = "TOWN_LC")) %>% 
     inner_join(CTTown_Alert, by = "city") %>% 
   select(TOWNNO, city, pop_2019, caseweek1, caseweek2, totalcases, CaseRate, RateCategory, TotalTests, PercentPositive, DateUpdated, ReportPeriodStartDate, ReportPeriodEndDate) %>% 
-  rename(Town_No = TOWNNO, Town = city) %>% 
+  rename(Town_No = TOWNNO, Town = city) 
+
+if(SQL_write){
+  df_to_table(CTTown_Alert, "ODP_CTTown_Alert", overwrite = FALSE, append = TRUE)
+} 
+
+CTTown_Alert  <- 
+  CTTown_Alert %>% 
   #censoring counts and rates for small numbers
   mutate(caseweek1 = ifelse(RateCategory == "1. <5 cases per 100,000 or <5 reported cases", NA, caseweek1),
          caseweek2 =ifelse(RateCategory == "1. <5 cases per 100,000 or <5 reported cases", NA, caseweek2),
@@ -244,9 +251,7 @@ if(csv_write) {
             paste0("L:/Outputs/",Sys.Date(),"/ODP_EPI_CTTown_Alert.csv"))
 }
 
-if(SQL_write){
-  df_to_table(CTTown_Alert, "ODP_CTTown_Alert", overwrite = FALSE, append = TRUE)
-}  
+ 
 message("6/8 thursday tables have finished and this extra special one has gone up onto SQL022")
 
 ####7 TownAlertLevelsTable  (for leadership) ########
