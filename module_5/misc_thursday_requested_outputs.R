@@ -162,8 +162,7 @@ mastereventidlist <- case %>%
 
 if(csv_write){
   write_csv(mastereventidlist, 
-            paste0("L:/Outputs/", Sys.Date(), 
-                          "/eventid_lists/mastereventidlist.csv"))
+            paste0("L:/Outputs/", Sys.Date(),"/THR_EPI_mastereventidlist.csv"))
 }
 if(csv_write) {
   for(i in TOI){
@@ -238,7 +237,7 @@ if(SQL_write){
   df_to_table(CTTown_Alert, "ODP_CTTown_Alert", overwrite = FALSE, append = TRUE)
 } 
 
-CTTown_Alert  <- 
+CTTown_Alert_censored  <- 
   CTTown_Alert %>% 
   #censoring counts and rates for small numbers
   mutate(caseweek1 = ifelse(RateCategory == "1. <5 cases per 100,000 or <5 reported cases", NA, caseweek1),
@@ -247,7 +246,7 @@ CTTown_Alert  <-
          CaseRate =ifelse(RateCategory == "1. <5 cases per 100,000 or <5 reported cases", NA, CaseRate))
     
 if(csv_write) {
-  write_csv(CTTown_Alert, 
+  write_csv(CTTown_Alert_censored, 
             paste0("L:/Outputs/",Sys.Date(),"/ODP_EPI_CTTown_Alert.csv"))
 }
 
@@ -269,14 +268,14 @@ lastdate <-
   collect() %>% 
   unique() %>% 
   arrange(desc(DateUpdated)) %>% 
-  mutate(rank = row_number())
-rank <- min(max(lastdate$rank), 2) #take rank 2, 2nd most recent date, or rank 1 if there is only 1 rank
-lastdate <- lastdate %>%filter(rank ==rank) %>%  pull(DateUpdated)
+  mutate(order = row_number())
+rank <- min(max(lastdate$order), 2) #take rank 2, 2nd most recent date, or rank 1 if there is only 1 rank
+lastdate <- lastdate %>% filter(order ==rank) %>%  pull(DateUpdated)
   
 TownAlertLevelsTable <- 
   tbl(testgeo_con, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.ODP_CTTown_Alert")) %>%
+  collect() %>% 
   filter(DateUpdated == lastdate) %>% 
-  collect() %>%
   mutate(
     RateCategory =str_trim(str_sub(RateCategory, start = 3)),
     RateCategory = factor( RateCategory, labels = lvls, levels = lvls)
