@@ -105,17 +105,7 @@ odbc::dbDisconnect(epi_connect)
 ```
 
 ```{r read_cha, include=FALSE}
-
-cha_file <- list.files("L:/daily_reporting_figures_rdp/CHA_data_here", 
-                       pattern = ".csv", full.names = TRUE)
-cha <-  read_csv(cha_file)
-newcha <- cha %>% 
-  filter(Type == "Admit" & State == "TOTAL") %>% 
-  select(-c(Change, County, State)) %>% 
-  pivot_longer(-Type, names_to = "admit_date", values_to = "admissions") %>% 
-  select(-Type) %>% 
-  mutate(admit_date = mdy(admit_date))
-
+source("helpers/Fetch_cha.R")
 ```
 
 ```{r shapefiles, include = FALSE}
@@ -186,6 +176,10 @@ odbc::dbDisconnect(con2)
 
 ```{r df_creation}
 df <-  left_join(raw_cases, raw_tests, by = c("eventid"))
+
+##race processing ##
+source("race_ethnicity/race_processing.R")
+
 
 rm(raw_cases)
 rm(raw_tests)
@@ -523,6 +517,8 @@ rm(case3)
 
 case <- case %>% select(-phone)
 
+##race ethnicity setup ##
+source("race_ethnicity/race_ethnicity_setup.R")
 ```
 
 ```{r pending_validation, message=FALSE, warning=FALSE, include=FALSE}
@@ -1651,15 +1647,15 @@ total_discharged <- total_discharged[ncol(total_discharged)-1] %>%
  `r if(thursday){"The chart below shows the COVID-19 hospital census, which is the number of patients currently hospitalized with laboratory-confirmed COVID-19 on each day. Data were collected by the Connecticut Hospital Association and are shown since August 1, 2020"}`
 
 ```{r hosp_cuml,  message=FALSE, warning=FALSE, eval = thursday}
-newcha2 <- newcha %>% 
+longcha2 <- longcha %>% 
     filter(admit_date >= "2020-08-01")
            
-maxlimit25 <- (round(max(newcha2$admissions)/25)*25)+25
-if(maxlimit25<= max(newcha2$admissions)){
+maxlimit25 <- (round(max(longcha2$admissions)/25)*25)+25
+if(maxlimit25<= max(longcha2$admissions)){
   maxlimit25 <- maxlimit2+25
 }
 
-ggplot(data = newcha2)+
+ggplot(data = longcha2)+
 geom_line(mapping = aes(x = admit_date, y = admissions), size = 1)+
 scale_x_date(date_breaks = "2 weeks", date_labels = "%b-%d")+
 scale_y_continuous(expand = c(0,0), limits = c(0,maxlimit25))+
@@ -1732,7 +1728,7 @@ ggplot(deadbar)+
         legend.direction = "horizontal",
         axis.text.x=element_text(angle=45,hjust=1)
         )
-
+rm(longcha2)
 ```
 
 `r if(thursday){"### Daycare Surveillance"}`
@@ -1932,27 +1928,13 @@ ggplot()+
 ### Characteristics of COVID-19 Cases and Associated Deaths  
 
 ```{r plot_cases_by_date, message=FALSE, warning=FALSE, fig.align= "center", eval = not_thursday}
-case_epi <- case %>% 
-  filter(disease_status  == "Confirmed") %>% 
-  group_by(date) %>% 
+epicurve <- case %>% filter(date >= "2020-03-01" & date < Sys.Date()) %>% 
+  group_by(disease_status, date) %>% 
   tally() %>% 
   filter(!is.na(date)) %>% 
-  mutate(type = "Confirmed")
-
-
-#confirmed > specimen date then probable date of symp onsent, if na then report date
-prob_epi <- case %>% 
- filter(disease_status  == "Probable") %>%
-  group_by(date) %>% 
-  tally() %>% 
-  filter(!is.na(date)) %>% 
-  mutate(
-    type = "Probable"
-  )
-epicurve <- bind_rows(case_epi, prob_epi) %>% 
-  filter(date >= ymd("2020-08-01")) %>% 
-  arrange(date) %>% 
-  mutate(type = factor(type, levels = c("Probable", "Confirmed"), labels = c("Probable", "Confirmed")))
+  rename(type = disease_status) %>% 
+  mutate(type = factor(type, levels = c("Probable", "Confirmed"), labels = c("Probable", "Confirmed"))) %>% 
+  arrange(date)
 
 ymx <- epicurve %>% group_by(date) %>%  summarize(n=sum(n)) %>%  select(n) %>%  max(.$n)
  
@@ -2088,10 +2070,6 @@ ggplot(dfs_age_d)+
 
 
 `r if(thursday){"*Counts may not add up to total case count because demographic data may be missing.*"}`
-
-```{r not_sure18,  message=FALSE, warning=FALSE, include=FALSE}
-gender_race_eth <- read_csv("L:/daily_reporting_figures_rdp/population_data/county_re_gender_age.csv")
-```
 
 
 ```{r plot_cases_by_gender,  message=FALSE, warning=FALSE, fig.align= "center" , eval = thursday}
@@ -2372,36 +2350,10 @@ gender_total_rate_dec %>%
 **APPENDIX C.** The following graphs show the number of cases and deaths by race and ethnicity. *Categories are mutually exclusive. The category "multiracial" includes people who answered 'yes' to more than one race category. NH=Non-Hispanic*  
 
 ```{r plot_cases_age_ethnicity, message=FALSE, warning=FALSE, fig.align= "center"}
-race_eth_SHA_lookup <- gender_race_eth %>% 
-  group_by(hisp_race) %>%  
-  summarize(tot=sum(n))
-race_eth_SHA_case <- case %>%
-  group_by(hisp_race) %>% 
-  tally(name = "case_tot")
-
-race_eth_comb <- race_eth_SHA_case %>% 
-  left_join(race_eth_SHA_lookup) %>% 
-  mutate(rate100k = round((case_tot/tot)*100000))
-
-####dec
-race_eth_SHA_case_dec <- case %>%
-  filter(outcome == "Died") %>% 
-  group_by(hisp_race) %>%  
-  tally(name = "deaths")
-
-
-race_eth_comb <- race_eth_comb %>% 
-  left_join(race_eth_SHA_case_dec) %>% 
-  replace_na(replace =list(deaths = 0)) %>% 
-  rename(caserate100k=rate100k) %>% 
-  mutate(deathrate100k = round((deaths/tot)*100000))
-race_eth_comb$hisp_race <- factor(race_eth_comb$hisp_race, levels =c("Hispanic", "NH White", "NH Black", "NH American Indian or Alaskan Native", "NH Asian or Pacific Islander", "NH Other", "NH Multiracial", "Unknown") , labels =c("Hispanic", "NH White", "NH Black", "NH American Indian or Alaskan Native", "NH Asian or Pacific Islander", "NH Other", "NH Multiracial", "Unknown"))
-
 maxlimit2 <- (round(max(race_eth_comb$case_tot)/10000)*10000)+10000
 if(maxlimit2<= max(race_eth_comb$case_tot)){
   maxlimit2 <- maxlimit2+10000
 }
-
 
 ggplot(
   race_eth_comb #%>% 
@@ -2453,90 +2405,6 @@ The following graphs show the number of COVID-19 cases and COVID-19-associated d
 The 2018 Connecticut and 2000 US Standard Million populations were used for age adjustment; population estimates from: [DPH Population Statistics.](https://portal.ct.gov/DPH/Health-Information-Systems--Reporting/Population/Population-Statistics) *Categories are mutually exclusive. Cases missing data on race/ethnicity are excluded from calculation of rates. NH=Non-Hispanic*
 
 ```{r plot_age_ethnicity, message=FALSE, warning=FALSE, fig.align= "center", dpi = 300}
-stanpopas <- read_csv("L:/daily_reporting_figures_rdp/dependancies/stanpopas.csv")
-
-aamr_lookup <- 
-  read_csv("L:/daily_reporting_figures_rdp/dependancies/2018_State-level_ASRH _lookup.csv") %>% 
-  rename(age_g = "Age Group")
-
-aamr_lookup <- 
-  aamr_lookup %>% 
-  pivot_longer(-age_g, names_to = "hisp_race", values_to = "denominator") %>% 
-  mutate(
-    gender = str_sub(hisp_race, start = str_length(hisp_race), end  = str_length(hisp_race)),
-    age_g = ifelse(
-      age_g %in% c("<1 yrs", "1-4 yrs"),
-      "<5 yrs",
-      age_g
-    ),
-    hisp_race = ifelse(
-      str_sub(hisp_race,start = 1L, end = 1L) == "H",
-      "Hispanic",
-      hisp_race
-    ),
-    hisp_race = str_replace(hisp_race, " F| M", ""),
-    hisp_race = str_replace(hisp_race, "AI", "American Indian or Alaskan Native"),
-    hisp_race = str_replace(hisp_race, "API", "Asian or Pacific Islander"),
-    gender = ifelse(gender == "M", "Male", "Female")
-  ) %>% 
-  group_by(hisp_race, age_g) %>% 
-  summarize(denominator = sum(denominator))
-
-####
-age_labels2 <- c("<5 yrs", "5-9 yrs", "10-14 yrs", "15-19 yrs", "20-24 yrs",
-                "25-29 yrs", "30-34 yrs", "35-39 yrs", "40-44 yrs", "45-49 yrs",
-                "50-54 yrs", "55-59 yrs", "60-64 yrs", "65-69 yrs", "70-74 yrs",
-                "75-79 yrs", "80-84 yrs", "85+ yrs")
-
-
-case_by_age <-  
-  case %>% 
-  select(age, hisp_race) %>% 
-  filter(!is.na(hisp_race) & !is.na(age) & age >= 0 & !hisp_race %in% c("NH Other", "Unknown", "NH Multiracial")) %>% 
-  mutate(age_group2 = cut(age,
-                          breaks = c(-1, 4, 9, 14, 19, 24, 29, 34, 39,
-                                     44, 49, 54, 59, 64, 69, 74, 79, 84, Inf),
-                          labels = age_labels2))
-
-
-case_by_age_grouped <- case_by_age %>% 
-  group_by(hisp_race,  age_group2) %>% 
-  tally()
-
-aamr_lookup_grouped <- aamr_lookup %>% 
-  group_by(hisp_race, age_g) %>% 
-  summarise(denominator = sum(denominator))
-
-agg_table <- aamr_lookup_grouped %>% 
-  left_join(case_by_age_grouped, by = c("hisp_race" = "hisp_race", "age_g" = "age_group2")) %>% 
-  left_join(stanpopas, by = "age_g") %>%
-  replace_na(replace =  list(n= 0)) %>% 
-  mutate(
-    crude_rate = n/denominator*100000
-  ) %>% 
-  group_by(age_g) %>% 
-  mutate(standard_age_g = sum(spop2000)) %>% 
-  group_by(hisp_race) %>% 
-  mutate(
-    propn = standard_age_g/sum(standard_age_g),
-    hisp_race_case_tot = sum(n),
-    hisp_race_stan_tot = sum(denominator)
-  ) %>% 
-  ungroup() %>% 
-  mutate(age_specific_adjusted = crude_rate * propn,
-        Crude = hisp_race_case_tot/hisp_race_stan_tot*100000) %>% 
-  group_by(hisp_race) %>% 
-  mutate(`Age adjusted` = sum(age_specific_adjusted))
-
-adj_table <- agg_table %>% 
-  select(hisp_race, Crude, `Age adjusted`) %>% 
-  unique()
-
-adj_tbl_long <- adj_table %>% 
-  pivot_longer(-hisp_race, names_to = "rate_type", values_to = "n") %>%
-  mutate(rate_type= factor(rate_type, levels=c("Crude", "Age adjusted"), labels=c("Crude", "Age adjusted")),
-         n = round(n))
-
 maxlimit2 <- round(max(adj_tbl_long$n)/500)*500
 if(maxlimit2<= max(adj_tbl_long$n)){
   maxlimit2 <- maxlimit2+500
@@ -2562,56 +2430,6 @@ ggplot(adj_tbl_long, aes(fill = rate_type, y = n, x = hisp_race))+
     legend.text = element_text(size=9),
     axis.text.x.bottom = element_text(angle = 45, hjust = 1)
   )
-
-dec_by_age <-  case %>% 
-  filter(outcome == "Died") %>% 
-  select(age, hisp_race) %>% 
-  filter(!is.na(hisp_race) & !is.na(age) & age >= 0 & !hisp_race %in% c("NH Other", "Unknown", "NH Multiracial") ) %>% 
-  mutate(age_group2 = cut(age,
-                          breaks = c(-1, 4, 9, 14, 19, 24, 29, 34, 39,
-                                     44, 49, 54, 59, 64, 69, 74, 79, 84, Inf),
-                          labels = age_labels2))
-
-
-dec_by_age_grouped <- dec_by_age %>% 
-  group_by(hisp_race, age_group2) %>% 
-  tally()
-
-aamr_lookup_grouped <- aamr_lookup %>% 
-  group_by(hisp_race, age_g) %>% 
-  summarise(denominator = sum(denominator))
-
-agg_table_dec <- aamr_lookup_grouped%>% 
-  left_join(dec_by_age_grouped, by = c("hisp_race" = "hisp_race", "age_g" = "age_group2")) %>% 
-  left_join(stanpopas, by="age_g") %>%
-  replace_na(replace =  list(n= 0)) %>% 
-  mutate(
-    crude_rate = n/denominator*100000
-  ) %>% 
-  group_by(age_g) %>% 
-  mutate(standard_age_g = sum(spop2000)) %>% 
-  group_by(hisp_race) %>% 
-  mutate(
-    propn = standard_age_g/sum(standard_age_g),
-    hisp_race_case_tot = sum(n),
-    hisp_race_stan_tot = sum(denominator)
-  ) %>% 
-  ungroup() %>% 
-  mutate(age_specific_adjusted = ifelse(
-      hisp_race_case_tot >=20, crude_rate * propn, NA
-      ),
-        Crude = hisp_race_case_tot/hisp_race_stan_tot*100000) %>% 
-  group_by(hisp_race) %>% 
-  mutate(`Age adjusted` = sum(age_specific_adjusted))
-
-adj_table_dec <- agg_table_dec %>% 
-  select(hisp_race, Crude, `Age adjusted`) %>% 
-  unique()
-
-adj_tbl_long_dec <- adj_table_dec %>% 
-  pivot_longer(-hisp_race, names_to = "rate_type", values_to = "n") %>%
-  mutate(rate_type= factor(rate_type, levels=c("Crude", "Age adjusted"), labels=c("Crude", "Age adjusted")),
-         n = round(n))
 
 maxlimit3 <- round(max(adj_tbl_long_dec$n, na.rm = T)/200)*200
 if(maxlimit3 <= max(adj_tbl_long_dec$n, na.rm = T)){
@@ -2642,37 +2460,4 @@ ggplot(adj_tbl_long_dec, aes(fill = rate_type, y = n, x = hisp_race))+
 ```
   
 
-```{r plot_disproportion, message=FALSE, warning=FALSE, fig.align= "center", dpi = 600, eval= FALSE}
-re_grp <- race_eth_comb %>%
-  select(hisp_race, tot, deaths) %>%
-  mutate(
-    'Percentage of Connecticut Population' = round(tot/sum(tot, na.rm = T)*100),
-    'Percentage of COVID-19-Associated Deaths' =  round(deaths/sum(deaths, na.rm = T)*100)
-  ) %>%
-  filter(!hisp_race %in% c("NH Other", "NH Unknown"))
-
-longer <- re_grp %>% 
-  select(hisp_race, 'Percentage of Connecticut Population', 'Percentage of COVID-19-Associated Deaths')
-
-longer <- pivot_longer(longer, -hisp_race, names_to = "type", values_to = "perc") %>% 
-  filter(!hisp_race %in% c("NH Multiracial", "Unknown"))
-
-ggplot(longer, aes(stringr::str_wrap(hisp_race,15), perc, fill = type))+
-  geom_bar( col = "black", stat = "identity", position = position_dodge())+
-  geom_text(aes(stringr::str_wrap(hisp_race,15),perc, label = perc), position = position_dodge(1), vjust=-0.25, size =3.3)+
-  scale_fill_brewer(palette = "Blues", direction = -1)+
-  theme_classic()+
-  labs(
-    title = 'Non-Hispanic black people disproportionately\naffected by COVID-19 deaths in Connecticut',
-      subtitle = paste0("As of ", format(graphdate, "%m/%d/%Y")),
-    fill = "",
-    y = "Percent (%)",
-    x = ""
-  )+
-  theme(
-    legend.position = c(0.25, 0.8),
-    legend.direction = "vertical",
-      legend.background = element_blank()
-  )
-```
 _\*Age adjusted rates only calculated for groups with at least 30 deaths_
