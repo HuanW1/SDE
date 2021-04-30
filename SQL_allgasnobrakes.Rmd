@@ -104,9 +104,6 @@ rm(ghost_data)
 odbc::dbDisconnect(epi_connect)
 ```
 
-```{r read_cha, include=FALSE}
-source("helpers/Fetch_cha.R")
-```
 
 ```{r shapefiles, include = FALSE}
 #### towns shapes ####
@@ -172,14 +169,13 @@ raw_tests <-  DBI::dbGetQuery(conn = con2 , statement = statement)
 
 odbc::dbDisconnect(con2)
 
+##race processing ##
+source("race_ethnicity/race_processing.R")
+
 ```
 
 ```{r df_creation}
 df <-  left_join(raw_cases, raw_tests, by = c("eventid"))
-
-##race processing ##
-source("race_ethnicity/race_processing.R")
-
 
 rm(raw_cases)
 rm(raw_tests)
@@ -243,8 +239,6 @@ df <-
       source == "other" ~ "unspecified specimen",
       is.na(source) ~ "unspecified specimen",
       TRUE ~ source),
-    race = str_replace_all(race, "_", " "),
-    race = str_to_title(race),
     hisp = str_to_sentence(hisp),
     city = str_to_title(city),
     race = case_when(
@@ -259,12 +253,6 @@ df <-
       "NH",
       "NH"  #na eth set to NH otherwise it breaks so many things
     ),
-    race = case_when(
-      is.na(race) | race =="Refused" ~ "Unknown",
-      !race %in% c("White", "Black", "Asian", "American Indian or Alaskan Native",
-                   "Asian or Pacific Islander", "Other", "Unknown") ~ "Multiracial",
-      TRUE ~ race
-    ),
     hisp_race = case_when(
       hisp == "H"  ~ "Hispanic",
       race == "Unknown" ~ "Unknown",
@@ -276,7 +264,9 @@ df <-
   )
 
 df <- df %>% 
-  left_join(city_file %>% rename(county=COUNTY), by = c("city" = "TOWN_LC"))
+  left_join(city_file %>% rename(county=COUNTY) %>% 
+              select(c(TOWN_LC, county, pop_2019)), 
+            by = c("city" = "TOWN_LC"))
 
 ```
 
@@ -619,26 +609,6 @@ rm(df)
 ```
 
 ```{r geos}
-cha_c <- cha %>%
-  filter(Type == "Admit") %>% 
-  select(-Type) %>% 
-  rename(NAME=County )
-cols <- ncol(cha_c)
-cha_c <- cha_c %>% 
-  rename( today= cols-1,
-          yesterday = cols-2) %>% 
-  mutate(sign = ifelse(
-    Change>=0,
-    "+",
-    "-"
-    ),
-    Change = abs(Change)
-  )
-num_groups <- c("None", "1 to 5", "6 to 10", "11 to 25", "26 to 50", "51 to 100", "101 to 200", "201 to 500", "501 to 1000", "1001 to 5000")
-cha_c <- cha_c %>% 
-  mutate(
-    ngrp = cut(today, breaks = c(-Inf,0,5,10,25,50,100,200,500,1000, Inf), labels = num_groups )
-  )
 subdat2 <- subdat2 %>%
   left_join(
     cha_c, by = c("NAME" = "NAME")    
