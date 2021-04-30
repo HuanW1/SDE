@@ -1184,41 +1184,59 @@ if(csv_write){
 
 
 ```{r thursdaytable, eval = thursday}
-newcase_tbl_town <- newcasetable %>% 
-  select(-c(DateUpdated, Tests))
-newcase_tbl_town1 <- newcase_tbl_town[1:57,] %>% rename(town1 =Town, n1=Cases)
-newcase_tbl_town2 <- newcase_tbl_town[58:114,] %>% rename(town2 =Town, n2=Cases)
-newcase_tbl_town3 <- newcase_tbl_town[115:169,] %>% rename(town3 =Town, n3=Cases) %>% 
-  mutate(
-    n3 = as.character(n3),
-    Population = as.character(Population),
-    Rate = as.character(Rate)
-         ) %>% 
-  add_row(town3 = " ", n3 = " ", Population = " ", Rate = " " ) %>% 
-  add_row(town3 =" ", n3 = " " , Population = " ", Rate = " ")
 
-newcase_tbl_town <- bind_cols(newcase_tbl_town1, newcase_tbl_town2,newcase_tbl_town3)
+newcase_tbl_town <- 
+  newcasetable %>% 
+  select(-c(DateUpdated, Tests)) %>%
+  mutate(Rate = if_else(Cases < 5, NA_real_, Rate),
+         across(Population:Rate, as.character),
+         Rate = replace_na(Rate, "--")
+         )
+
+newcase_tbl_town1 <- 
+  newcase_tbl_town %>% 
+  slice(1:57) %>%
+  rename(town1 = Town, n1 = Cases)
+
+newcase_tbl_town2 <- 
+  newcase_tbl_town %>% 
+  slice(58:114) %>% 
+  rename(town2 = Town, n2 = Cases)
+
+newcase_tbl_town3 <- 
+  newcase_tbl_town %>% 
+  slice(115:169) %>%
+  rename(town3 = Town, n3 = Cases) %>% 
+  add_row(town3 = " ", n3 = " ", Population = " ", Rate = " ") %>% 
+  add_row(town3 = " ", n3 = " ", Population = " ", Rate = " ")
+
+newcase_tbl_town <- bind_cols(newcase_tbl_town1, 
+                              newcase_tbl_town2,
+                              newcase_tbl_town3)
+
 newcase_tbl_town <- regulartable(newcase_tbl_town) #%>% 
-newcase_tbl_town <- set_header_labels(newcase_tbl_town,
-                        town1 = "Town",
-                        town2 = "Town",
-                        town3 = "Town",
-                        n1 = "Cases",
-                        n2 = "Cases",
-                        n3 = "Cases",
-                        Population = "Pop",
-                        Population1 = "Pop",
-                        Population2 = "Pop",
-                        Rate1 = "Rate",
-                        Rate2 = "Rate",
-                        Rate3 = "Rate"
-                         ) 
+newcase_tbl_town <- 
+  set_header_labels(newcase_tbl_town,
+                    town1 = "Town",
+                    town2 = "Town",
+                    town3 = "Town",
+                    n1 = "Cases",
+                    n2 = "Cases",
+                    n3 = "Cases",
+                    Population = "Pop",
+                    Population1 = "Pop",
+                    Population2 = "Pop",
+                    Rate1 = "Rate",
+                    Rate2 = "Rate",
+                    Rate3 = "Rate") 
+
 newcase_tbl_town <- font(newcase_tbl_town, fontname = "Calibri", part = "all")
-newcase_tbl_town <- fontsize(newcase_tbl_town, size = 8.5, part = "all" )
+newcase_tbl_town <- fontsize(newcase_tbl_town, size = 7, part = "all" )
 newcase_tbl_town <- width(newcase_tbl_town, width = 0.75)
 newcase_tbl_town <- height(newcase_tbl_town, height = .15, part = "body")
 newcase_tbl_town <- align_nottext_col(newcase_tbl_town, align = "center")
 newcase_tbl_town 
+
 ```
 
 
