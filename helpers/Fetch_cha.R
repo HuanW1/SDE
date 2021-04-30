@@ -24,6 +24,9 @@ which_one <-
   read_csv(possibilities)
 
 # c. make it useful
+
+cha <- which_one
+
 longcha <- which_one %>% 
   filter(Type == "Admit" & State == "TOTAL") %>% 
   select(-c(Change, County, State)) %>% 

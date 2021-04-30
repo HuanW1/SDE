@@ -15,16 +15,16 @@ params:
 ###  CT DPH
 ###  Authors: Alexander Senetcky, Sydney Jones
 
-#### knitr options ####
-knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
-options(scipen = 999)
-
 #### required packages are on L: ####
 source("helpers/StartMeUp.R")
 source("helpers/testtypes.R")
 source("helpers/outofstatecolleges.R")
 source("helpers/plot_helpers.R")
 source("helpers/Fetch_cha.R")
+
+#### knitr options ####
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+options(scipen = 999)
 
 #### kable options ####
 options(kableExtra.auto_format = FALSE)
@@ -664,12 +664,6 @@ deaths_text <- str_to_sentence(as.english(dec))  # for now
 
 As of **`r today_text`**, the total of laboratory-confirmed and probable COVID-19 cases reported among Connecticut residents is **`r cases_text`**, including **`r confirmed_text`** laboratory-confirmed and **`r probable_text`** probable cases.  **`r hosp_text `** patients are currently hospitalized with laboratory-confirmed COVID-19. There have been **`r dec`** COVID-19-associated deaths.  
 
-```{r gary_text, message=FALSE, warning=FALSE, include=FALSE, eval= FALSE}
-saveto <- paste0("L:/daily_reporting_figures_rdp/gary_text/", Sys.Date()) #### ?
-dir.create(saveto)
-rmarkdown::render("gary_text.Rmd", output_file = paste0(saveto,"/", Sys.Date(), "text.html"))
-
-```
 
 ```{r new_overall_summary_table, echo=FALSE, message=FALSE, warning=FALSE, eval=TRUE}
 
@@ -721,8 +715,6 @@ yesterday_col <-
   )
 
 mock_table$`Change Since Yesterday` <- yesterday_col
-
-tableforgary <- mock_table
 
 write_csv(mock_table,
           "L:/yesterday_test.csv")
@@ -817,8 +809,6 @@ tbl_prob_dec <-  case %>%
 tbl_prob_dec$county <- factor(tbl_prob_dec$county ,level = tbl_county$County, labels = tbl_county$County)
 tbl_prob_dec <- tbl_prob_dec %>% arrange(county)
 
-
-
 tbl_cty_sum <- tibble(
   'County' = tbl_county$County,
   'cases.confirmed' = tbl_confirmed_cases$n,
@@ -826,8 +816,6 @@ tbl_cty_sum <- tibble(
   'dec.confirmed' = tbl_confirmed_dec$n,
   'dec.probable' = tbl_prob_dec$n
 )
-
-
 
 typology <- data.frame(
   col_keys = c("County", "cases.confirmed", "cases.probable", "dec.confirmed", "dec.probable"),
