@@ -1,7 +1,6 @@
 #setup for race/ethnicity plots
 
 ####0 libraries and connection ####
-source("helpers/StartMeUp.R")
 con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 ####1 lookups ####

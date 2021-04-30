@@ -779,43 +779,24 @@ odbc::dbDisconnect(con2)
 *As of `r paste0(format(graphdate, "%m/%d/%y"))`.*
 
 ```{r county_lab_cases_deaths_table, message=FALSE, warning=FALSE}
-tbl_county <- tibble::tibble(County = forcats::as_factor(c("Fairfield County", "Hartford County", "Litchfield County", "Middlesex County", "New Haven County", "New London County", "Tolland County", "Windham County", "Pending address validation")))
-tbl_confirmed_cases <- case %>%
-  filter(disease_status == "Confirmed") %>% 
-  group_by(county) %>% 
-  tally() %>% 
-  replace_na(replace = list(county= "Pending address validation")) 
-tbl_probable_cases <- case %>%
-  filter(disease_status == "Probable") %>% 
-  group_by(county) %>% 
-  tally() %>% 
-  replace_na(replace = list(county= "Pending address validation"))
-tbl_confirmed_dec <-  case %>%
-  select(county, outcome, disease_status) %>% 
-  filter(outcome == "Died" & disease_status == "Confirmed")%>% 
-  group_by(county) %>% 
-  tally() %>% 
-  replace_na(replace = list(county = "Pending address validation")) %>% 
-  complete(county = tbl_county$County, fill = list(n = 0))
-tbl_confirmed_dec$county <- factor(tbl_confirmed_dec$county ,level = tbl_county$County, labels = tbl_county$County)
-tbl_confirmed_dec <- tbl_confirmed_dec %>% arrange(county)
-tbl_prob_dec <-  case %>%
-  select(county, outcome, disease_status) %>% 
-  filter(outcome == "Died" & disease_status == "Probable")%>% 
-  group_by(county) %>% 
-  tally() %>% 
-  replace_na(replace = list(county = "Pending address validation")) %>% 
-  complete(county = tbl_county$County, fill = list(n = 0))
-tbl_prob_dec$county <- factor(tbl_prob_dec$county ,level = tbl_county$County, labels = tbl_county$County)
-tbl_prob_dec <- tbl_prob_dec %>% arrange(county)
+tbl_county <- c("Fairfield County", "Hartford County", "Litchfield County", "Middlesex County", "New Haven County", "New London County", "Tolland County", "Windham County", "Pending address validation")
 
-tbl_cty_sum <- tibble(
-  'County' = tbl_county$County,
-  'cases.confirmed' = tbl_confirmed_cases$n,
-  'cases.probable' = tbl_probable_cases$n,
-  'dec.confirmed' = tbl_confirmed_dec$n,
-  'dec.probable' = tbl_prob_dec$n
-)
+CountySummary <- case %>%
+  group_by(county, disease_status,outcome) %>% 
+  tally() %>% 
+  ungroup() %>% 
+  replace_na(replace = list(county= "Pending address validation")) %>% 
+  mutate(county = ifelse( county != "Pending address validation", paste0(county, " County"), county),
+         outcome = ifelse(is.na(outcome), "Survived", outcome)) %>% 
+  complete(county = tbl_county, disease_status = c("Confirmed", "Probable"), outcome = c("Died", "Survived"), fill = list(n = 0)) %>% 
+  pivot_wider(id_cols = c(county, disease_status, outcome), names_from = c(disease_status, outcome), values_from = n) %>% 
+  mutate('cases.confirmed' = Confirmed_Survived + Confirmed_Died,
+         'cases.probable' = Probable_Survived + Probable_Died,
+         County = factor(county, levels = tbl_county, labels = tbl_county)) %>%
+  arrange(county) %>% 
+  rename('dec.confirmed' = Confirmed_Died,
+         'dec.probable' = Probable_Died) %>% 
+  select(County, cases.confirmed, cases.probable, dec.confirmed, dec.probable)
 
 typology <- data.frame(
   col_keys = c("County", "cases.confirmed", "cases.probable", "dec.confirmed", "dec.probable"),
@@ -824,14 +805,14 @@ typology <- data.frame(
   stringsAsFactors = FALSE
 )
 
-tbl <- flextable(tbl_cty_sum)
+tbl <- flextable(CountySummary)
 tbl <- set_header_df(tbl, mapping = typology, key = "col_keys")
 tbl <- merge_h(tbl, part = "header")
 tbl <- merge_v(tbl, part = "header")
-n1sum <- as.character(sum(tbl_cty_sum$cases.confirmed))
-n2sum <- as.character(sum(tbl_cty_sum$cases.probable))
-n3sum <- as.character(sum(tbl_cty_sum$dec.confirmed))
-n4sum <- as.character(sum(tbl_cty_sum$dec.probable))
+n1sum <- as.character(sum(CountySummary$cases.confirmed))
+n2sum <- as.character(sum(CountySummary$cases.probable))
+n3sum <- as.character(sum(CountySummary$dec.confirmed))
+n4sum <- as.character(sum(CountySummary$dec.probable))
 
 tbl <-  tbl %>% 
   add_footer(values = c( County = "Total", 
