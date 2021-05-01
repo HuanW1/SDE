@@ -800,28 +800,30 @@ values_formatted <-
          "'")
 
 
-statement <-
-  paste0("IF EXISTS (SELECT * FROM [DPH_COVID_IMPORT].[dbo].[RPT_summary_bydate]
+if((ncases >= last_rpt_data$Cases) & (ntests >= last_rpt_data$Tests)){
+  statement <-
+    paste0("IF EXISTS (SELECT * FROM [DPH_COVID_IMPORT].[dbo].[RPT_summary_bydate]
             WHERE report_date = '", today(), "')
             UPDATE [DPH_COVID_IMPORT].[dbo].[RPT_summary_bydate]
             SET report_date ='", today(), "', dow_report_date = '", weekdays(today()),
-         "', Cases = '", ncases, "', Tests = '", ntests,
-         "', Positivity = '", Positivity, "', Hospitalized = '", hospitalized_totals$today,
-         "', Deaths = '", dec,
-         "' WHERE report_date = '", today(), "'
+           "', Cases = '", ncases, "', Tests = '", ntests,
+           "', Positivity = '", Positivity, "', Hospitalized = '", hospitalized_totals$today,
+           "', Deaths = '", dec,
+           "' WHERE report_date = '", today(), "'
           ELSE
             INSERT INTO [DPH_COVID_IMPORT].[dbo].[RPT_summary_bydate]
             VALUES (", values_formatted, ")")
-
-con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
-
-invisible(capture.output(
-  dbExecute(
-    con2,
-    statement
-  )))
-
-odbc::dbDisconnect(con2)
+  
+  con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
+  
+  invisible(capture.output(
+    dbExecute(
+      con2,
+      statement
+    )))
+  
+  odbc::dbDisconnect(con2)
+}
 
 ```
 
