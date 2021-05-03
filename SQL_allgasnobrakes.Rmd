@@ -836,13 +836,12 @@ tbl
 
 __Day-to-day changes reflect newly reported cases, deaths, and tests that occurred over the last several days to week.__  All data in this report are preliminary; data for previous dates will be updated as new reports are received and data errors are corrected.  Hospitalization data were collected by the Connecticut Hospital Association.  Deaths reported to either OCME or DPH are included in the daily COVID-19 update.  
 ```{r new cases graphs, eval=thursday}
-casenew <- thursday_case 
+#casenew <- thursday_case 
 thisweek <- epiweek(Sys.Date())
 thisyear <- epiyear(Sys.Date())
 beginofcurmmwr <- MMWRweek2Date(MMWRyear = thisyear, MMWRweek = thisweek, MMWRday = 1)
 
-cases_14 <- casenew %>%
- # filter(week >= thisweek-2 & week <= thisweek-1)
+cases_14 <- thursday_case %>%
   filter(date>= beginofcurmmwr-14 & date <beginofcurmmwr)
 cases_14_nc <- cases_14 %>%
   filter(cong_yn == "No")
