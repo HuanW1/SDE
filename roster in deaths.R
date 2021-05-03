@@ -35,22 +35,15 @@ Roster <- OCME_newdeaths  %>%
   separate(col = Race.Ethnicity, into = c("Race", "Ethnicity"), sep = ",") %>% 
   select(OCME., DOB, DOD, lname, fname, DateApproved, Residence, Sex, Race, 
          Ethnicity, PronouncedBy) 
-#%>% mutate(Ethnicity = case_when(
-#str_detect(Race == "Hispanic") ~ "Yes",
-#TRUE ~ as.character(eth)))
 
 # fix for any race
-# if Race includes 'Hispanic', then Ethnicity should be 'YES'
+# if Race includes 'HISPANIC', then Ethnicity should be 'YES'
+race_inds = grep("HISPANIC",Roster$Race,ignore.case=TRUE)
+if (length(race_inds)>0){Roster$Ethnicity[race_inds]="YES"}
 
-# if Ethnicity includes any other text, put it in Race
+# if Race includes 'yes', then Ethnicity should be 'hispanic'
 race_inds2 = grep("YES",Roster$Ethnicity,ignore.case=TRUE)
-if (length(race_inds2)>0){
-  Roster$Race[race_inds2]="White"
-}
-
-# for remaining blank elements in Roster$Ethnicity, enforce as "NO"
-#empt_inds=which(is.na(Roster$Ethnicity))
-#if (length(empt_inds)>0){Roster$Ethnicity[empt_inds]="NO"}
+if (length(race_inds2)>0){Roster$Race[race_inds2]="WHITE"}
 
 # for Black in Roster$Race, enforce as "Black or African American"
 black_inds = grep("Black",Roster$Race,ignore.case=TRUE)
