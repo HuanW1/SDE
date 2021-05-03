@@ -1286,8 +1286,6 @@ save(agegrp,
 `r if(thursday){"The chart below shows the average number of new COVID-19 cases per day per 100,000 population in the state of Connecticut and for each Connecticut county. The rates in this chart are calculated by averaging the number of new cases diagnosed each day during the previous two weeks, dividing by the annual estimated population, and then multiplying by 100,000.  "}`
 
 ```{r plot_thurs_cases_county, message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300, fig.height=6, fig.width= 7.5}
-countypop <- county_pop %>% rename(pop = Total)
-
 wkincidencect <- case %>%
   mutate(
     #year = 2020,
@@ -1302,7 +1300,7 @@ wkincidencect <- case %>%
   filter(!is.na(mmwrweekdate) &  !is.na(n2)) %>% 
   arrange(mmwrweekdate) %>% 
   mutate(n3 = n+n2) %>% 
-  mutate(rate=(n3/14)/3572665 *100000, 
+  mutate(rate=(n3/14)/sum(county_pop$Total) *100000, 
          County="Connecticut",
           mmwrweekdate = factor(mmwrweekdate)
          )
@@ -1321,9 +1319,9 @@ wkincidence <- case %>%
   filter(!is.na(mmwrweekdate) &  !is.na(n2)) %>% 
   arrange(mmwrweekdate) %>% 
   rename(County = county) %>% 
-  left_join(countypop, by="County") %>%
+  left_join(county_pop, by="County") %>%
   mutate(n3 = n+n2) %>% 
-  mutate(rate=(n3/14)/pop *100000,
+  mutate(rate=(n3/14)/Total *100000,
           mmwrweekdate = factor(mmwrweekdate)
          )
 
@@ -1372,28 +1370,13 @@ ggplot(weekincidence, aes(mmwrweekdate, rate, col = County, group = County))+
 
 
 ```{r plot_thurs_cases_date, message=FALSE, warning=FALSE, fig.align= "center", eval = thursday, dpi = 300}
-case <- case %>% filter(date >= "2020-03-01" & date < Sys.Date())
-
-case_epi <- case %>% 
-  filter(disease_status  == "Confirmed") %>% 
-  group_by(date) %>% 
+epicurve <- case %>% filter(date >= "2020-03-01" & date < Sys.Date()) %>% 
+  group_by(disease_status, date) %>% 
   tally() %>% 
   filter(!is.na(date)) %>% 
-  mutate(type = "Confirmed")
-
-
-#confirmed > specimen date then probable date of symp onsent, if na then report date
-prob_epi <- case %>% 
- filter(disease_status  == "Probable") %>%
-  group_by(date) %>% 
-  tally() %>% 
-  filter(!is.na(date)) %>% 
-  mutate(
-    type = "Probable"
-  )
-epicurve <- bind_rows(case_epi, prob_epi) %>% 
-  arrange(date) %>% 
-  mutate(type = factor(type, levels = c("Probable", "Confirmed"), labels = c("Probable", "Confirmed")))
+  rename(type = disease_status) %>% 
+  mutate(type = factor(type, levels = c("Probable", "Confirmed"), labels = c("Probable", "Confirmed"))) %>% 
+  arrange(date)
 
 ymx <- epicurve %>% group_by(date) %>%  summarize(n=sum(n)) %>%  select(n) %>%  max(.$n)
  
@@ -1403,7 +1386,6 @@ epicurve %>%
   geom_rect(aes(xmin = Sys.Date()-5.5, xmax =max(epicurve$date)+1, ymax = ymx, ymin = 0), col = "black", alpha = 0.01, fill = "gray")+
   scale_x_date(date_labels = "%b-%d", date_breaks = "2 weeks", limits = c(ymd("2020-03-04"),max(epicurve$date)+1))+
   scale_fill_manual(values = c('#7fcdbb',"#2c7fb8" ))+
-  #scale_fill_brewer(palette = "BuGn", direction = -1, drop = FALSE, guide = guide_legend(reverse = TRUE))+
   theme_minimal()+
   theme(
         panel.grid.minor.x = element_blank(),
