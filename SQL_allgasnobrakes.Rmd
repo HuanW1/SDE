@@ -848,8 +848,7 @@ avgratebreaks <-  c(
   "10-14 cases per 100,000",
   "15 or more cases per 100,000")
 
-
-thursday_towncount_nocong <- 
+thursday_towncasecount_nocong <- 
   thursday_case_nocong %>%
   filter(city %in% city_file$TOWN_LC) %>% 
   group_by(city) %>% 
@@ -867,17 +866,12 @@ thursday_towncount_nocong <-
                                   CaseRate >=15 ~ "15 or more cases per 100,000"),
          avgrate = factor(avgrate, levels = avgratebreaks, labels = avgratebreaks))
            
-subdat14nc <- subdat %>% 
-  inner_join(thursday_towncount_nocong, by = c("NAME" = "city"))
+thursday_case_map <- subdat %>% 
+  inner_join(thursday_towncasecount_nocong, by = c("NAME" = "city"))
 
 paletteo<- c("#fcf8f8", "#fff7bc", "#fec44f", "#d95f0e", "#993404", NA) ## fix colors
-
 #paletteo2<- c("#fcf8f8", "#fff7bc", "#fee391", "#fec44f", "#fe9929", "#ec7014", "#cc4c02", "#8c2d04", NA)
 paletteo2<- c("#fcf8f8", "#fff7bc", "#fee391", "#fec44f", "#fe9929", "#ec7014", "#cc4c02", "#8c2d04", "#e31a1c", NA)
-
-n14ncperc <- paste0("(",round(nrow(thursday_case_nocong)/nrow(thursday_case)*100), "%)")
-com <- nrow(thursday_case) - nrow(thursday_case_nocong)
-n14cperc <- paste0("(",round(com/nrow(thursday_case)*100), "%)")
 ```
 
 `r if(thursday){"### COVID-19 Cases and Deaths Over Time ###  "}`
@@ -888,39 +882,32 @@ n14cperc <- paste0("(",round(com/nrow(thursday_case)*100), "%)")
 
 ```{r plot_thurs_cases_week, eval = thursday}
 casebyweek <- case %>% 
-  mutate(year = epiyear(date)) %>% 
-  # filter(week >= thisweek-12, year >=2020) %>% 
-  filter(date > beginofcurmmwr-84 & date<=Sys.Date()) %>% 
+   filter(date > beginofcurmmwr-84 & date<=Sys.Date()) %>%  
   group_by(year,week) %>% 
   tally() %>% 
   mutate(
-    date= MMWRweek2Date(MMWRyear = year, MMWRweek = week, MMWRday = 7)
+    mmwrdate = MMWRweek2Date(MMWRyear = year, MMWRweek = week, MMWRday = 7)
   ) %>% 
-  arrange(date) %>% 
   ungroup() %>% 
+  arrange(mmwrdate) %>% 
   mutate(
-        date2 = format(date, "%B %d, %Y"),
-        date2 = factor(date2, levels = date2, labels = date2),
-        date = format(date, "%b-%d"),
-        date = factor(date, levels = date, labels = date)
-        )
+        date_long = factor(format(mmwrdate, "%B %d, %Y")),
+        date_short = factor(format(mmwrdate, "%b-%d")))
 
-
-xaxis <- length(levels(casebyweek$date))
+xaxis <- length(levels(casebyweek$date_short))
 
 ymaxweek <- max(casebyweek$n)
-lx <- length(levels(casebyweek$date2))
-xweek <-levels(casebyweek$date2)[lx]
+lx <- length(levels(casebyweek$date_long))
+xweek <-levels(casebyweek$date_long)[lx]
 
 maxlim <- round(ymaxweek /500)*500
 if(maxlim<= ymaxweek ){
   maxlim <- maxlim+500
 }
 
-
 ggplot(casebyweek)+
-  geom_col(aes(x=date, y=n), fill="lightgrey")+
-  geom_text(aes(date,n,label=n), position = position_dodge(width=0.9), vjust =-0.25, size = 3.3)+
+  geom_col(aes(x=date_short, y=n), fill="lightgrey")+
+  geom_text(aes(date_short,n,label=n), position = position_dodge(width=0.9), vjust =-0.25, size = 3.3)+
   # geom_rect(aes(xmin = xweek , xmax = xweek , ymax = max(casebyweek$n), ymin = 0), alpha = 0.025, fill = "#d0d1e6")+
   ggplot2::annotate("rect", xmin =xaxis-.5, xmax = xaxis+.5 , ymin = 0, ymax = ymaxweek, alpha = 0.5, fill = "#d0d1e6" )+
   scale_y_continuous(limits = c(0, maxlim))+
@@ -931,11 +918,12 @@ ggplot(casebyweek)+
   )+
   labs(
     title = "Number of COVID-19 Cases among Connecticut Residents\nby Week of Specimen Collection or Onset",
-    subtitle = paste0(levels(casebyweek$date2)[1],"-", xweek),
+    subtitle = paste0(levels(casebyweek$date_long)[1],"-", xweek),
     x = "Specimen Collection/ Onset Date",
     y = "Number of COVID-19 Cases",
     caption = "Shading indicates data are incomplete for the current week."
   )
+rm(casebyweek, xaxis, ymaxweek,lx, xweek, maxlim)
 ```
 
 
@@ -948,7 +936,7 @@ ggplot(casebyweek)+
 
 ```{r plot_thurs_community_settings, eval=thursday, dpi=300, fig.height=5, fig.width= 7}
 #Case count map
-ggplot(subdat14nc)+
+ggplot(thursday_case_map)+
   geom_sf(aes(fill = n2))+
   geom_sf_text(aes(label = NAME), col = "black", size = 1.5)+
   scale_fill_manual(values = paletteo2)+  #dbl check with sydney
@@ -982,7 +970,7 @@ ggplot(subdat14nc)+
 avgpal <- c("#d3d3d3", "#ffffb2", "#fd8d3c", "#e31a1c")
 #avgpal <- c("#d3d3d3", "#e31a1c")
 
-ggplot(subdat14nc)+
+ggplot(thursday_case_map)+
   geom_sf(aes(fill = avgrate))+
   geom_sf_text(aes(label = NAME), col = "black", size = 1.5)+
   #scale_fill_distiller(low="white")+
@@ -1013,7 +1001,7 @@ ggplot(subdat14nc)+
 `r if(thursday){"*Map does not include* "}` `r if(thursday){thursday_pending_address$n}` `r if(thursday){"*cases pending address validation*  "}`
 
 
-```{r newcasetable, eval = thursday}
+```{r thursday_tables, eval = thursday}
 testgeo_con <- DBI::dbConnect(odbc::odbc(), "epicenter")
 
 geocoded_tests <- 
@@ -1034,43 +1022,36 @@ geocoded_tests <-
 
 odbc::dbDisconnect(testgeo_con)
 
-test14 <- geocoded_tests
-test14nc <- geocoded_tests %>%
+thursday_test_nocong <- geocoded_tests %>%
   filter(!cong_test %in% "Yes")
 
-subdat14tnc <- test14nc %>% 
+thursday_towntestcount_nocong <- thursday_test_nocong %>% 
+  filter(city %in% city_file$TOWN_LC) %>% 
   group_by(city) %>% 
   tally(name = "Tests") %>% 
-  right_join(subdat, by = c("city" = "NAME"))
+  ungroup() %>% 
+  complete(city = city_file$TOWN_LC, fill = list("Tests" = 0))
 
-######## FIX
-newcasetable <- c14nc_count %>%
-  select(NAME, n, pop, CaseRate) %>%
-  left_join(test14nc_ct, by = "NAME") %>% 
-  mutate(Cases =if_else(is.na(n), 0, n),
-         CaseRate = if_else(is.na(CaseRate), 0, CaseRate),
-         Tests = as.numeric(Tests),
-         Tests = if_else(is.na(Tests), 0, Tests),
-         DateUpdated = Sys.Date(),
-         #Cases = ifelse(Cases >0 & Cases <5, "<5", Cases)
-         ) %>%
-  select(-n) %>% 
-  #select(-c("n.x", "n.y")) %>%
-  filter(NAME != "Not_available"  & NAME != "Not Available" & NAME  %in% city_file$TOWN_LC) %>%
-  rename(Town = NAME,
-         Population = pop,
-         Rate = CaseRate) %>%
-  select(c(Town, Population, Cases, Rate, Tests, DateUpdated)) %>% 
+thursday_test_map<-
+  subdat %>% 
+  inner_join(thursday_towntestcount_nocong , by = c("NAME" = "city"))
+  
+thursday_town_table <- thursday_towncasecount_nocong %>%
+  select(city, n, pop_2019, CaseRate) %>%
+  rename(Cases = n, Population = pop_2019,
+         Rate = CaseRate, Town = city) %>% 
+  mutate(Cases = as.numeric(ifelse(Cases <5 | Rate < 5, NA, Cases)),
+         Rate = as.numeric(ifelse(Cases <5 | Rate < 5, NA, Rate))) %>% 
+  select(c(Town, Population, Cases, Rate)) %>% 
   arrange(Town)
 ```
 
 
 ```{r thursdaytable, eval = thursday}
-newcase_tbl_town <- newcasetable %>% 
-  select(-c(DateUpdated, Tests))
-newcase_tbl_town1 <- newcase_tbl_town[1:57,] %>% rename(town1 =Town, n1=Cases)
-newcase_tbl_town2 <- newcase_tbl_town[58:114,] %>% rename(town2 =Town, n2=Cases)
-newcase_tbl_town3 <- newcase_tbl_town[115:169,] %>% rename(town3 =Town, n3=Cases) %>% 
+
+thursday_town_table1 <- thursday_town_table[1:57,] %>% rename(town1 =Town, n1=Cases)
+thursday_town_table2 <- thursday_town_table[58:114,] %>% rename(town2 =Town, n2=Cases)
+thursday_town_table3 <- thursday_town_table[115:169,] %>% rename(town3 =Town, n3=Cases) %>% 
   mutate(
     n3 = as.character(n3),
     Population = as.character(Population),
@@ -1079,9 +1060,9 @@ newcase_tbl_town3 <- newcase_tbl_town[115:169,] %>% rename(town3 =Town, n3=Cases
   add_row(town3 = " ", n3 = " ", Population = " ", Rate = " " ) %>% 
   add_row(town3 =" ", n3 = " " , Population = " ", Rate = " ")
 
-newcase_tbl_town <- bind_cols(newcase_tbl_town1, newcase_tbl_town2,newcase_tbl_town3)
-newcase_tbl_town <- regulartable(newcase_tbl_town) #%>% 
-newcase_tbl_town <- set_header_labels(newcase_tbl_town,
+thursday_town_table <- bind_cols(thursday_town_table1, thursday_town_table2,thursday_town_table3)
+thursday_town_table<- regulartable(thursday_town_table) #%>% 
+thursday_town_table <- set_header_labels(thursday_town_table,
                         town1 = "Town",
                         town2 = "Town",
                         town3 = "Town",
@@ -1095,12 +1076,12 @@ newcase_tbl_town <- set_header_labels(newcase_tbl_town,
                         Rate2 = "Rate",
                         Rate3 = "Rate"
                          ) 
-newcase_tbl_town <- font(newcase_tbl_town, fontname = "Calibri", part = "all")
-newcase_tbl_town <- fontsize(newcase_tbl_town, size = 8.5, part = "all" )
-newcase_tbl_town <- width(newcase_tbl_town, width = 0.75)
-newcase_tbl_town <- height(newcase_tbl_town, height = .15, part = "body")
-newcase_tbl_town <- align_nottext_col(newcase_tbl_town, align = "center")
-newcase_tbl_town 
+thursday_town_table <- font(thursday_town_table, fontname = "Calibri", part = "all")
+thursday_town_table <- fontsize(thursday_town_table, size = 8.5, part = "all" )
+thursday_town_table <- width(thursday_town_table, width = 0.75)
+thursday_town_table <- height(thursday_town_table, height = .15, part = "body")
+thursday_town_table <- align_nottext_col(thursday_town_table, align = "center")
+thursday_town_table 
 ```
 
 
@@ -1108,13 +1089,13 @@ newcase_tbl_town
     
 `r if(thursday){"__COVID-19 Molecular and Antigen Tests during__"}` `r if(thursday){thursday_range}` `r if(thursday){"  "}`
 
-`r if(thursday){"Among "}` `r if(thursday){nrow(test14)}` `r if(thursday){"molecular and antigen tests for COVID-19 with specimen collection date during"}`  `r if(thursday){thursday_range}``r if(thursday){", "}``r if(thursday){nrow(test14nc)}` `r if(thursday){ "("}``r if(thursday){ round(nrow(test14nc)/nrow(test14)*100)}``r if(thursday){ "%) tests were conducted among people who did not reside in congregate settings (including nursing homes, assisted living, and correctional facilities). Of these "}` `r if(thursday){nrow(test14nc)}` `r if(thursday){"tests, "}` `r if(thursday){nrow(test14nc %>% filter(result == "detected"))}` `r if(thursday){"("}``r if(thursday){round(nrow(test14nc %>% filter(result == "detected"))/nrow(test14nc)*100)}``r if(thursday){"%)"}``r if(thursday){" were positive. The map below shows the number of molecular and antigen COVID-19 tests by town with specimen collection date during "}``r if(thursday){thursday_range}` `r if(thursday){" that were conducted among community residents."}`
+`r if(thursday){"Among "}` `r if(thursday){nrow(geocoded_tests)}` `r if(thursday){"molecular and antigen tests for COVID-19 with specimen collection date during"}`  `r if(thursday){thursday_range}``r if(thursday){", "}``r if(thursday){nrow(thursday_test_nocong)}` `r if(thursday){ "("}``r if(thursday){ round(nrow(thursday_test_nocong)/nrow(geocoded_tests)*100)}``r if(thursday){ "%) tests were conducted among people who did not reside in congregate settings (including nursing homes, assisted living, and correctional facilities). Of these "}` `r if(thursday){nrow(thursday_test_nocong)}` `r if(thursday){"tests, "}` `r if(thursday){nrow(thursday_test_nocong %>% filter(result == "detected"))}` `r if(thursday){"("}``r if(thursday){round(nrow(thursday_test_nocong %>% filter(result == "detected"))/nrow(thursday_test_nocong)*100)}``r if(thursday){"%)"}``r if(thursday){" were positive. The map below shows the number of molecular and antigen COVID-19 tests by town with specimen collection date during "}``r if(thursday){thursday_range}` `r if(thursday){" that were conducted among community residents."}`
     
     
      
 ```{r newcasetable , eval= thursday, dpi=300, fig.height=5, fig.width= 7}     
 #make map
-ggplot(subdat14tnc)+
+ggplot(thursday_test_map)+
   geom_sf(aes(fill = Tests))+ # was originally just n, I changed to n.y
   geom_sf_text(aes(label = NAME), col = "black", size = 1.5)+
   scale_fill_distiller(palette = "Blues", direction = 1, na.value="white")+
@@ -1305,9 +1286,7 @@ save(agegrp,
 `r if(thursday){"The chart below shows the average number of new COVID-19 cases per day per 100,000 population in the state of Connecticut and for each Connecticut county. The rates in this chart are calculated by averaging the number of new cases diagnosed each day during the previous two weeks, dividing by the annual estimated population, and then multiplying by 100,000.  "}`
 
 ```{r plot_thurs_cases_county, message=FALSE, warning=FALSE, fig.align= "center", eval=thursday, dpi=300, fig.height=6, fig.width= 7.5}
-
 countypop <- county_pop %>% rename(pop = Total)
-
 
 wkincidencect <- case %>%
   mutate(
