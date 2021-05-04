@@ -84,4 +84,4 @@ raw_cases <- raw_cases %>%
   left_join(new_raw_race, by = "eventid")
 
 #clear trash
-rm(single, multi, race_easy, race_medium, race_hard, total_race, new_raw_race, statment)
+rm(single, poss_multi, race_easy, race_medium, race_hard, total_race, new_raw_race, statment)

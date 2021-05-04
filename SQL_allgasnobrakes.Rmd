@@ -68,7 +68,6 @@ SQL_write <- FALSE
 ```
 
 ```{r maps_pops_etc, include=FALSE}
-
 age_labels <- c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">=80")
 
 epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
@@ -100,7 +99,7 @@ county_pop <-
   filter(YEAR == 2019) %>%
   group_by(cty_label) %>%
   summarise(Total = sum(POP, na.rm = TRUE)) %>%
-  mutate(County = paste0(cty_label, " County")) %>%
+  mutate(County = cty_label) %>%
   select(County, Total) %>% 
   arrange(County) %>%
   collect() 
@@ -180,8 +179,8 @@ source("race_ethnicity/race_processing.R")
 ```
 
 ```{r df_creation}
-df <-  left_join(raw_cases, raw_tests, by = c("eventid"))# %>% 
-  #sample_n(500000)
+df <-  left_join(raw_cases, raw_tests, by = c("eventid")) %>% 
+  sample_n(5000000)
 
 rm(raw_cases)
 rm(raw_tests)
@@ -929,7 +928,7 @@ rm(casebyweek, xaxis, ymaxweek,lx, xweek, maxlim)
 
 `r if(thursday){"__Community Transmission of COVID-19 __"}` 
 
-  `r if(thursday){"Among "}` `r if(thursday){nrow(thursday_case)}` `r if(thursday){" new COVID-19 cases with specimen collection or onset date during "}` `r if(thursday){thursday_range}` `r if(thursday){", there were "}` `r if(thursday){nrow(thursday_case_nocong)}` `r if(thursday){" cases among people living in community settings, as shown in the map below. This corresponds to an average of "}``r if(thursday){round(nrow(thursday_case_nocong)/14/3572665*100000, 2)}`  `r if(thursday){" new COVID-19 cases per day per 100,000 population. Cases among people residing in nursing homes, assisted living facilities, and correctional facilities are excluded. Darker colors indicate towns with more cases."}`
+  `r if(thursday){"Among "}` `r if(thursday){nrow(thursday_case)}` `r if(thursday){" new COVID-19 cases with specimen collection or onset date during "}` `r if(thursday){thursday_range}` `r if(thursday){", there were "}` `r if(thursday){nrow(thursday_case_nocong)}` `r if(thursday){" cases among people living in community settings, as shown in the map below. This corresponds to an average of "}``r if(thursday){round(nrow(thursday_case_nocong)/14/sum(county_pop$Total)*100000, 2)}`  `r if(thursday){" new COVID-19 cases per day per 100,000 population. Cases among people residing in nursing homes, assisted living facilities, and correctional facilities are excluded. Darker colors indicate towns with more cases."}`
 
 
 `r if(thursday){"During this two-week period, there were more than 100 new COVID-19 cases in # towns.  "}`
@@ -1049,16 +1048,17 @@ thursday_town_table <- thursday_towncasecount_nocong %>%
 
 ```{r thursdaytable, eval = thursday}
 
-thursday_town_table1 <- thursday_town_table[1:57,] %>% rename(town1 =Town, n1=Cases)
-thursday_town_table2 <- thursday_town_table[58:114,] %>% rename(town2 =Town, n2=Cases)
-thursday_town_table3 <- thursday_town_table[115:169,] %>% rename(town3 =Town, n3=Cases) %>% 
+thursday_town_table1 <- thursday_town_table[1:57,] %>% rename(town1 =Town, n1=Cases, Population1 = Population, Rate1 = Rate)
+thursday_town_table2 <- thursday_town_table[58:114,] %>% rename(town2 =Town, n2=Cases, Population2 = Population, Rate2 = Rate)
+thursday_town_table3 <- thursday_town_table[115:169,] %>% 
+  rename(town3 =Town, n3=Cases, Population3 = Population, Rate3 = Rate) %>% 
   mutate(
     n3 = as.character(n3),
-    Population = as.character(Population),
-    Rate = as.character(Rate)
+    Population3 = as.character(Population3),
+    Rate3 = as.character(Rate3)
          ) %>% 
-  add_row(town3 = " ", n3 = " ", Population = " ", Rate = " " ) %>% 
-  add_row(town3 =" ", n3 = " " , Population = " ", Rate = " ")
+  add_row(town3 = " ", n3 = " ", Population3 = " ", Rate3 = " " ) %>% 
+  add_row(town3 =" ", n3 = " " , Population3 = " ", Rate3 = " ")
 
 thursday_town_table <- bind_cols(thursday_town_table1, thursday_town_table2,thursday_town_table3)
 thursday_town_table<- regulartable(thursday_town_table) #%>% 
@@ -1069,9 +1069,9 @@ thursday_town_table <- set_header_labels(thursday_town_table,
                         n1 = "Cases",
                         n2 = "Cases",
                         n3 = "Cases",
-                        Population = "Pop",
                         Population1 = "Pop",
                         Population2 = "Pop",
+                        Population3 = "Pop",
                         Rate1 = "Rate",
                         Rate2 = "Rate",
                         Rate3 = "Rate"
@@ -1093,7 +1093,7 @@ thursday_town_table
     
     
      
-```{r newcasetable , eval= thursday, dpi=300, fig.height=5, fig.width= 7}     
+```{r thursday_town_test_map , eval= thursday, dpi=300, fig.height=5, fig.width= 7}     
 #make map
 ggplot(thursday_test_map)+
   geom_sf(aes(fill = Tests))+ # was originally just n, I changed to n.y
@@ -1203,8 +1203,8 @@ newggslopegraph(agegrp,
 
 )
 
-save(agegrp,
-     file = paste0("l:/recent_rdata/for_josh.RData" ))
+# save(agegrp,
+#      file = paste0("l:/recent_rdata/for_josh.RData" ))
 
 
 # epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
@@ -1328,8 +1328,8 @@ wkincidence <- case %>%
   
 weekincidence <- bind_rows(wkincidence, wkincidencect) 
 
-maxlim <- round(max(weekincidence$rate)/5)*5
-if(maxlim<= max(weekincidence$rate)){
+maxlim <- round(max(weekincidence$rate, na.rm = TRUE)/5)*5
+if(maxlim<= max(weekincidence$rate, na.rm = TRUE)){
   maxlim <- maxlim+5
 }
 
@@ -2062,11 +2062,10 @@ tbl_towns
 **APPENDIX B.** The following graphs show the number of cases per 100,000 Connecticut residents statewide and by county, age group, and gender. Population estimate from: [DPH Population Statistics](https://portal.ct.gov/DPH/Health-Information-Systems--Reporting/Population/Population-Statistics)  
 
 ```{r plot_state_county, message=FALSE, warning=FALSE, fig.align= "center", dpi=300, eval=thursday}
-st_case_rate <-tibble(geo = "Connecticut", rate = round((nrow(case)/3572665)*100000), type = "Case Rate") 
+st_case_rate <-tibble(geo = "Connecticut", rate = round((nrow(case)/sum(county_pop$Total))*100000), type = "Case Rate") 
 st_dec_rate <- tibble(geo = "Connecticut",rate = round((
-  nrow(
-    case %>%
-      filter(outcome == "Died"))/3572665)*100000), type = "Death Rate")
+  nrow(case %>%
+      filter(outcome == "Died"))/sum(county_pop$Total))*100000), type = "Death Rate")
 state_rates <- bind_rows(st_case_rate, st_dec_rate) %>% 
   mutate(color = "a")
 county_case_rates <- case %>%
