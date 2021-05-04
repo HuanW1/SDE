@@ -62,8 +62,8 @@ if (monthsame) {
 }
 
 #### setting what we write out ####
-csv_write <- FALSE
-SQL_write <- FALSE
+csv_write <- TRUE
+SQL_write <- TRUE
 
 ```
 
@@ -124,7 +124,6 @@ filename<-gsub(".shp", "", filename)
 subdat2 <- st_read('L:/daily_reporting_figures_rdp/shape_files',
                    "countyct_37800_0000_1990_s100_CENSUS_1_shp_wgs84")
 subdat2 <- st_transform(subdat2,"+init=epsg:4326")
-#subdat3 <- subdat2
 
 ```
 
@@ -179,11 +178,9 @@ source("race_ethnicity/race_processing.R")
 ```
 
 ```{r df_creation}
-df <-  left_join(raw_cases, raw_tests, by = c("eventid")) %>% 
-  sample_n(5000000)
+df <-  left_join(raw_cases, raw_tests, by = c("eventid"))
 
-rm(raw_cases)
-rm(raw_tests)
+rm(raw_cases,raw_tests)
 
 df <-
   df %>%
@@ -246,12 +243,6 @@ df <-
       TRUE ~ source),
     hisp = str_to_sentence(hisp),
     city = str_to_title(city),
-    race = case_when(
-      race == "Black African American" ~ "Black",
-      race == "Asian" | race == "Native Hawaiian Pacific Islander" ~ "Asian or Pacific Islander",
-      race == "American Indian Alaskan Native" ~ "American Indian or Alaskan Native",
-      TRUE ~ race
-    ),
     hisp = if_else(
       hisp == "Yes",
       "H",
@@ -299,7 +290,6 @@ test_people <- df %>%
   select(eventid) %>% 
   distinct() %>%
   pull(eventid)
-
 
 df <- df %>% 
   filter(!eventid %in% test_people)
@@ -647,10 +637,7 @@ cha_cuml <- cha_cuml%>%
   mutate(
     cmlgrp = cut(yesterday, breaks = c(-Inf,0,5,50,100,200,500,1000, 5000, 10000, 25000, Inf), labels = num_groups2)
       )
-# subdat3 <- subdat3 %>% 
-#   left_join(
-#     cha_cuml, by =c("NAME" = "County")
-#   )
+
 ```
 
 ```{r intro_text}
@@ -717,8 +704,8 @@ yesterday_col <-
 
 mock_table$`Change Since Yesterday` <- yesterday_col
 
-# write_csv(mock_table,
-#           "L:/yesterday_test.csv")
+write_csv(mock_table,
+          "L:/yesterday_test.csv")
 
 if(csv_write) {
   dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
@@ -1042,11 +1029,8 @@ thursday_town_table <- thursday_towncasecount_nocong %>%
   mutate(Cases = as.numeric(ifelse(Cases <5 | Rate < 5, NA, Cases)),
          Rate = as.numeric(ifelse(Cases <5 | Rate < 5, NA, Rate))) %>% 
   select(c(Town, Population, Cases, Rate)) %>% 
-  arrange(Town)
-```
-
-
-```{r thursdaytable, eval = thursday}
+  arrange(Town) %>% 
+  replace_na(replace = list(Cases = "-", Rate = "-"))
 
 thursday_town_table1 <- thursday_town_table[1:57,] %>% rename(town1 =Town, n1=Cases, Population1 = Population, Rate1 = Rate)
 thursday_town_table2 <- thursday_town_table[58:114,] %>% rename(town2 =Town, n2=Cases, Population2 = Population, Rate2 = Rate)
@@ -1203,8 +1187,8 @@ newggslopegraph(agegrp,
 
 )
 
-# save(agegrp,
-#      file = paste0("l:/recent_rdata/for_josh.RData" ))
+save(agegrp,
+     file = paste0("l:/recent_rdata/for_josh.RData" ))
 
 
 # epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
@@ -1526,7 +1510,6 @@ theme(axis.text.x = element_text(
     subtitle ="",#"text for us to see for an example" ,
     caption =""#text for us to see for an example"   
   )
-
 
 deadweeks <- as.character(seq.Date(as.Date("2020-08-01"), Sys.Date(), by = "7 days"))
 
