@@ -1927,28 +1927,23 @@ ggplot(dfs_age_d)+
 
 
 ```{r plot_cases_by_gender,  message=FALSE, warning=FALSE, fig.align= "center" , eval = thursday}
-gender_count <- case %>% 
-  count(gender)
-gender_count_byday <- case %>% 
-  group_by(gender, date) %>% 
-  tally()
-gender_rate_lookup <- gender_race_eth %>% 
+
+gender_count <- 
+  case %>% 
+  filter(!gender %in% c(NA, "Unknown", "Other")) %>% 
+  mutate(outcome = ifelse(is.na(outcome), "Survived", outcome)) %>% 
+  group_by(gender, outcome) %>% 
+  tally() %>% 
+  inner_join(gender_race_eth %>% 
   group_by(gender) %>% 
   summarize(tot = sum(n)) %>% 
-  mutate(gender = ifelse(gender == "f", "Female", "Male"))
-gender_total_rate <- gender_count %>% 
-  left_join(gender_rate_lookup) %>% 
-  mutate(rate = round((n/tot)*100000))
-gender_count_dec <- case %>% 
-  filter(outcome == "Died") %>% 
-  count(gender)
-gender_total_rate_dec <- gender_count_dec %>% 
-  left_join(gender_rate_lookup) %>% 
-  mutate(rate = round((n/tot)*100000))
-ggplot(
-  gender_count %>% 
-    filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-)+
+  mutate(gender = ifelse(gender == "F", "Female", "Male")),
+  by = "gender") %>% 
+  ungroup() 
+
+ggplot(gender_count %>% 
+         group_by(gender) %>% 
+         summarize(n = sum(n)))+
   geom_col(aes(gender,n, fill = gender), col = "black")+
   geom_text(aes(gender,n,label=n), position = position_dodge(width=0.9), vjust =-0.25, size = 3.3)+
   scale_fill_brewer(palette = "Blues")+
@@ -1962,10 +1957,10 @@ ggplot(
 
 
 ```{r plot_deaths_by_gender,  message=FALSE, warning=FALSE, fig.align= "center", eval = thursday}
-ggplot(
-  gender_count_dec %>% 
-    filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-)+
+ggplot(gender_count %>% 
+         filter(outcome == "Died") %>% 
+         group_by(gender) %>% 
+         summarize(n = sum(n)))+
   geom_col(aes(gender,n, fill = gender), col = "black")+
   geom_text(aes(gender,n,label=n), position = position_dodge(width=0.9), vjust =-0.25, size = 3.3)+
   scale_fill_brewer(palette = "Blues")+
