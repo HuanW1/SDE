@@ -1191,30 +1191,23 @@ newcase_tbl_town <-
   newcasetable %>% 
   select(-c(DateUpdated, Tests)) %>%
   mutate(Rate = if_else(Cases < 5, NA_real_, Rate),
+         Cases = if_else(Cases < 5, NA_real_, Cases),
          across(Population:Rate, as.character),
-         Rate = replace_na(Rate, "--")
-         )
+         Rate = replace_na(Rate, "--"),
+         Cases = replace_na(Cases, "--")
+  )
 
-newcase_tbl_town1 <- 
+### New steps
+newcase_tbl_town <- 
   newcase_tbl_town %>% 
-  slice(1:57) %>%
-  rename(town1 = Town, n1 = Cases)
-
-newcase_tbl_town2 <- 
-  newcase_tbl_town %>% 
-  slice(58:114) %>% 
-  rename(town2 = Town, n2 = Cases)
-
-newcase_tbl_town3 <- 
-  newcase_tbl_town %>% 
-  slice(115:169) %>%
-  rename(town3 = Town, n3 = Cases) %>% 
-  add_row(town3 = " ", n3 = " ", Population = " ", Rate = " ") %>% 
-  add_row(town3 = " ", n3 = " ", Population = " ", Rate = " ")
-
-newcase_tbl_town <- bind_cols(newcase_tbl_town1, 
-                              newcase_tbl_town2,
-                              newcase_tbl_town3)
+  mutate(grp = rep(row_number(), length.out = n(), each = 57)) %>% 
+  group_by(grp) %>% 
+  mutate(group_row = row_number()) %>% 
+  ungroup() %>% 
+  pivot_wider(id_cols = c(group_row), 
+              values_from = c(Town, Population, Cases, Rate), 
+              names_from = grp) %>% 
+  select(ends_with(paste0("_", as.character(1:3))))
 
 newcase_tbl_town <- regulartable(newcase_tbl_town) #%>% 
 newcase_tbl_town <- 
