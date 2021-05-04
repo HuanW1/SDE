@@ -868,7 +868,7 @@ thursday_towncasecount_nocong <-
 thursday_case_map <- subdat %>% 
   inner_join(thursday_towncasecount_nocong, by = c("NAME" = "city"))
 
-paletteo<- c("#fcf8f8", "#fff7bc", "#fec44f", "#d95f0e", "#993404", NA) ## fix colors
+
 #paletteo2<- c("#fcf8f8", "#fff7bc", "#fee391", "#fec44f", "#fe9929", "#ec7014", "#cc4c02", "#8c2d04", NA)
 paletteo2<- c("#fcf8f8", "#fff7bc", "#fee391", "#fec44f", "#fe9929", "#ec7014", "#cc4c02", "#8c2d04", "#e31a1c", NA)
 ```
@@ -1939,11 +1939,12 @@ gender_count <-
   summarize(tot = sum(n)) %>% 
   mutate(gender = ifelse(gender == "F", "Female", "Male")),
   by = "gender") %>% 
-  ungroup() 
+  ungroup()
 
-ggplot(gender_count %>% 
+gender_count %>% 
          group_by(gender) %>% 
-         summarize(n = sum(n)))+
+         summarize(n = sum(n)) %>% 
+ggplot()+
   geom_col(aes(gender,n, fill = gender), col = "black")+
   geom_text(aes(gender,n,label=n), position = position_dodge(width=0.9), vjust =-0.25, size = 3.3)+
   scale_fill_brewer(palette = "Blues")+
@@ -1957,10 +1958,11 @@ ggplot(gender_count %>%
 
 
 ```{r plot_deaths_by_gender,  message=FALSE, warning=FALSE, fig.align= "center", eval = thursday}
-ggplot(gender_count %>% 
+gender_count %>% 
          filter(outcome == "Died") %>% 
          group_by(gender) %>% 
-         summarize(n = sum(n)))+
+         summarize(n = sum(n)) %>% 
+ggplot()+
   geom_col(aes(gender,n, fill = gender), col = "black")+
   geom_text(aes(gender,n,label=n), position = position_dodge(width=0.9), vjust =-0.25, size = 3.3)+
   scale_fill_brewer(palette = "Blues")+
@@ -2162,13 +2164,12 @@ dfs_age_d %>%
 
 ```{r plot_deaths_gender, message=FALSE, warning=FALSE, fig.align= "center", eval=thursday}
 
-gender_total_rate_dec <- gender_count_dec %>% 
-  left_join(gender_rate_lookup) %>% 
-  mutate(rate = round((n/tot)*100000))
-ggplot(
-  gender_total_rate %>% 
-    filter(!is.na(gender) & !gender %in% c("Unknown", "Other"))
-       )+
+gender_count %>% 
+         group_by(gender) %>% 
+         summarize(rate = round(sum(n)/tot*100000)) %>% 
+         ungroup() %>% 
+         unique() %>% 
+ggplot()+
   geom_col(aes(gender,rate, fill = gender), col = "black")+
   geom_text(aes(gender,rate,label=rate), position = position_dodge(width=0.9), vjust =-0.25, size = 3.3)+
   scale_fill_brewer(palette = "Blues")+
@@ -2180,8 +2181,12 @@ ggplot(
        x="")
 
 
-gender_total_rate_dec %>% 
-    filter(!is.na(gender) & gender != "Unknown") %>% 
+gender_count %>% 
+  filter(outcome == "Died") %>% 
+         group_by(gender) %>% 
+         summarize(rate = round(sum(n)/tot*100000)) %>% 
+         ungroup() %>% 
+         unique() %>% 
   ggplot()+
   geom_col(aes(gender,rate, fill = gender), col = "black")+
   geom_text(aes(gender,rate,label=rate), position = position_dodge(width=0.9), vjust =-0.25, size = 3.3)+
