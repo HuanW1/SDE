@@ -1840,7 +1840,8 @@ newggslopegraph(nagegrp,
                 LineThickness = 2,
                 DataLabelPadding = 0.1,
                 XTextSize = 10,
-                LineColor = my_colors
+                LineColor = my_colors,
+                provisional = TRUE
 )
 
 ```
