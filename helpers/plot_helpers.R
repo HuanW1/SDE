@@ -219,6 +219,7 @@ newggslopegraph <- function(dataframe,
                             RemoveMissing = TRUE,
                             includeX0 = FALSE,
                             xlab_position = "top",
+                            provisional = FALSE,
                             ThemeChoice = "bw") {
 
   # ---------------- theme selection ----------------------------
@@ -400,10 +401,23 @@ newggslopegraph <- function(dataframe,
     }
   }
 
+  rect_geom <- vector(mode = "list", length = 1)
+  if(provisional){
+    rect_geom <-
+      geom_rect(aes(xmin = max(NumbOfLevels) - .4,
+                    xmax = max(NumbOfLevels) + .1,
+                    ymax = max(!!Measurement),
+                    ymin = min(!!Measurement) * -.20 + min(!!Measurement)),
+                col = "black",
+                alpha = 0.1,
+                fill = "lightgray")
+  }
+
   # ---------------- main ggplot routine ----------------------------
 
   dataframe %>%
     ggplot(aes_(group = Grouping, y = Measurement, x = Times)) +
+    rect_geom +
     LineGeom +
     # left side y axis labels
     geom_text_repel(

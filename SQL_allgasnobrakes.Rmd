@@ -704,8 +704,8 @@ yesterday_col <-
 
 mock_table$`Change Since Yesterday` <- yesterday_col
 
-write_csv(mock_table,
-          "L:/yesterday_test.csv")
+# write_csv(mock_table,
+#           "L:/yesterday_test.csv")
 
 if(csv_write) {
   dir.create(paste0('L:/daily_reporting_figures_rdp/yesterday/', Sys.Date()))
@@ -735,28 +735,30 @@ values_formatted <-
          "'")
 
 
-statement <-
-  paste0("IF EXISTS (SELECT * FROM [DPH_COVID_IMPORT].[dbo].[RPT_summary_bydate]
+if((ncases >= last_rpt_data$Cases) & (ntests >= last_rpt_data$Tests)){
+  statement <-
+    paste0("IF EXISTS (SELECT * FROM [DPH_COVID_IMPORT].[dbo].[RPT_summary_bydate]
             WHERE report_date = '", today(), "')
             UPDATE [DPH_COVID_IMPORT].[dbo].[RPT_summary_bydate]
             SET report_date ='", today(), "', dow_report_date = '", weekdays(today()),
-         "', Cases = '", ncases, "', Tests = '", ntests,
-         "', Positivity = '", Positivity, "', Hospitalized = '", hospitalized_totals$today,
-         "', Deaths = '", dec,
-         "' WHERE report_date = '", today(), "'
+           "', Cases = '", ncases, "', Tests = '", ntests,
+           "', Positivity = '", Positivity, "', Hospitalized = '", hospitalized_totals$today,
+           "', Deaths = '", dec,
+           "' WHERE report_date = '", today(), "'
           ELSE
             INSERT INTO [DPH_COVID_IMPORT].[dbo].[RPT_summary_bydate]
             VALUES (", values_formatted, ")")
-
-con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
-
-invisible(capture.output(
-  dbExecute(
-    con2,
-    statement
-  )))
-
-odbc::dbDisconnect(con2)
+  
+  con2 <- DBI::dbConnect(odbc::odbc(), "epicenter")
+  
+  invisible(capture.output(
+    dbExecute(
+      con2,
+      statement
+    )))
+  
+  odbc::dbDisconnect(con2)
+}
 
 ```
 
@@ -1051,52 +1053,6 @@ thursday_town_table <- set_header_df(x = thursday_town_table,
                                                         values = names2, 
                                                         stringsAsFactors = FALSE), 
                                    key = "keys" )
-
-
-thursday_town_table <- font(thursday_town_table, fontname = "Calibri", part = "all")
-thursday_town_table <- bold(thursday_town_table, part = "header")
-thursday_town_table <- fontsize(thursday_town_table, size = 7, part = "all" )
-thursday_town_table <- width(thursday_town_table, width = 0.75)
-thursday_town_table <- height(thursday_town_table, height = .15, part = "body")
-thursday_town_table <- align_nottext_col(thursday_town_table, align = "center")
-thursday_town_table <- theme_booktabs(thursday_town_table)
-
-thursday_town_table 
-
-# thursday_town_table1 <- thursday_town_table[1:57,] %>% rename(town1 =Town, n1=Cases, Population1 = Population, Rate1 = Rate)
-# thursday_town_table2 <- thursday_town_table[58:114,] %>% rename(town2 =Town, n2=Cases, Population2 = Population, Rate2 = Rate)
-# thursday_town_table3 <- thursday_town_table[115:169,] %>% 
-#   rename(town3 =Town, n3=Cases, Population3 = Population, Rate3 = Rate) %>% 
-#   mutate(
-#     n3 = as.character(n3),
-#     Population3 = as.character(Population3),
-#     Rate3 = as.character(Rate3)
-#          ) %>% 
-#   add_row(town3 = " ", n3 = " ", Population3 = " ", Rate3 = " " ) %>% 
-#   add_row(town3 =" ", n3 = " " , Population3 = " ", Rate3 = " ")
-# 
-# thursday_town_table <- bind_cols(thursday_town_table1, thursday_town_table2,thursday_town_table3)
-# thursday_town_table<- regulartable(thursday_town_table) #%>% 
-# thursday_town_table <- set_header_labels(thursday_town_table,
-#                         town1 = "Town",
-#                         town2 = "Town",
-#                         town3 = "Town",
-#                         n1 = "Cases",
-#                         n2 = "Cases",
-#                         n3 = "Cases",
-#                         Population1 = "Pop",
-#                         Population2 = "Pop",
-#                         Population3 = "Pop",
-#                         Rate1 = "Rate",
-#                         Rate2 = "Rate",
-#                         Rate3 = "Rate"
-#                          ) 
-# thursday_town_table <- font(thursday_town_table, fontname = "Calibri", part = "all")
-# thursday_town_table <- fontsize(thursday_town_table, size = 8.5, part = "all" )
-# thursday_town_table <- width(thursday_town_table, width = 0.75)
-# thursday_town_table <- height(thursday_town_table, height = .15, part = "body")
-# thursday_town_table <- align_nottext_col(thursday_town_table, align = "center")
-# thursday_town_table 
 ```
 
 
@@ -1214,8 +1170,8 @@ newggslopegraph(agegrp,
                 LineThickness = 2,
                 DataLabelPadding = 0.1,
                 XTextSize = 10,
-                LineColor = my_colors
-
+                LineColor = my_colors,
+                provisional = TRUE
 )
 
 save(agegrp,

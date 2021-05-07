@@ -60,7 +60,7 @@ SQL_write <- FALSE
 do_DQ <- TRUE
 
 
-## ----declare_functions, include=FALSE------------------------------------------------------------------------------------
+## ---- declare_functions, include=FALSE ---- ##
 df_to_table <-
   function(df_name,
            table_name = NULL,
@@ -133,8 +133,7 @@ pcrtests <- c('SARS CoV 2 ORF1 resp',
               'SARS-CoV-2 N gene Saliva',
               'COVID-19 PCR (CEPHEID)',
               'SARS CoV 2 NAA resp',
-              'SARS-CoV-2 (COVID19) N gene [Presence] in Nose by NAA with probe detection',
-              'SARS-CoV-2 specific TCRB gene in Blood by Seq'
+              'SARS-CoV-2 (COVID19) N gene [Presence] in Nose by NAA with probe detection'
 )
 
 #### list of antigen tests ####
@@ -176,12 +175,6 @@ cc_map <- read_csv(
   paste0("L:/daily_reporting_figures_rdp/dependancies/City County Mapping.csv")) %>%
   mutate(COUNTY = paste0(COUNTY," County"))
 
-#county populations
-# county_pop <- 
-#   read_csv("L:/daily_reporting_figures_rdp/population_data/county_pop.csv",
-#            col_types = "cn") %>% 
-#   mutate(County = paste0(County, " County"))
-
 ### Using SQL 2019 county populations
 epi_connect <- DBI::dbConnect(odbc::odbc(), "epicenter")
 ghost_data <- tbl(epi_connect, sql("SELECT * FROM DPH_COVID_IMPORT.dbo.RPT_COUNTY_REA_DENOMS"))
@@ -201,14 +194,14 @@ rm(ghost_data)
 odbc::dbDisconnect(epi_connect)
 
 
-## ----read_cha
+## ---- read_cha ---- ##
 
 cha_file <- list.files("L:/daily_reporting_figures_rdp/CHA_data_here",
                        pattern = ".csv",
                        full.names = TRUE)
 cha <-  read_csv(cha_file)
 
-## ----shapefiles, include = FALSE-----------------------------------------------------------------------------------------
+## ---- shapefiles, include = FALSE ---- ##
 #### towns shapes ####
 if(file.exists("L:/daily_reporting_figures_rdp/shape_files/cb_2017_09_cousub_500k.shp")){
   filename <- list.files('L:/daily_reporting_figures_rdp/shape_files', pattern=".shp", full.names=FALSE)
@@ -273,11 +266,9 @@ raw_tests <-  DBI::dbGetQuery(conn = con2 , statement = statement)
 
 if(nrow(raw_tests) != max(log_data$Test_Rows)) message("Tests are off")
 
-
 odbc::dbDisconnect(con2)
 
 finished_pull <- Sys.time()
-
 
 cases_dim <- dim(raw_cases)
 tests_dim <- dim(raw_tests)
@@ -290,7 +281,6 @@ save(started_time,
      cases_dim,
      tests_dim,
      file = paste0("l:/Otto_summary_", timey, ".RData" ))
-
 
 started_df <- Sys.time()
 
@@ -328,7 +318,6 @@ df <-
       "Reside",
       cong_exposure_type
     ),
-    #    bigID = str_squish(paste0(fname, lname, dob)),
     bigID = paste0(str_remove_all(paste0(fname,
                                          lname),
                                   "\\W|\\d"),
@@ -395,9 +384,7 @@ df <-
 df <- df %>%
   left_join(cc_map %>% rename(county=COUNTY), by = c("city" = "CITY"))
 
-
-
-## ----multi_and_beyond----------------------------------------------------------------------------------------------------
+## ---- multi_and_beyond ---- ##
 
 # Sys.time()
 df <-
@@ -407,8 +394,6 @@ df <-
                            "Died",
                            outcome)) %>%
   ungroup()
-
-# Sys.time()
 
 if(do_DQ) {
   ### Create DQ_DeathTable and DQ_deathdups tables
@@ -485,9 +470,6 @@ df <- df %>%
   filter(!eventid %in% test_people)
 
 if(do_DQ) {
-  
-#source after test people removed and tests results cleaned (~line 443); 
-### prior to bad spec col dates being blanked out
 
 test_dq_table <- df %>% 
   mutate(test_too_early = ifelse(spec_col_date < ymd("2020-02-20"), 1, 0),
@@ -524,8 +506,8 @@ df <-
                                  missing = NA_Date_))
 
 
-#setting confirmed with no +pcr or blank pcr results to suspect at the top here and then the rest of the checks will pop them in their proper category should they be picked up again
-
+# setting confirmed with no +pcr or blank pcr results to suspect at the top here 
+# and then the rest of the checks will pop them in their proper category should they be picked up again
 # leave folks who are covid_death = Yes and their disease status %in% Confirmed,
 # Probable alone, except probables should be able to be upped to conf
 # if applicable
@@ -540,7 +522,6 @@ ocmeprob <- df %>%
   filter(disease_status == "Suspect" & !is.na(ocmeid) & covid_death == "YES") %>%
   select(eventid) %>%
   distinct()
-
 
 # currently not much going on with this object here, but maybe down the line
 mostly_untouchable_prob <- df %>%
@@ -1337,43 +1318,4 @@ timey <- gsub(pattern = " |:", replacement = "-", x = timey)
 save(case,
      file = paste0("l:/recent_rdata/case_", timey, ".RData" ))
 
-
-
-# janitor::compare_df_cols_same(df, df2)
-# df2 <- structure(list(eventid = "101299413", fname = "suzanne", lname = "dahlberg",
-#                dob = structure(-2870, class = "Date"), phone = NA_character_,
-#                disease_status = "Suspect", age = 58, gender = "Female",
-#                street = "87 Scotland Ave", city = "MADISON", county = "New Haven County",
-#                state = "CT", race = "WHITE", hisp = "NO", hospitalized = "Unknown",
-#                admit_date = NA_character_, discharge_date = "", icu = NA_character_,
-#                preg = NA_character_, symptoms = NA_character_, symp_onset_date = NA_character_,
-#                fever = NA_character_, fatigue = NA_character_, sob = NA_character_,
-#                chills = NA_character_, sorethroat = NA_character_, headache = NA_character_,
-#                cough = NA_character_, myalgia = NA_character_, new_olfact_taste = NA_character_,
-#                rigors = NA_character_, pneumonia = NA_character_, ards = NA_character_,
-#                outcome = NA_character_, death_date = structure(NA_real_, class = "Date"),
-#                covid_death = NA_character_, ocme_reported = NA_character_,
-#                ocmeid = NA_character_, vrn = NA_character_, healthcare_worker = NA_character_,
-#                cong_setting = NA_character_, cong_exposure_type = NA_character_,
-#                cong_facility = NA_character_, ptreside = NA_character_,
-#                daycare_attendee = NA_character_, daycare_staff = NA_character_,
-#                case_create_date = structure(18442, class = "Date"), case_mod_date = structure(18442, class = "Date"),
-#                case_effective_date = structure(18442, class = "Date"), case_eff_from_date = structure(18438, class = "Date"),
-#                event_date = structure(18438, class = "Date"), facilityname = NA_character_,
-#                zip_code = "06443", race_concat = "WHITE", investigation_create_date = "06/29/2020",
-#                investigation_mod_date = "06/29/2020", new_elr_result = "YES",
-#                mrn_elr = "MR929673", test = "SARS CoV 2 PCR resp", result = "negative",
-#                tested_date = "06/25/2020", spec_col_date = structure(18438, class = "Date"),
-#                spec_rec_date = "06/25/2020", spec_num = "20Y-177VI0375",
-#                source = "np swab", auth_facility = "Yale New Haven Health System And Yale Medical Group",
-#                ordering_provider_name = "Craig David Thorne", lab_name = NA_character_,
-#                facility_name = "Yale-New Haven Hospital Laboratory", ordering_provider_fname = "Craig",
-#                ordering_provider_lname = "Thorne", case_modification_date = "06/29/2020",
-#                result_rpt_date = "06/25/2020", device_id = NA_character_,
-#                spec_source_snomed = NA_character_, result_free_text = NA_character_,
-#                order_lab_facility = NA_character_, testing_lab_clia = NA_character_,
-#                notes2 = NA_character_, bigID = "suzannedahlberg1962-02-22"), row.names = c(NA,
-#                                                                                            -1L), class = "data.frame")
-#
-
-# save.image() # creating ".RData" in current working directory
+print(paste("Finished", wday(now(), label = TRUE), "at", now()))
