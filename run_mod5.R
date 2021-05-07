@@ -15,6 +15,6 @@ if(thursday){
 message("and over there everything the light touches is the COVID-19 Report team's domain, except that shadowy place... that is Thursday, you must never go there")  
   source("module_5/misc_thursday_requested_outputs.R")
 }
-message("thus concludes our tour of module 5, the global environment will now be wiped of all r objects and garbaged collected")
-rm(list = ls())
-gc(verbose = FALSE)
+message("thus concludes our tour of module 5")
+# rm(list = ls())
+# gc(verbose = FALSE)
