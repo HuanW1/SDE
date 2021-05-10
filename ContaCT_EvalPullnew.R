@@ -1,14 +1,11 @@
-.libPaths(c("L:/newlib", .libPaths()))
-
 # GOAL: Create a dataset that Paula C. at Yale EIP can use to assess the
 # timeliness and completeness of data flowing into ContaCT
 # based on original ask from Leyla/Michelle Gillman to improve data
 # timeliness and quality for ContaCT
 
-#last updated 3/5/2021 by Chuck
+#last updated 5/10/2021 by Chuck
 
-require(tidyverse)
-require(lubridate)
+source("helpers/StartMeUp.R")
 # require(data.table)
 
 Sys.time()
