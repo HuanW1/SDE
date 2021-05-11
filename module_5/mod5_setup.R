@@ -39,7 +39,7 @@ ct_rea_denoms <- county_rea_denoms %>%
   summarize(pop = sum(pop))
 
 #date used for graphs and DateUpdated type of variables
-graphdate <- Sys.Date() - 1
+graphdate <- Sys.Date()
 
 #only keep what we need from cases and elr
 case <- case %>% 

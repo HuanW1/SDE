@@ -23,7 +23,7 @@ geocoded_community_tests <-
   inner_join(elr_linelist, by = "eventid")
 
 
-####1 CT_daily_counts_totals.csv / modelingdata ####
+####1 ODP_EPI_CT_daily_counts_totals.csv / modelingdata ####
 spec_dates <- case %>% 
   select(spec_col_date) %>% 
   rename(spec_date = spec_col_date) %>% 
@@ -60,7 +60,7 @@ CT_daily_counts_totals <- bind_cols(spec_dates, admissions, deathsdata, labdata)
 
 if(csv_write){
   write_csv(CT_daily_counts_totals, 
-            paste0("L:/Outputs/",Sys.Date(),"/THR_EPI_CT_daily_counts_totals.csv"))
+            paste0("L:/Outputs/",Sys.Date(),"/ODP_EPI_CT_daily_counts_totals.csv"))
 }
 
 if(SQL_write){
@@ -128,7 +128,7 @@ if(csv_write){
 rm(dailytest_communityonly)
 message("3/8 thursday tables have finished")
 
-####4 communitytest_county.csv / sdedata ####
+####4 THR_EPI_communitytest_county.csv / sdedata ####
 #create dataset for sde indicator for county test counts
 # added epiyear
 communitytest_county <- 
@@ -142,8 +142,6 @@ communitytest_county <-
   group_by(county, year, week, result) %>%
   tally() %>%
   ungroup() %>% 
-  complete(county = counties, result = c("Positive", "Negative", "Indeterminate"), 
-           year = unique(.$year), week = unique(.$week), fill = list(n = 0)) %>% 
   pivot_wider(id_cols = c(county, year, week), names_from = result, values_from = n)
 
 if(csv_write){
@@ -253,7 +251,7 @@ CTTown_Alert_censored  <-
     
 if(csv_write) {
   write_csv(CTTown_Alert_censored, 
-            paste0("L:/Outputs/",Sys.Date(),"/ODP_EPI_CTTown_Alert.csv"))
+            paste0("L:/Outputs/",Sys.Date(),"/ODP_EPI_CTTown_Alert.csv"), na = "")
 }
 
  

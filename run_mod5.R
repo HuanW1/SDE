@@ -16,5 +16,3 @@ message("and over there everything the light touches is the COVID-19 Report team
   source("module_5/misc_thursday_requested_outputs.R")
 }
 message("thus concludes our tour of module 5")
-# rm(list = ls())
-# gc(verbose = FALSE)
